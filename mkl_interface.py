@@ -43,8 +43,11 @@ class ClientsPanel(QtWidgets.QGroupBox):
         # Controls
         btns = QtWidgets.QHBoxLayout()
         self.add_btn = QtWidgets.QPushButton("Добавить")
+        self.add_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogNewFolder))
         self.edit_btn = QtWidgets.QPushButton("Изменить")
+        self.edit_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView))
         self.del_btn = QtWidgets.QPushButton("Удалить")
+        self.del_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_TrashIcon))
         btns.addWidget(self.add_btn)
         btns.addWidget(self.edit_btn)
         btns.addWidget(self.del_btn)
@@ -124,8 +127,11 @@ class ProductsPanel(QtWidgets.QGroupBox):
         # Controls
         btns = QtWidgets.QHBoxLayout()
         self.add_btn = QtWidgets.QPushButton("Добавить")
+        self.add_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogNewFolder))
         self.edit_btn = QtWidgets.QPushButton("Изменить")
+        self.edit_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView))
         self.del_btn = QtWidgets.QPushButton("Удалить")
+        self.del_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_TrashIcon))
         btns.addWidget(self.add_btn)
         btns.addWidget(self.edit_btn)
         btns.addWidget(self.del_btn)

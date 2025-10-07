@@ -11,7 +11,8 @@ def main():
     init_db()
 
     app = QtWidgets.QApplication(sys.argv)
-    apply_stylesheet(app, theme="light_blue.xml")
+    # Яркая тема интерфейса
+    apply_stylesheet(app, theme="light_cyan.xml")
 
     win = QtWidgets.QMainWindow()
     win.setWindowTitle("Система управления заказами")
