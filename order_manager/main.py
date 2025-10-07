@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 from typing import Optional, List, Tuple
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QSettings
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QApplication,
@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QCheckBox,
     QTextEdit,
+    QMenu,
 )
 
 try:
@@ -697,6 +698,9 @@ class MKLTab(QWidget):
         self.customers_table.horizontalHeader().setStretchLastSection(True)
         self.customers_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.customers_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        # Context menu for customers
+        self.customers_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customers_table.customContextMenuRequested.connect(self.customers_context_menu)
 
         # Products table
         self.products_table = QTableWidget(0, 7)
@@ -704,6 +708,9 @@ class MKLTab(QWidget):
         self.products_table.horizontalHeader().setStretchLastSection(True)
         self.products_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.products_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        # Context menu for products
+        self.products_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.products_table.customContextMenuRequested.connect(self.products_context_menu)
 
         # Orders table
         self.orders_table = QTableWidget(0, 6)
@@ -744,6 +751,27 @@ class MKLTab(QWidget):
         self.orders_table.cellClicked.connect(self.handle_order_cell_click)
 
         self.refresh_all()
+
+    def customers_context_menu(self, pos):
+        item = self.customers_table.itemAt(pos)
+        if not item:
+            return
+        row = item.row()
+        self.customers_table.selectRow(row)
+        menu = QMenu(self)
+        edit_act = menu.addAction("Редактировать клиента")
+        del_act = menu.addAction("Удалить клиента")
+        chosen = menu.exec(self.customers_table.mapToGlobal(pos))
+        if chosen == edit_act:
+            self.edit_customer(row, 0)
+        elif chosen == del_act:
+            self.delete_selected_customer()
+
+    def products_context_menu(self, pos):
+        item = self.products_table.itemAt(pos)
+        if not item:
+            return
+        row = item()
 
     # Data access helpers
     def _get_customers(self, search: str = "") -> List[sqlite3.Row]:
@@ -1464,6 +1492,20 @@ class MainWindow(QMainWindow):
         theme_action.triggered.connect(self.choose_theme)
         help_action.triggered.connect(self.show_help)
 
+        # Применить сохранённую тему
+        self.apply_saved_theme()
+
+    def apply_saved_theme(self):
+        if not QT_MATERIAL_AVAILABLE:
+            return
+        try:
+            settings = QSettings("OrderManager", "MKLMeridian")
+            theme = settings.value("theme", "")
+            if theme:
+                apply_stylesheet(QApplication.instance(), theme=str(theme))
+        except Exception:
+            pass
+
     def choose_theme(self):
         if not QT_MATERIAL_AVAILABLE:
             QMessageBox.information(self, "Тема", "Модуль qt-material не установлен.")
@@ -1496,6 +1538,9 @@ class MainWindow(QMainWindow):
             theme = combo.currentText()
             try:
                 apply_stylesheet(QApplication.instance(), theme=theme)
+                # Сохранить выбранную тему
+                settings = QSettings("OrderManager", "MKLMeridian")
+                settings.setValue("theme", theme)
             except Exception:
                 QMessageBox.warning(self, "Тема", "Не удалось применить тему.")
 
