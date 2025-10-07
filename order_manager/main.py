@@ -1194,10 +1194,12 @@ class MeridianTab(QWidget):
         self.items_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.items_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.items_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.itemsself.items_table)
+        self.items_table.setWordWrap(True)
+        items_layout.addWidget(self.items_table)
 
         splitter.addWidget(orders_group)
-        splitter.addWidget(items_group)
+        splitter.addWidget(items_gr_codeounewp</)
+oup)
 
         # Connections
         add_order_action.triggered.connect(self.add_order)
@@ -1458,7 +1460,7 @@ class MainWindow(QMainWindow):
         help_action.triggered.connect(self.show_help)
 
         # Применить сохранённую тему
-        self.apply()
+        self.apply_saved_theme()
 
     def add_product_from_menu(self):
         # Диалог добавления товара (только название)
