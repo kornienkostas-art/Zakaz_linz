@@ -785,7 +785,6 @@ class MKLTab(QWidget):
     # Refresh UI
     def refresh_all(self):
         self.refresh_customers()
-        self.refresh_products()
         self.refresh_orders()
 
     def refresh_customers(self):
@@ -794,9 +793,18 @@ class MKLTab(QWidget):
         for r in rows:
             row = self.customers_table.rowCount()
             self.customers_table.insertRow(row)
-            self.customers_table.setItem(row, 0, QTableWidgetItem(str(r["id"])))
-            self.customers_table.setItem(row, 1, QTableWidgetItem(r["full_name"]))
-            self.customers_table.setItem(row, 2, QTableWidgetItem(r["phone"] or ""))
+            id_item = QTableWidgetItem(str(r["id"]))
+            name_item = QTableWidgetItem(r["full_name"])
+            phone_item = QTableWidgetItem(r["phone"] or "")
+            id_item.setTextAlignment(Qt.AlignCenter)
+            name_item.setTextAlignment(Qt.AlignCenter)
+            phone_item.setTextAlignment(Qt.AlignCenter)
+            self.customers_table.setItem(row, 0, id_item)
+            self.customers_table.setItem(row, 1, name_item)
+            self.customers_table.setItem(row, 2, phone_item)
+        # Скрыть ID, подогнать высоту
+        self.customers_table.hideColumn(0)
+        self.customers_table.resizeRowsToContents()
 
     def refresh_products(self):
         rows = self._get_products()
@@ -820,8 +828,8 @@ class MKLTab(QWidget):
         for r in rows:
             row = self.orders_table.rowCount()
             self.orders_table.insertRow(row)
-            self.orders_table.setItem(row, 0, QTableWidgetItem(str(r["id"])))
-            self.orders_table.setItem(row, 1, QTableWidgetItem(f"{r['full_name']} ({r['phone'] or ''})"))
+            id_item = QTableWidgetItem(str(r["id"]))
+            client_item = QTableWidgetItem(f"{r['full_name']} ({r['phone'] or ''})")
             product_desc = f"{r['product_name']} | SPH {r['sph']}"
             if r["cyl"] is not None:
                 product_desc += f" CYL {r['cyl']}"
@@ -830,9 +838,17 @@ class MKLTab(QWidget):
             if r["bc"] is not None:
                 product_desc += f" BC {r['bc']}"
             product_desc += f" | x{r['quantity']}"
-            self.orders_table.setItem(row, 2, QTableWidgetItem(product_desc))
-
+            product_item = QTableWidgetItem(product_desc)
             status_item = QTableWidgetItem(MKL_STATUS.get(r["status"], ""))
+            created_item = QTableWidgetItem(r["created_at"])
+            actions_item = QTableWidgetItem("Статус / Характеристики / Удалить")
+
+            for it in (id_item, client_item, product_item, status_item, created_item, actions_item):
+                it.setTextAlignment(Qt.AlignCenter)
+
+            self.orders_table.setItem(row, 0, id_item)
+            self.orders_table.setItem(row, 1, client_item)
+            self.orders_table.setItem(row, 2, product_item)
             self.orders_table.setItem(row, 3, status_item)
 
             # Row color by status
@@ -845,9 +861,12 @@ class MKLTab(QWidget):
                         it.setBackground(qcolor)
 
             # Created + actions
-            self.orders_table.setItem(row, 4, QTableWidgetItem(r["created_at"]))
-            actions_item = QTableWidgetItem("Статус / Характеристики / Удалить")
+            self.orders_table.setItem(row, 4, created_item)
             self.orders_table.setItem(row, 5, actions_item)
+
+        # Скрыть ID и подогнать строки
+        self.orders_table.hideColumn(0)
+        self.orders_table.resizeRowsToContents()
 
     # Actions
     def add_customer(self):
@@ -1113,8 +1132,27 @@ class MKLTab(QWidget):
     def export_orders(self):
         status = self.status_filter.currentData()
         if status == -1:
-            QMessageBox.information(self, "Экспорт", "Выберите конкретный статус для экспорта.")
-            return
+            # Диалог выбора статуса
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Выбор статуса для экспорта")
+            v = QVBoxLayout(dlg)
+            combo = QComboBox()
+            for k, vtxt in MKL_STATUS.items():
+                combo.addItem(vtxt, k)
+            v.addWidget(QLabel("Статус:"))
+            v.addWidget(combo)
+            btns = QHBoxLayout()
+            ok_btn = QPushButton("OK")
+            cancel_btn = QPushButton("Отмена")
+            btns.addWidget(ok_btn)
+            btns.addWidget(cancel_btn)
+            v.addLayout(btns)
+            ok_btn.clicked.connect(dlg.accept)
+            cancel_btn.clicked.connect(dlg.reject)
+            if dlg.exec() != QDialog.Accepted:
+                return
+            status = combo.currentData()
+
         rows = self._get_orders(status_filter=status, search=self.search_edit.text().strip())
         if not rows:
             QMessageBox.information(self, "Экспорт", "Нет данных для экспорта.")
@@ -1187,11 +1225,10 @@ class MeridianTab(QWidget):
 
         self.items_table = QTableWidget(0, 6)
         self.items_table.setHorizontalHeaderLabels(["ID", "Название", "SPH", "CYL", "AX", "Кол-во"])
-        self.items_table.horizontalHeader().setStretchLastSection(True)
+        self.items_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.items_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.items_table.setEditTriggers(QTableWidget.NoEditTriggers)
-
-        items_layout.addWidget(self.items_table)
+        self.itemsself.items_table)
 
         splitter.addWidget(orders_group)
         splitter.addWidget(items_group)
@@ -1243,17 +1280,26 @@ class MeridianTab(QWidget):
         for r in rows:
             row = self.items_table.rowCount()
             self.items_table.insertRow(row)
-            self.items_table.setItem(row, 0, QTableWidgetItem(str(r["id"])))
+            id_item = QTableWidgetItem(str(r["id"]))
             name_item = QTableWidgetItem(f"{r['name']} ({MERIDIAN_ITEM_STATUS[r['status']]})")
             color_hex = MERIDIAN_STATUS_COLORS.get(r["status"])
             if color_hex:
                 qcolor = QColor(color_hex)
                 name_item.setBackground(qcolor)
+            sph_item = QTableWidgetItem(str(r["sph"]))
+            cyl_item = QTableWidgetItem("" if r["cyl"] is None else str(r["cyl"]))
+            ax_item = QTableWidgetItem("" if r["ax"] is None else str(r["ax"]))
+            qty_item = QTableWidgetItem(str(r["quantity"]))
+            for it in (id_item, name_item, sph_item, cyl_item, ax_item, qty_item):
+                it.setTextAlignment(Qt.AlignCenter)
+            self.items_table.setItem(row, 0, id_item)
             self.items_table.setItem(row, 1, name_item)
-            self.items_table.setItem(row, 2, QTableWidgetItem(str(r["sph"])))
-            self.items_table.setItem(row, 3, QTableWidgetItem("" if r["cyl"] is None else str(r["cyl"])))
-            self.items_table.setItem(row, 4, QTableWidgetItem("" if r["ax"] is None else str(r["ax"])))
-            self.items_table.setItem(row, 5, QTableWidgetItem(str(r["quantity"])))
+            self.items_table.setItem(row, 2, sph_item)
+            self.items_table.setItem(row, 3, cyl_item)
+            self.items_table.setItem(row, 4, ax_item)
+            self.items_table.setItem(row, 5, qty_item)
+        self.items_table.hideColumn(0)
+        self.items_table.resizeRowsToContents()
 
     def add_order(self):
         dlg = MeridianOrderDialog(self)
@@ -1434,16 +1480,35 @@ class MainWindow(QMainWindow):
         settings_menu = menubar.addMenu("Настройки")
         help_menu = menubar.addMenu("Справка")
 
+        add_product_action = QAction("Добавить товар (МКЛ)", self)
         theme_action = QAction("Тема оформления", self)
         help_action = QAction("Показать справку", self)
+        settings_menu.addAction(add_product_action)
         settings_menu.addAction(theme_action)
         help_menu.addAction(help_action)
 
+        add_product_action.triggered.connect(self.add_product_from_menu)
         theme_action.triggered.connect(self.choose_theme)
         help_action.triggered.connect(self.show_help)
 
         # Применить сохранённую тему
-        self.apply_saved_theme()
+        self.apply()
+
+    def add_product_from_menu(self):
+        # Диалог добавления товара (только название)
+        dlg = ProductDialog(self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        name = dlg.value()
+        if not name:
+            QMessageBox.warning(self, "Ошибка", "Название товара обязательно")
+            return
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO products (name) VALUES (?)", (name,))
+        conn.commit()
+        conn.close()
+        QMessageBox.information(self, "Товары", f"Товар «{name}» добавлен")
 
     def apply_saved_theme(self):
         if not QT_MATERIAL_AVAILABLE:
@@ -1454,7 +1519,8 @@ class MainWindow(QMainWindow):
             if theme:
                 apply_stylesheet(QApplication.instance(), theme=str(theme))
         except Exception:
-            pass
+            _codepanews</s
+ pass
 
     def choose_theme(self):
         if not QT_MATERIAL_AVAILABLE:
