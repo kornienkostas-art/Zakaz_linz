@@ -1,5 +1,5 @@
 from typing import Optional
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 from database import (
     list_clients,
     add_client,
@@ -217,25 +217,40 @@ class ProductDialog(QtWidgets.QDialog):
         self.sph.setValue(0.0)
         layout.addRow("SPH:", self.sph)
 
+        # CYL with "Пусто"
+        cyl_row = QtWidgets.QHBoxLayout()
         self.cyl = QtWidgets.QDoubleSpinBox()
         self.cyl.setRange(-10.0, 10.0)
         self.cyl.setSingleStep(0.25)
-        self.cyl.setSpecialValueText("")
         self.cyl.setValue(0.0)
-        layout.addRow("CYL:", self.cyl)
+        self.cyl_none = QtWidgets.QCheckBox("пусто")
+        self.cyl_none.toggled.connect(lambda v: (self.cyl.setEnabled(not v)))
+        cyl_row.addWidget(self.cyl)
+        cyl_row.addWidget(self.cyl_none)
+        layout.addRow("CYL:", cyl_row)
 
+        # AX with "Пусто"
+        ax_row = QtWidgets.QHBoxLayout()
         self.ax = QtWidgets.QSpinBox()
         self.ax.setRange(0, 180)
-        self.ax.setSpecialValueText("")
         self.ax.setValue(0)
-        layout.addRow("AX:", self.ax)
+        self.ax_none = QtWidgets.QCheckBox("пусто")
+        self.ax_none.toggled.connect(lambda v: (self.ax.setEnabled(not v)))
+        ax_row.addWidget(self.ax)
+        ax_row.addWidget(self.ax_none)
+        layout.addRow("AX:", ax_row)
 
+        # BC with "Пусто"
+        bc_row = QtWidgets.QHBoxLayout()
         self.bc = QtWidgets.QDoubleSpinBox()
         self.bc.setRange(8.0, 9.0)
         self.bc.setSingleStep(0.1)
-        self.bc.setSpecialValueText("")
         self.bc.setValue(8.6)
-        layout.addRow("BC:", self.bc)
+        self.bc_none = QtWidgets.QCheckBox("пусто")
+        self.bc_none.toggled.connect(lambda v: (self.bc.setEnabled(not v)))
+        bc_row.addWidget(self.bc)
+        bc_row.addWidget(self.bc_none)
+        layout.addRow("BC:", bc_row)
 
         btn_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         layout.addRow(btn_box)
@@ -246,13 +261,13 @@ class ProductDialog(QtWidgets.QDialog):
         return float(self.sph.value())
 
     def cyl_value(self):
-        return float(self.cyl.value())
+        return None if self.cyl_none.isChecked() else float(self.cyl.value())
 
     def ax_value(self):
-        return int(self.ax.value())
+        return None if self.ax_none.isChecked() else int(self.ax.value())
 
     def bc_value(self):
-        return float(self.bc.value())
+        return None if self.bc_none.isChecked() else float(self.bc.value())
 
 
 class MKLAddItemDialog(QtWidgets.QDialog):
@@ -272,22 +287,37 @@ class MKLAddItemDialog(QtWidgets.QDialog):
         self.sph.setValue(0.0)
         form.addRow("SPH:", self.sph)
 
+        cyl_row = QtWidgets.QHBoxLayout()
         self.cyl = QtWidgets.QDoubleSpinBox()
         self.cyl.setRange(-10.0, 10.0)
         self.cyl.setSingleStep(0.25)
         self.cyl.setValue(0.0)
-        form.addRow("CYL:", self.cyl)
+        self.cyl_none = QtWidgets.QCheckBox("пусто")
+        self.cyl_none.toggled.connect(lambda v: self.cyl.setEnabled(not v))
+        cyl_row.addWidget(self.cyl)
+        cyl_row.addWidget(self.cyl_none)
+        form.addRow("CYL:", cyl_row)
 
+        ax_row = QtWidgets.QHBoxLayout()
         self.ax = QtWidgets.QSpinBox()
         self.ax.setRange(0, 180)
         self.ax.setValue(0)
-        form.addRow("AX:", self.ax)
+        self.ax_none = QtWidgets.QCheckBox("пусто")
+        self.ax_none.toggled.connect(lambda v: self.ax.setEnabled(not v))
+        ax_row.addWidget(self.ax)
+        ax_row.addWidget(self.ax_none)
+        form.addRow("AX:", ax_row)
 
+        bc_row = QtWidgets.QHBoxLayout()
         self.bc = QtWidgets.QDoubleSpinBox()
         self.bc.setRange(8.0, 9.0)
         self.bc.setSingleStep(0.1)
         self.bc.setValue(8.6)
-        form.addRow("BC:", self.bc)
+        self.bc_none = QtWidgets.QCheckBox("пусто")
+        self.bc_none.toggled.connect(lambda v: self.bc.setEnabled(not v))
+        bc_row.addWidget(self.bc)
+        bc_row.addWidget(self.bc_none)
+        form.addRow("BC:", bc_row)
 
         self.qty = QtWidgets.QSpinBox()
         self.qty.setRange(1, 20)
@@ -303,9 +333,9 @@ class MKLAddItemDialog(QtWidgets.QDialog):
         return {
             "product_id": int(self.product_combo.currentData()),
             "sph": float(self.sph.value()),
-            "cyl": float(self.cyl.value()),
-            "ax": int(self.ax.value()),
-            "bc": float(self.bc.value()),
+            "cyl": None if self.cyl_none.isChecked() else float(self.cyl.value()),
+            "ax": None if self.ax_none.isChecked() else int(self.ax.value()),
+            "bc": None if self.bc_none.isChecked() else float(self.bc.value()),
             "qty": int(self.qty.value()),
         }
 
@@ -334,22 +364,37 @@ class MKLOrderDialog(QtWidgets.QDialog):
         self.sph.setValue(0.0)
         form.addRow("SPH:", self.sph)
 
+        cyl_row = QtWidgets.QHBoxLayout()
         self.cyl = QtWidgets.QDoubleSpinBox()
         self.cyl.setRange(-10.0, 10.0)
         self.cyl.setSingleStep(0.25)
         self.cyl.setValue(0.0)
-        form.addRow("CYL:", self.cyl)
+        self.cyl_none = QtWidgets.QCheckBox("пусто")
+        self.cyl_none.toggled.connect(lambda v: self.cyl.setEnabled(not v))
+        cyl_row.addWidget(self.cyl)
+        cyl_row.addWidget(self.cyl_none)
+        form.addRow("CYL:", cyl_row)
 
+        ax_row = QtWidgets.QHBoxLayout()
         self.ax = QtWidgets.QSpinBox()
         self.ax.setRange(0, 180)
         self.ax.setValue(0)
-        form.addRow("AX:", self.ax)
+        self.ax_none = QtWidgets.QCheckBox("пусто")
+        self.ax_none.toggled.connect(lambda v: self.ax.setEnabled(not v))
+        ax_row.addWidget(self.ax)
+        ax_row.addWidget(self.ax_none)
+        form.addRow("AX:", ax_row)
 
+        bc_row = QtWidgets.QHBoxLayout()
         self.bc = QtWidgets.QDoubleSpinBox()
         self.bc.setRange(8.0, 9.0)
         self.bc.setSingleStep(0.1)
         self.bc.setValue(8.6)
-        form.addRow("BC:", self.bc)
+        self.bc_none = QtWidgets.QCheckBox("пусто")
+        self.bc_none.toggled.connect(lambda v: self.bc.setEnabled(not v))
+        bc_row.addWidget(self.bc)
+        bc_row.addWidget(self.bc_none)
+        form.addRow("BC:", bc_row)
 
         self.qty = QtWidgets.QSpinBox()
         self.qty.setRange(1, 20)
@@ -379,9 +424,9 @@ class MKLOrderDialog(QtWidgets.QDialog):
             "client_id": int(self.client_combo.currentData()),
             "product_id": int(self.product_combo.currentData()),
             "sph": float(self.sph.value()),
-            "cyl": float(self.cyl.value()),
-            "ax": int(self.ax.value()),
-            "bc": float(self.bc.value()),
+            "cyl": None if self.cyl_none.isChecked() else float(self.cyl.value()),
+            "ax": None if self.ax_none.isChecked() else int(self.ax.value()),
+            "bc": None if self.bc_none.isChecked() else float(self.bc.value()),
             "qty": int(self.qty.value()),
         }
 
