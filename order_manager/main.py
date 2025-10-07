@@ -1198,8 +1198,7 @@ class MeridianTab(QWidget):
         items_layout.addWidget(self.items_table)
 
         splitter.addWidget(orders_group)
-        splitter.addWidget(items_gr_codeounewp</)
-oup)
+        splitter.addWidget(items_group)
 
         # Connections
         add_order_action.triggered.connect(self.add_order)
