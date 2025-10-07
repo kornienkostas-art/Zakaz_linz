@@ -217,6 +217,15 @@ def add_mkl_order_item(order_id: int, product_id: int, sph: Optional[float], cyl
     return int(iid)
 
 
+def delete_mkl_order(order_id: int) -> None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM mkl_orders WHERE id=?", (order_id,))
+    cur.execute("DELETE FROM mkl_order_items WHERE order_id=?", (order_id,))
+    conn.commit()
+    conn.close()
+
+
 def list_mkl_orders(status_filter: Optional[str] = None, search: str = "") -> List[sqlite3.Row]:
     conn = get_connection()
     cur = conn.cursor()
@@ -308,6 +317,15 @@ def create_meridian_order(number: str) -> int:
     return int(oid)
 
 
+def delete_meridian_order(order_id: int) -> None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM meridian_orders WHERE id=?", (order_id,))
+    cur.execute("DELETE FROM meridian_order_items WHERE order_id=?", (order_id,))
+    conn.commit()
+    conn.close()
+
+
 def list_meridian_orders() -> List[sqlite3.Row]:
     conn = get_connection()
     cur = conn.cursor()
@@ -328,6 +346,14 @@ def add_meridian_item(order_id: int, product_name: str, sph: Optional[float], cy
     iid = cur.lastrowid
     conn.close()
     return int(iid)
+
+
+def delete_meridian_item(item_id: int) -> None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM meridian_order_items WHERE id=?", (item_id,))
+    conn.commit()
+    conn.close()
 
 
 def list_meridian_items(order_id: int) -> List[sqlite3.Row]:

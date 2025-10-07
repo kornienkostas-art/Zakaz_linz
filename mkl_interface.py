@@ -14,6 +14,7 @@ from database import (
     add_mkl_order_item,
     get_mkl_order_items,
     set_mkl_order_status,
+    delete_mkl_order,
 )
 
 
@@ -254,6 +255,61 @@ class ProductDialog(QtWidgets.QDialog):
         return float(self.bc.value())
 
 
+class MKLAddItemDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Добавить позицию в заказ")
+        form = QtWidgets.QFormLayout(self)
+
+        self.product_combo = QtWidgets.QComboBox()
+        for row in list_mkl_products():
+            self.product_combo.addItem(row["name"], row["id"])
+        form.addRow("Товар:", self.product_combo)
+
+        self.sph = QtWidgets.QDoubleSpinBox()
+        self.sph.setRange(-30.0, 30.0)
+        self.sph.setSingleStep(0.25)
+        self.sph.setValue(0.0)
+        form.addRow("SPH:", self.sph)
+
+        self.cyl = QtWidgets.QDoubleSpinBox()
+        self.cyl.setRange(-10.0, 10.0)
+        self.cyl.setSingleStep(0.25)
+        self.cyl.setValue(0.0)
+        form.addRow("CYL:", self.cyl)
+
+        self.ax = QtWidgets.QSpinBox()
+        self.ax.setRange(0, 180)
+        self.ax.setValue(0)
+        form.addRow("AX:", self.ax)
+
+        self.bc = QtWidgets.QDoubleSpinBox()
+        self.bc.setRange(8.0, 9.0)
+        self.bc.setSingleStep(0.1)
+        self.bc.setValue(8.6)
+        form.addRow("BC:", self.bc)
+
+        self.qty = QtWidgets.QSpinBox()
+        self.qty.setRange(1, 20)
+        self.qty.setValue(1)
+        form.addRow("Количество:", self.qty)
+
+        btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        form.addRow(btns)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+
+    def data(self):
+        return {
+            "product_id": int(self.product_combo.currentData()),
+            "sph": float(self.sph.value()),
+            "cyl": float(self.cyl.value()),
+            "ax": int(self.ax.value()),
+            "bc": float(self.bc.value()),
+            "qty": int(self.qty.value()),
+        }
+
+
 class MKLOrderDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -353,6 +409,8 @@ class OrdersPanel(QtWidgets.QGroupBox):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._context_menu)
         self.layout().addWidget(self.table)
 
         # Buttons
@@ -421,6 +479,43 @@ class OrdersPanel(QtWidgets.QGroupBox):
             return
         set_mkl_order_status(oid, status)
         self.refresh()
+
+    def add_item_to_order(self):
+        oid = self.current_id()
+        if not oid:
+            return
+        dlg = MKLAddItemDialog(self)
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            d = dlg.data()
+            add_mkl_order_item(oid, d["product_id"], d["sph"], d["cyl"], d["ax"], d["bc"], d["qty"])
+            self.refresh()
+
+    def delete_order(self):
+        oid = self.current_id()
+        if not oid:
+            return
+        if QtWidgets.QMessageBox.question(self, "Удалить", "Удалить заказ и позиции?") == QtWidgets.QMessageBox.Yes:
+            delete_mkl_order(oid)
+            self.refresh()
+
+    def _context_menu(self, pos):
+        menu = QtWidgets.QMenu(self)
+        act_new = menu.addAction("Новый заказ")
+        act_status = menu.addAction("Изменить статус")
+        act_add_item = menu.addAction("Добавить позицию")
+        act_delete = menu.addAction("Удалить заказ")
+        act_export = menu.addAction("Экспорт по статусу")
+        action = menu.exec_(self.table.mapToGlobal(pos))
+        if action == act_new:
+            self.create_order()
+        elif action == act_status:
+            self.change_status()
+        elif action == act_add_item:
+            self.add_item_to_order()
+        elif action == act_delete:
+            self.delete_order()
+        elif action == act_export:
+            self.export_by_status()
 
     def export_by_status(self):
         status, ok = QtWidgets.QInputDialog.getItem(self, "Экспорт", "Статус для экспорта:", MKL_STATUSES, 0, False)

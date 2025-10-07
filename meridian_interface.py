@@ -9,6 +9,8 @@ from database import (
     add_meridian_item,
     list_meridian_items,
     set_meridian_item_ordered,
+    delete_meridian_order,
+    delete_meridian_item,
 )
 
 
@@ -153,6 +155,8 @@ class MeridianInterface(QtWidgets.QWidget):
         self.orders_table.horizontalHeader().setStretchLastSection(True)
         self.orders_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.orders_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.orders_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.orders_table.customContextMenuRequested.connect(self._orders_menu)
         right.layout().addWidget(self.orders_table)
 
         self.items_table = QtWidgets.QTableWidget(0, 7)
@@ -160,6 +164,8 @@ class MeridianInterface(QtWidgets.QWidget):
         self.items_table.horizontalHeader().setStretchLastSection(True)
         self.items_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.items_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.items_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.items_table.customContextMenuRequested.connect(self._items_menu)
         right.layout().addWidget(self.items_table)
 
         item_btns = QtWidgets.QHBoxLayout()
@@ -264,6 +270,49 @@ class MeridianInterface(QtWidgets.QWidget):
         new_val = 0 if st == "Заказан" else 1
         set_meridian_item_ordered(iid, bool(new_val))
         self.refresh_items()
+
+    def delete_order(self):
+        oid = self.current_order_id()
+        if not oid:
+            return
+        if QtWidgets.QMessageBox.question(self, "Удалить", "Удалить заказ и позиции?") == QtWidgets.QMessageBox.Yes:
+            delete_meridian_order(oid)
+            self.refresh_orders()
+            self.items_table.setRowCount(0)
+
+    def delete_item(self):
+        iid = self.current_item_id()
+        if not iid:
+            return
+        if QtWidgets.QMessageBox.question(self, "Удалить", "Удалить позицию?") == QtWidgets.QMessageBox.Yes:
+            delete_meridian_item(iid)
+            self.refresh_items()
+
+    def _orders_menu(self, pos):
+        menu = QtWidgets.QMenu(self)
+        act_new = menu.addAction("Новый заказ")
+        act_delete = menu.addAction("Удалить заказ")
+        act_export = menu.addAction("Экспорт незаказанных")
+        action = menu.exec_(self.orders_table.mapToGlobal(pos))
+        if action == act_new:
+            self.create_order()
+        elif action == act_delete:
+            self.delete_order()
+        elif action == act_export:
+            self.export_unordered()
+
+    def _items_menu(self, pos):
+        menu = QtWidgets.QMenu(self)
+        act_add = menu.addAction("Добавить позицию")
+        act_toggle = menu.addAction("Переключить статус")
+        act_delete = menu.addAction("Удалить позицию")
+        action = menu.exec_(self.items_table.mapToGlobal(pos))
+        if action == act_add:
+            self.add_item()
+        elif action == act_toggle:
+            self.toggle_item_status()
+        elif action == act_delete:
+            self.delete_item()
 
     def export_unordered(self):
         # export all items with ordered=0 across all orders
