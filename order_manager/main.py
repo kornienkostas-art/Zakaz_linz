@@ -689,40 +689,6 @@ class MKLTab(QWidget):
         elif chosen == del_act:
             self.delete_selected_customer()
 
-    def products_context_menu(self, pos):
-        index = self.products_table.indexAt(pos)
-        if not index.isValid():
-            return
-        row = index.row()
-        self.products_table.selectRow(row)
-        menu = QMenu(self)
-        edit_act = menu.addAction("Редактировать товар")
-        del_act = menu.addAction("Удалить товар")
-        chosen = menu.exec(self.products_table.mapToGlobal(pos))
-        if chosen == edit_act:
-            self.edit_product(row, 0)
-        elif chosen == del_act:
-            self.delete_selected_product()
-        item = self.customers_table.itemAt(pos)
-        if not item:
-            return
-        row = item.row()
-        self.customers_table.selectRow(row)
-        menu = QMenu(self)
-        edit_act = menu.addAction("Редактировать клиента")
-        del_act = menu.addAction("Удалить клиента")
-        chosen = menu.exec(self.customers_table.mapToGlobal(pos))
-        if chosen == edit_act:
-            self.edit_customer(row, 0)
-        elif chosen == del_act:
-            self.delete_selected_customer()
-
-    def products_context_menu(self, pos):
-        item = self.products_table.itemAt(pos)
-        if not item:
-            return
-        row = item()
-
     # Data access helpers
     def _get_customers(self, search: str = "") -> List[sqlite3.Row]:
         conn = get_connection()
