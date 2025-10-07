@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QCheckBox,
+    QTextEdit,
 )
 
 try:
@@ -446,6 +447,79 @@ class MKLOrderDialog(QDialog):
         return customer_id, product_id, status, sph, cyl, ax, bc, qty
 
 
+class MKLOrderEditDialog(QDialog):
+    def __init__(self, parent=None, sph: Optional[float] = None, cyl: Optional[float] = None, ax: Optional[int] = None, bc: Optional[float] = None, qty: Optional[int] = None, status: int = 0):
+        super().__init__(parent)
+        self.setWindowTitle("Редактирование заказа МКЛ")
+        layout = QFormLayout(self)
+
+        self.status_combo = QComboBox()
+        for k, v in MKL_STATUS.items():
+            self.status_combo.addItem(v, k)
+        # Characteristics
+        self.sph_spin = QDoubleSpinBox()
+        self.sph_spin.setRange(-30.0, 30.0)
+        self.sph_spin.setSingleStep(0.25)
+        self.sph_spin.setValue(sph if sph is not None else 0.0)
+
+        self.cyl_spin = QDoubleSpinBox()
+        self.cyl_spin.setRange(-10.0, 10.0)
+        self.cyl_spin.setSingleStep(0.25)
+        self.cyl_spin.setSpecialValueText("")
+        self.cyl_spin.setValue(cyl if cyl is not None else self.cyl_spin.minimum())
+
+        self.ax_spin = QSpinBox()
+        self.ax_spin.setRange(0, 180)
+        self.ax_spin.setSpecialValueText("")
+        self.ax_spin.setValue(ax if ax is not None else self.ax_spin.minimum())
+
+        self.bc_spin = QDoubleSpinBox()
+        self.bc_spin.setRange(8.0, 9.0)
+        self.bc_spin.setSingleStep(0.1)
+        self.bc_spin.setDecimals(2)
+        self.bc_spin.setSpecialValueText("")
+        self.bc_spin.setValue(bc if bc is not None else self.bc_spin.minimum())
+
+        self.qty_spin = QSpinBox()
+        self.qty_spin.setRange(1, 20)
+        self.qty_spin.setValue(qty if qty is not None else 1)
+
+        # set status
+        idx = list(MKL_STATUS.keys()).index(status) if status in MKL_STATUS else 0
+        self.status_combo.setCurrentIndex(idx)
+
+        layout.addRow("Статус", self.status_combo)
+        layout.addRow("SPH", self.sph_spin)
+        layout.addRow("CYL", self.cyl_spin)
+        layout.addRow("AX", self.ax_spin)
+        layout.addRow("BC", self.bc_spin)
+        layout.addRow("Количество", self.qty_spin)
+
+        btns = QHBoxLayout()
+        save_btn = QPushButton("Сохранить")
+        cancel_btn = QPushButton("Отмена")
+        btns.addWidget(save_btn)
+        btns.addWidget(cancel_btn)
+        layout.addRow(btns)
+        save_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+    def values(self) -> Tuple[int, float, Optional[float], Optional[int], Optional[float], int]:
+        status = int(self.status_combo.currentData())
+        sph = float(self.sph_spin.value())
+        cyl = float(self.cyl_spin.value())
+        if cyl == self.cyl_spin.minimum() and self.cyl_spin.specialValueText():
+            cyl = None
+        ax = int(self.ax_spin.value())
+        if ax == self.ax_spin.minimum() and self.ax_spin.specialValueText():
+            ax = None
+        bc = float(self.bc_spin.value())
+        if bc == self.bc_spin.minimum() and self.bc_spin.specialValueText():
+            bc = None
+        qty = int(self.qty_spin.value())
+        return status, sph, cyl, ax, bc, qty
+
+
 class MeridianOrderDialog(QDialog):
     def __init__(self, parent=None, order_number: str = ""):
         super().__init__(parent)
@@ -544,6 +618,29 @@ class MeridianItemDialog(QDialog):
         qty = int(self.qty_spin.value())
         status = int(self.status_combo.currentData())
         return name, sph, cyl, ax, qty, status
+
+
+class HelpDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Справка")
+        layout = QVBoxLayout(self)
+        text = QTextEdit()
+        text.setReadOnly(True)
+        text.setText(
+            "Инструкция:\n"
+            "- Вкладка 'Заказы МКЛ': добавляйте клиентов и товары. Товар можно без характеристик.\n"
+            "- Создание заказа: выберите клиента и товар, заполните характеристики заказа (SPH, CYL, AX, BC, Кол-во), статус.\n"
+            "- Действия по заказу: изменить статус, редактировать характеристики, удалить.\n"
+            "- Экспорт: выберите статус и экспортируйте. В параметрах можно задать разделитель и заголовки.\n"
+            "- Вкладка 'Заказы Меридиан': создайте заказ, добавляйте товары с характеристиками, меняйте статус, удаляйте.\n"
+            "- Экспорт незаказанных товаров доступен в панели инструментов вкладки 'Меридиан'.\n"
+            "- Настройка темы: Меню 'Настройки' -> 'Тема оформления'."
+        )
+        layout.addWidget(text)
+        btn = QPushButton("Закрыть")
+        btn.clicked.connect(self.accept)
+        layout.addWidget(btn)
 
 
 # -------------------------
@@ -771,7 +868,7 @@ class MKLTab(QWidget):
 
             # Created + actions
             self.orders_table.setItem(row, 4, QTableWidgetItem(r["created_at"]))
-            actions_item = QTableWidgetItem("Изменить статус / Удалить")
+            actions_item = QTableWidgetItem("Статус / Характеристики / Удалить")
             self.orders_table.setItem(row, 5, actions_item)
 
     # Actions
@@ -950,6 +1047,7 @@ class MKLTab(QWidget):
             menu.setWindowTitle("Действия")
             menu.setText("Выберите действие для заказа")
             change_btn = menu.addButton("Изменить статус", QMessageBox.AcceptRole)
+            edit_btn = menu.addButton("Редактировать характеристики", QMessageBox.ActionRole)
             delete_btn = menu.addButton("Удалить", QMessageBox.DestructiveRole)
             cancel_btn = menu.addButton("Отмена", QMessageBox.RejectRole)
             menu.exec()
@@ -957,8 +1055,35 @@ class MKLTab(QWidget):
             clicked = menu.clickedButton()
             if clicked == change_btn:
                 self.change_order_status(order_id)
+            elif clicked == edit_btn:
+                self.edit_order(order_id)
             elif clicked == delete_btn:
                 self.delete_order(order_id)
+
+    def edit_order(self, order_id: int):
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT status, sph, cyl, ax, bc, quantity FROM mkl_orders WHERE id = ?", (order_id,))
+        r = cur.fetchone()
+        conn.close()
+        if not r:
+            return
+        dlg = MKLOrderEditDialog(self, r["sph"], r["cyl"], r["ax"], r["bc"], r["quantity"], r["status"])
+        if dlg.exec() == QDialog.Accepted:
+            status, sph, cyl, ax, bc, qty = dlg.values()
+            err = validate_lens_values(sph, cyl, ax, bc, qty)
+            if err:
+                QMessageBox.warning(self, "Ошибка", err)
+                return
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE mkl_orders SET status = ?, sph = ?, cyl = ?, ax = ?, bc = ?, quantity = ? WHERE id = ?",
+                (status, sph, cyl, ax, bc, qty, order_id),
+            )
+            conn.commit()
+            conn.close()
+            self.refresh_orders()
 
     def change_order_status(self, order_id: int):
         conn = get_connection()
@@ -1023,7 +1148,8 @@ class MKLTab(QWidget):
             return
         delimiter, add_headers = opts.values()
 
-        path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", f"mkl_orders_{status}.txt", "Text Files (*.txt)")
+        default_name = f"mkl_orders_{status}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", default_name, "Text Files (*.txt)")
         if not path:
             return
 
@@ -1284,7 +1410,8 @@ class MeridianTab(QWidget):
             return
         delimiter, add_headers = opts.values()
 
-        path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", "meridian_not_ordered.txt", "Text Files (*.txt)")
+        default_name = f"meridian_not_ordered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", default_name, "Text Files (*.txt)")
         if not path:
             return
 
@@ -1323,6 +1450,58 @@ class MainWindow(QMainWindow):
         tabs.addTab(MeridianTab(), "Заказы Меридиан")
 
         self.setCentralWidget(tabs)
+
+        # Меню: Настройки/Справка
+        menubar = self.menuBar()
+        settings_menu = menubar.addMenu("Настройки")
+        help_menu = menubar.addMenu("Справка")
+
+        theme_action = QAction("Тема оформления", self)
+        help_action = QAction("Показать справку", self)
+        settings_menu.addAction(theme_action)
+        help_menu.addAction(help_action)
+
+        theme_action.triggered.connect(self.choose_theme)
+        help_action.triggered.connect(self.show_help)
+
+    def choose_theme(self):
+        if not QT_MATERIAL_AVAILABLE:
+            QMessageBox.information(self, "Тема", "Модуль qt-material не установлен.")
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Выбор темы")
+        layout = QVBoxLayout(dlg)
+        combo = QComboBox()
+        themes = [
+            "light_blue.xml",
+            "dark_blue.xml",
+            "light_teal.xml",
+            "dark_teal.xml",
+            "light_cyan.xml",
+            "dark_cyan.xml",
+        ]
+        for t in themes:
+            combo.addItem(t)
+        layout.addWidget(QLabel("Выберите тему:"))
+        layout.addWidget(combo)
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("Применить")
+        cancel_btn = QPushButton("Отмена")
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+        ok_btn.clicked.connect(dlg.accept)
+        cancel_btn.clicked.connect(dlg.reject)
+        if dlg.exec() == QDialog.Accepted:
+            theme = combo.currentText()
+            try:
+                apply_stylesheet(QApplication.instance(), theme=theme)
+            except Exception:
+                QMessageBox.warning(self, "Тема", "Не удалось применить тему.")
+
+    def show_help(self):
+        dlg = HelpDialog(self)
+        dlg.exec()
 
 
 def main():
