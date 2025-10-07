@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, List, Tuple
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -24,12 +24,12 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QDialog,
     QFormLayout,
-    QTextEdit,
     QSplitter,
     QGroupBox,
     QToolBar,
     QListWidget,
     QListWidgetItem,
+    QCheckBox,
 )
 
 try:
@@ -68,7 +68,7 @@ def init_db():
         """
     )
 
-    # Products (МКЛ) with lens characteristics
+    # Products (МКЛ) — характеристики можно оставить пустыми
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS products (
@@ -93,11 +93,33 @@ def init_db():
             product_id INTEGER NOT NULL,
             status INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
+            -- Характеристики на уровне заказа
+            sph REAL,
+            cyl REAL,
+            ax INTEGER,
+            bc REAL,
+            quantity INTEGER,
             FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE,
             FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
         )
         """
     )
+
+    # Миграция: добавить недостающие колонки в mkl_orders (если БД уже создана старой версией)
+    cur.execute("PRAGMA table_info(mkl_orders)")
+    cols = {row["name"] for row in cur.fetchall()}
+    for col_def in [
+        ("sph", "REAL"),
+        ("cyl", "REAL"),
+        ("ax", "INTEGER"),
+        ("bc", "REAL"),
+        ("quantity", "INTEGER"),
+    ]:
+        if col_def[0] not in cols:
+            try:
+                cur.execute(f"ALTER TABLE mkl_orders ADD COLUMN {col_def[0]} {col_def[1]}")
+            except Exception:
+                pass
 
     # Meridian Orders - header has an order number
     cur.execute(
@@ -143,10 +165,10 @@ MKL_STATUS = {
     3: "Вручен",
 }
 MKL_STATUS_COLORS = {
-    0: "#ffcdd2",
-    1: "#fff9c4",
-    2: "#bbdefb",
-    3: "#c8e6c9",
+    0: "#ffcdd2",  # red light
+    1: "#fff9c4",  # yellow light
+    2: "#bbdefb",  # blue light
+    3: "#c8e6c9",  # green light
 }
 
 MERIDIAN_ITEM_STATUS = {
@@ -159,27 +181,33 @@ MERIDIAN_STATUS_COLORS = {
 }
 
 
-def validate_lens_values(sph: float, cyl: Optional[float], ax: Optional[int], bc: Optional[float], quantity: int) -> Optional[str]:
+def validate_lens_values(
+    sph: float,
+    cyl: Optional[float],
+    ax: Optional[int],
+    bc: Optional[float],
+    quantity: int,
+) -> Optional[str]:
     # SPH: -30 to +30 step 0.25
-    if sph < -30.0 or sph > 30.0 or round(sph * 4) != sph * 4:
+    if sph < -30.0 or sph > 30.0 or abs((sph * 4) - round(sph * 4)) > 1e-9:
         return "SPH должен быть от -30.0 до +30.0 с шагом 0.25"
 
-    # CYL: -10 to +10 step 0.25 or empty
+    # CYL: -10 to +10 step 0.25 или пусто
     if cyl is not None:
-        if cyl < -10.0 or cyl > 10.0 or round(cyl * 4) != cyl * 4:
+        if cyl < -10.0 or cyl > 10.0 or abs((cyl * 4) - round(cyl * 4)) > 1e-9:
             return "CYL должен быть от -10.0 до +10.0 с шагом 0.25"
 
-    # AX: 0..180 step 1 or empty
+    # AX: 0..180 или пусто
     if ax is not None:
         if ax < 0 or ax > 180:
             return "AX должен быть от 0 до 180"
 
-    # BC: 8.0..9.0 step 0.1 or empty
+    # BC: 8.0..9.0 шаг 0.1 или пусто
     if bc is not None:
-        if bc < 8.0 or bc > 9.0 or round(bc * 10) != bc * 10:
+        if bc < 8.0 or bc > 9.0 or abs((bc * 10) - round(bc * 10)) > 1e-9:
             return "BC должен быть от 8.0 до 9.0 с шагом 0.1"
 
-    # Quantity: 1..20
+    # Количество: 1..20
     if quantity < 1 or quantity > 20:
         return "Количество должно быть от 1 до 20"
     return None
@@ -188,6 +216,30 @@ def validate_lens_values(sph: float, cyl: Optional[float], ax: Optional[int], bc
 # -------------------------
 # Dialogs
 # -------------------------
+
+class ExportOptionsDialog(QDialog):
+    def __init__(self, parent=None, default_delimiter: str = "|", default_headers: bool = True):
+        super().__init__(parent)
+        self.setWindowTitle("Параметры экспорта")
+        layout = QFormLayout(self)
+        self.delim_edit = QLineEdit(default_delimiter)
+        self.headers_chk = QCheckBox("Добавить заголовки")
+        self.headers_chk.setChecked(default_headers)
+        layout.addRow("Разделитель", self.delim_edit)
+        layout.addRow(self.headers_chk)
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("OK")
+        cancel_btn = QPushButton("Отмена")
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addRow(btns)
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+    def values(self) -> Tuple[str, bool]:
+        d = self.delim_edit.text() or "|"
+        return d, self.headers_chk.isChecked()
+
 
 class CustomerDialog(QDialog):
     def __init__(self, parent=None, full_name: str = "", phone: str = ""):
@@ -216,7 +268,16 @@ class CustomerDialog(QDialog):
 
 
 class ProductDialog(QDialog):
-    def __init__(self, parent=None, name: str = "", sph: float = 0.0, cyl: Optional[float] = None, ax: Optional[int] = None, bc: Optional[float] = None, quantity: int = 1):
+    def __init__(
+        self,
+        parent=None,
+        name: str = "",
+        sph: float = 0.0,
+        cyl: Optional[float] = None,
+        ax: Optional[int] = None,
+        bc: Optional[float] = None,
+        quantity: int = 1,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Товар (МКЛ)")
         layout = QFormLayout(self)
@@ -231,7 +292,7 @@ class ProductDialog(QDialog):
         self.cyl_spin = QDoubleSpinBox()
         self.cyl_spin.setRange(-10.0, 10.0)
         self.cyl_spin.setSingleStep(0.25)
-        self.cyl_spin.setSpecialValueText("")  # indicates empty
+        self.cyl_spin.setSpecialValueText("")  # пусто
         self.cyl_spin.setValue(cyl if cyl is not None else self.cyl_spin.minimum())
 
         self.ax_spin = QSpinBox()
@@ -243,6 +304,7 @@ class ProductDialog(QDialog):
         self.bc_spin.setRange(8.0, 9.0)
         self.bc_spin.setSingleStep(0.1)
         self.bc_spin.setSpecialValueText("")
+        self.bc_spin.setDecimals(2)
         self.bc_spin.setValue(bc if bc is not None else self.bc_spin.minimum())
 
         self.qty_spin = QSpinBox()
@@ -287,7 +349,13 @@ class ProductDialog(QDialog):
 
 
 class MKLOrderDialog(QDialog):
-    def __init__(self, parent=None, customers: List[sqlite3.Row] = None, products: List[sqlite3.Row] = None, selected_status: int = 0):
+    def __init__(
+        self,
+        parent=None,
+        customers: List[sqlite3.Row] = None,
+        products: List[sqlite3.Row] = None,
+        selected_status: int = 0,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Заказ МКЛ")
         layout = QFormLayout(self)
@@ -298,14 +366,7 @@ class MKLOrderDialog(QDialog):
 
         self.product_combo = QComboBox()
         for p in products or []:
-            title = f"{p['name']} | SPH {p['sph']}"
-            if p["cyl"] is not None:
-                title += f" CYL {p['cyl']}"
-            if p["ax"] is not None:
-                title += f" AX {p['ax']}"
-            if p["bc"] is not None:
-                title += f" BC {p['bc']}"
-            title += f" | x{p['quantity']}"
+            title = f"{p['name']}"
             self.product_combo.addItem(title, p["id"])
 
         self.status_combo = QComboBox()
@@ -314,9 +375,43 @@ class MKLOrderDialog(QDialog):
         idx = list(MKL_STATUS.keys()).index(selected_status) if selected_status in MKL_STATUS else 0
         self.status_combo.setCurrentIndex(idx)
 
+        # Характеристики на уровне заказа
+        self.sph_spin = QDoubleSpinBox()
+        self.sph_spin.setRange(-30.0, 30.0)
+        self.sph_spin.setSingleStep(0.25)
+        self.sph_spin.setValue(0.0)
+
+        self.cyl_spin = QDoubleSpinBox()
+        self.cyl_spin.setRange(-10.0, 10.0)
+        self.cyl_spin.setSingleStep(0.25)
+        self.cyl_spin.setSpecialValueText("")
+        self.cyl_spin.setValue(self.cyl_spin.minimum())
+
+        self.ax_spin = QSpinBox()
+        self.ax_spin.setRange(0, 180)
+        self.ax_spin.setSpecialValueText("")
+        self.ax_spin.setValue(self.ax_spin.minimum())
+
+        self.bc_spin = QDoubleSpinBox()
+        self.bc_spin.setRange(8.0, 9.0)
+        self.bc_spin.setSingleStep(0.1)
+        self.bc_spin.setDecimals(2)
+        self.bc_spin.setSpecialValueText("")
+        self.bc_spin.setValue(self.bc_spin.minimum())
+
+        self.qty_spin = QSpinBox()
+        self.qty_spin.setRange(1, 20)
+        self.qty_spin.setValue(1)
+
         layout.addRow("Клиент", self.customer_combo)
-        layout.addRow("Товар", self.product_combo)
+        layout.addRow("Товар (без характеристик)", self.product_combo)
         layout.addRow("Статус", self.status_combo)
+        layout.addRow(QLabel("Характеристики заказа"))
+        layout.addRow("SPH", self.sph_spin)
+        layout.addRow("CYL", self.cyl_spin)
+        layout.addRow("AX", self.ax_spin)
+        layout.addRow("BC", self.bc_spin)
+        layout.addRow("Количество", self.qty_spin)
 
         btns = QHBoxLayout()
         self.save_btn = QPushButton("Создать")
@@ -328,11 +423,27 @@ class MKLOrderDialog(QDialog):
         self.save_btn.clicked.connect(self.accept)
         self.cancel_btn.clicked.connect(self.reject)
 
-    def values(self) -> Tuple[int, int, int]:
+    def values(self) -> Tuple[int, int, int, float, Optional[float], Optional[int], Optional[float], int]:
         customer_id = self.customer_combo.currentData()
         product_id = self.product_combo.currentData()
         status = self.status_combo.currentData()
-        return customer_id, product_id, status
+
+        sph = float(self.sph_spin.value())
+
+        cyl = float(self.cyl_spin.value())
+        if cyl == self.cyl_spin.minimum() and self.cyl_spin.specialValueText():
+            cyl = None
+
+        ax = int(self.ax_spin.value())
+        if ax == self.ax_spin.minimum() and self.ax_spin.specialValueText():
+            ax = None
+
+        bc = float(self.bc_spin.value())
+        if bc == self.bc_spin.minimum() and self.bc_spin.specialValueText():
+            bc = None
+
+        qty = int(self.qty_spin.value())
+        return customer_id, product_id, status, sph, cyl, ax, bc, qty
 
 
 class MeridianOrderDialog(QDialog):
@@ -360,7 +471,16 @@ class MeridianOrderDialog(QDialog):
 
 
 class MeridianItemDialog(QDialog):
-    def __init__(self, parent=None, name: str = "", sph: float = 0.0, cyl: Optional[float] = None, ax: Optional[int] = None, quantity: int = 1, status: int = 0):
+    def __init__(
+        self,
+        parent=None,
+        name: str = "",
+        sph: float = 0.0,
+        cyl: Optional[float] = None,
+        ax: Optional[int] = None,
+        quantity: int = 1,
+        status: int = 0,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Товар (Меридиан)")
         layout = QFormLayout(self)
@@ -441,12 +561,18 @@ class MKLTab(QWidget):
         main_layout.addWidget(toolbar)
 
         add_customer_action = QAction("Добавить клиента", self)
+        del_customer_action = QAction("Удалить клиента", self)
         add_product_action = QAction("Добавить товар", self)
+        del_product_action = QAction("Удалить товар", self)
         add_order_action = QAction("Создать заказ", self)
         export_action = QAction("Экспорт заказов по статусу", self)
 
         toolbar.addAction(add_customer_action)
+        toolbar.addAction(del_customer_action)
+        toolbar.addSeparator()
         toolbar.addAction(add_product_action)
+        toolbar.addAction(del_product_action)
+        toolbar.addSeparator()
         toolbar.addAction(add_order_action)
         toolbar.addSeparator()
         toolbar.addAction(export_action)
@@ -507,7 +633,9 @@ class MKLTab(QWidget):
 
         # Connections
         add_customer_action.triggered.connect(self.add_customer)
+        del_customer_action.triggered.connect(self.delete_selected_customer)
         add_product_action.triggered.connect(self.add_product)
+        del_product_action.triggered.connect(self.delete_selected_product)
         add_order_action.triggered.connect(self.add_order)
         export_action.triggered.connect(self.export_orders)
 
@@ -553,7 +681,12 @@ class MKLTab(QWidget):
         query = """
             SELECT o.id, o.status, o.created_at,
                    c.full_name, c.phone,
-                   p.name AS product_name, p.sph, p.cyl, p.ax, p.bc, p.quantity
+                   p.name AS product_name,
+                   COALESCE(o.sph, p.sph) AS sph,
+                   COALESCE(o.cyl, p.cyl) AS cyl,
+                   COALESCE(o.ax, p.ax) AS ax,
+                   COALESCE(o.bc, p.bc) AS bc,
+                   COALESCE(o.quantity, p.quantity) AS quantity
             FROM mkl_orders o
             JOIN customers c ON c.id = o.customer_id
             JOIN products p ON p.id = o.product_id
@@ -625,27 +758,21 @@ class MKLTab(QWidget):
             self.orders_table.setItem(row, 2, QTableWidgetItem(product_desc))
 
             status_item = QTableWidgetItem(MKL_STATUS.get(r["status"], ""))
-            color = MKL_STATUS_COLORS.get(r["status"])
-            if color:
-                status_item.setBackground(Qt.transparent)
-                self.orders_table.item(row, 0)  # ensure row exists
             self.orders_table.setItem(row, 3, status_item)
-            # Color entire row background subtly
-            for col in range(self.orders_table.columnCount()):
-                item = self.orders_table.item(row, col)
-                if item:
-                    item.setBackground(Qt.transparent)
-            # Actions
+
+            # Row color by status
+            color_hex = MKL_STATUS_COLORS.get(r["status"])
+            if color_hex:
+                qcolor = QColor(color_hex)
+                for col in range(self.orders_table.columnCount()):
+                    it = self.orders_table.item(row, col)
+                    if it:
+                        it.setBackground(qcolor)
+
+            # Created + actions
             self.orders_table.setItem(row, 4, QTableWidgetItem(r["created_at"]))
             actions_item = QTableWidgetItem("Изменить статус / Удалить")
             self.orders_table.setItem(row, 5, actions_item)
-
-            # Apply row color
-            for col in range(self.orders_table.columnCount()):
-                it = self.orders_table.item(row, col)
-                if it and MKL_STATUS_COLORS.get(r["status"]):
-                    it.setBackground(Qt.GlobalColor.transparent)
-                    # Use style via setData with UserRole to retain color concept (Qt tables are limited without delegates)
 
     # Actions
     def add_customer(self):
@@ -662,8 +789,25 @@ class MKLTab(QWidget):
             conn.close()
             self.refresh_customers()
 
+    def delete_selected_customer(self):
+        row = self.customers_table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "Удаление", "Выберите клиента в таблице.")
+            return
+        id_item = self.customers_table.item(row, 0)
+        if not id_item:
+            return
+        cust_id = int(id_item.text())
+        confirm = QMessageBox.question(self, "Удаление клиента", "Удалить выбранного клиента?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if confirm == QMessageBox.Yes:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM customers WHERE id = ?", (cust_id,))
+            conn.commit()
+            conn.close()
+            self.refresh_all()
+
     def edit_customer(self, row: int, col: int):
-        # Load selected customer
         id_item = self.customers_table.item(row, 0)
         if not id_item:
             return
@@ -695,6 +839,7 @@ class MKLTab(QWidget):
             if not name:
                 QMessageBox.warning(self, "Ошибка", "Название обязательно")
                 return
+            # Разрешаем товары без характеристик — их можно заполнить на уровне заказа
             err = validate_lens_values(sph, cyl, ax, bc, qty)
             if err:
                 QMessageBox.warning(self, "Ошибка", err)
@@ -708,6 +853,24 @@ class MKLTab(QWidget):
             conn.commit()
             conn.close()
             self.refresh_products()
+
+    def delete_selected_product(self):
+        row = self.products_table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "Удаление", "Выберите товар в таблице.")
+            return
+        id_item = self.products_table.item(row, 0)
+        if not id_item:
+            return
+        prod_id = int(id_item.text())
+        confirm = QMessageBox.question(self, "Удаление товара", "Удалить выбранный товар?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if confirm == QMessageBox.Yes:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM products WHERE id = ?", (prod_id,))
+            conn.commit()
+            conn.close()
+            self.refresh_all()
 
     def edit_product(self, row: int, col: int):
         id_item = self.products_table.item(row, 0)
@@ -758,12 +921,20 @@ class MKLTab(QWidget):
         selected_status = self.status_filter.currentData()
         dlg = MKLOrderDialog(self, customers, products, selected_status if selected_status is not None else 0)
         if dlg.exec() == QDialog.Accepted:
-            customer_id, product_id, status = dlg.values()
+            customer_id, product_id, status, sph, cyl, ax, bc, qty = dlg.values()
+            # Валидируем характеристики на уровне заказа
+            err = validate_lens_values(sph, cyl, ax, bc, qty)
+            if err:
+                QMessageBox.warning(self, "Ошибка", err)
+                return
             conn = get_connection()
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO mkl_orders (customer_id, product_id, status, created_at) VALUES (?, ?, ?, ?)",
-                (customer_id, product_id, status, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                """
+                INSERT INTO mkl_orders (customer_id, product_id, status, created_at, sph, cyl, ax, bc, quantity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (customer_id, product_id, status, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), sph, cyl, ax, bc, qty),
             )
             conn.commit()
             conn.close()
@@ -788,8 +959,6 @@ class MKLTab(QWidget):
                 self.change_order_status(order_id)
             elif clicked == delete_btn:
                 self.delete_order(order_id)
-            else:
-                return
 
     def change_order_status(self, order_id: int):
         conn = get_connection()
@@ -807,7 +976,6 @@ class MKLTab(QWidget):
         combo = QComboBox()
         for k, v in MKL_STATUS.items():
             combo.addItem(v, k)
-        # set current
         idx = list(MKL_STATUS.keys()).index(current_status) if current_status in MKL_STATUS else 0
         combo.setCurrentIndex(idx)
         layout.addWidget(combo)
@@ -849,13 +1017,21 @@ class MKLTab(QWidget):
             QMessageBox.information(self, "Экспорт", "Нет данных для экспорта.")
             return
 
+        # Параметры экспорта
+        opts = ExportOptionsDialog(self, default_delimiter="|", default_headers=True)
+        if opts.exec() != QDialog.Accepted:
+            return
+        delimiter, add_headers = opts.values()
+
         path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", f"mkl_orders_{status}.txt", "Text Files (*.txt)")
         if not path:
             return
 
         with open(path, "w", encoding="utf-8") as f:
+            if add_headers:
+                headers = ["ID", "ФИО", "Телефон", "Товар", "SPH", "CYL", "AX", "BC", "Кол-во", "Статус", "Создан"]
+                f.write(delimiter.join(headers) + "\n")
             for r in rows:
-                # Format: ID|Customer|Phone|Product|SPH|CYL|AX|BC|Qty|Status|Created
                 line = [
                     str(r["id"]),
                     r["full_name"],
@@ -869,7 +1045,7 @@ class MKLTab(QWidget):
                     MKL_STATUS.get(r["status"], ""),
                     r["created_at"],
                 ]
-                f.write("|".join(line) + "\n")
+                f.write(delimiter.join(line) + "\n")
 
         QMessageBox.information(self, "Экспорт", f"Экспорт завершен:\n{path}")
 
@@ -965,9 +1141,10 @@ class MeridianTab(QWidget):
             self.items_table.insertRow(row)
             self.items_table.setItem(row, 0, QTableWidgetItem(str(r["id"])))
             name_item = QTableWidgetItem(f"{r['name']} ({MERIDIAN_ITEM_STATUS[r['status']]})")
-            color = MERIDIAN_STATUS_COLORS.get(r["status"])
-            if color:
-                name_item.setBackground(Qt.transparent)
+            color_hex = MERIDIAN_STATUS_COLORS.get(r["status"])
+            if color_hex:
+                qcolor = QColor(color_hex)
+                name_item.setBackground(qcolor)
             self.items_table.setItem(row, 1, name_item)
             self.items_table.setItem(row, 2, QTableWidgetItem(str(r["sph"])))
             self.items_table.setItem(row, 3, QTableWidgetItem("" if r["cyl"] is None else str(r["cyl"])))
@@ -1088,7 +1265,7 @@ class MeridianTab(QWidget):
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT i.id, o.order_number, i.name, i.sph, i.cyl, i.ax, i.quantity, i.status, i.order_id
+            SELECT i.id, o.order_number, i.name, i.sph, i.cyl, i.ax, i.quantity, i.status
             FROM meridian_items i
             JOIN meridian_orders o ON o.id = i.order_id
             WHERE i.status = 0
@@ -1101,13 +1278,21 @@ class MeridianTab(QWidget):
             QMessageBox.information(self, "Экспорт", "Нет незаказанных товаров.")
             return
 
+        # Параметры экспорта
+        opts = ExportOptionsDialog(self, default_delimiter="|", default_headers=True)
+        if opts.exec() != QDialog.Accepted:
+            return
+        delimiter, add_headers = opts.values()
+
         path, _ = QFileDialog.getSaveFileName(self, "Сохранить файл", "meridian_not_ordered.txt", "Text Files (*.txt)")
         if not path:
             return
 
         with open(path, "w", encoding="utf-8") as f:
+            if add_headers:
+                headers = ["ID", "Номер заказа", "Название", "SPH", "CYL", "AX", "Кол-во", "Статус"]
+                f.write(delimiter.join(headers) + "\n")
             for r in rows:
-                # Format: ID|OrderNo|Name|SPH|CYL|AX|Qty|Status
                 line = [
                     str(r["id"]),
                     str(r["order_number"]),
@@ -1118,7 +1303,7 @@ class MeridianTab(QWidget):
                     str(r["quantity"]),
                     MERIDIAN_ITEM_STATUS.get(r["status"], ""),
                 ]
-                f.write("|".join(line) + "\n")
+                f.write(delimiter.join(line) + "\n")
 
         QMessageBox.information(self, "Экспорт", f"Экспорт завершен:\n{path}")
 
