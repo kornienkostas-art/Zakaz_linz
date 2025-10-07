@@ -448,55 +448,97 @@ class OrdersPanel(QtWidgets.QGroupBox):
         filters.addWidget(self.status_combo)
         self.layout().addLayout(filters)
 
-        # Table
-        self.table = QtWidgets.QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["ID", "Клиент", "Телефон", "Статус", "Позиции"])
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self._context_menu)
-        self.layout().addWidget(self.table)
+        # Split orders/items
+        split = QtWidgets.QSplitter()
+        # Orders table
+        self.orders_table = QtWidgets.QTableWidget(0, 5)
+        self.orders_table.setHorizontalHeaderLabels(["ID", "Клиент", "Телефон", "Статус", "Позиции"])
+        self.orders_table.horizontalHeader().setStretchLastSection(True)
+        self.orders_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.orders_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.orders_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.orders_table.customContextMenuRequested.connect(self._orders_menu)
+        self.orders_table.itemSelectionChanged.connect(self.refresh_items)
+        split.addWidget(self.orders_table)
+
+        # Items table
+        self.items_table = QtWidgets.QTableWidget(0, 8)
+        self.items_table.setHorizontalHeaderLabels(["ID", "Товар", "SPH", "CYL", "AX", "BC", "Qty", ""])
+        self.items_table.horizontalHeader().setStretchLastSection(True)
+        self.items_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.items_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.items_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.items_table.customContextMenuRequested.connect(self._items_menu)
+        split.addWidget(self.items_table)
+
+        split.setStretchFactor(0, 3)
+        split.setStretchFactor(1, 2)
+        self.layout().addWidget(split)
 
         # Buttons
         btns = QtWidgets.QHBoxLayout()
         self.new_btn = QtWidgets.QPushButton("Новый заказ")
         self.status_btn = QtWidgets.QPushButton("Изменить статус")
+        self.add_item_btn = QtWidgets.QPushButton("Добавить позицию")
+        self.edit_item_btn = QtWidgets.QPushButton("Изменить позицию")
+        self.delete_item_btn = QtWidgets.QPushButton("Удалить позицию")
+        self.delete_order_btn = QtWidgets.QPushButton("Удалить заказ")
         self.export_btn = QtWidgets.QPushButton("Экспорт по статусу")
         btns.addWidget(self.new_btn)
         btns.addWidget(self.status_btn)
+        btns.addWidget(self.add_item_btn)
+        btns.addWidget(self.edit_item_btn)
+        btns.addWidget(self.delete_item_btn)
+        btns.addWidget(self.delete_order_btn)
         btns.addWidget(self.export_btn)
         self.layout().addLayout(btns)
 
         self.new_btn.clicked.connect(self.create_order)
         self.status_btn.clicked.connect(self.change_status)
+        self.add_item_btn.clicked.connect(self.add_item_to_order)
+        self.edit_item_btn.clicked.connect(self.edit_item)
+        self.delete_item_btn.clicked.connect(self.delete_item)
+        self.delete_order_btn.clicked.connect(self.delete_order)
         self.export_btn.clicked.connect(self.export_by_status)
+
+        # Shortcuts
+        QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+N"), self, activated=self.create_order)
+        QtWidgets.QShortcut(QtGui.QKeySequence("F2"), self, activated=self.change_status)
+        QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+I"), self, activated=self.add_item_to_order)
+        QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+E"), self, activated=self.export_by_status)
+        QtWidgets.QShortcut(QtGui.QKeySequence("Delete"), self, activated=self.delete_order)
 
         self.refresh()
 
-    def current_id(self) -> Optional[int]:
-        rows = self.table.selectionModel().selectedRows()
+    def current_order_id(self) -> Optional[int]:
+        rows = self.orders_table.selectionModel().selectedRows()
         if not rows:
             return None
         r = rows[0].row()
-        return int(self.table.item(r, 0).text())
+        return int(self.orders_table.item(r, 0).text())
+
+    def current_item_id(self) -> Optional[int]:
+        rows = self.items_table.selectionModel().selectedRows()
+        if not rows:
+            return None
+        r = rows[0].row()
+        return int(self.items_table.item(r, 0).text())
 
     def refresh(self):
         data = list_mkl_orders(self.status_combo.currentText(), self.search.text())
-        self.table.setRowCount(0)
+        self.orders_table.setRowCount(0)
         for row in data:
             items = get_mkl_order_items(int(row["id"]))
             summary = "; ".join(
                 f'{i["product_name"]} SPH:{_val(i["sph"])} CYL:{_val(i["cyl"])} AX:{_val(i["ax"])} BC:{_val(i["bc"])} x{i["qty"]}'
                 for i in items
             )
-            r = self.table.rowCount()
-            self.table.insertRow(r)
-            self.table.setItem(r, 0, QtWidgets.QTableWidgetItem(str(row["id"])))
-            self.table.setItem(r, 1, QtWidgets.QTableWidgetItem(row["full_name"]))
-            self.table.setItem(r, 2, QtWidgets.QTableWidgetItem(row["phone"] or ""))
+            r = self.orders_table.rowCount()
+            self.orders_table.insertRow(r)
+            self.orders_table.setItem(r, 0, QtWidgets.QTableWidgetItem(str(row["id"])))
+            self.orders_table.setItem(r, 1, QtWidgets.QTableWidgetItem(row["full_name"]))
+            self.orders_table.setItem(r, 2, QtWidgets.QTableWidgetItem(row["phone"] or ""))
             status_item = QtWidgets.QTableWidgetItem(row["status"])
-            # Color highlight
             color = {
                 "Не заказан": QtCore.Qt.yellow,
                 "Заказан": QtCore.Qt.cyan,
@@ -504,8 +546,29 @@ class OrdersPanel(QtWidgets.QGroupBox):
                 "Вручен": QtCore.Qt.green,
             }.get(row["status"], QtCore.Qt.white)
             status_item.setBackground(color)
-            self.table.setItem(r, 3, status_item)
-            self.table.setItem(r, 4, QtWidgets.QTableWidgetItem(summary))
+            self.orders_table.setItem(r, 3, status_item)
+            self.orders_table.setItem(r, 4, QtWidgets.QTableWidgetItem(summary))
+        if self.orders_table.rowCount():
+            self.orders_table.selectRow(0)
+        self.refresh_items()
+
+    def refresh_items(self):
+        oid = self.current_order_id()
+        self.items_table.setRowCount(0)
+        if not oid:
+            return
+        items = get_mkl_order_items(oid)
+        for i in items:
+            r = self.items_table.rowCount()
+            self.items_table.insertRow(r)
+            self.items_table.setItem(r, 0, QtWidgets.QTableWidgetItem(str(i["id"])))
+            self.items_table.setItem(r, 1, QtWidgets.QTableWidgetItem(i["product_name"]))
+            self.items_table.setItem(r, 2, QtWidgets.QTableWidgetItem(_val(i["sph"])))
+            self.items_table.setItem(r, 3, QtWidgets.QTableWidgetItem(_val(i["cyl"])))
+            self.items_table.setItem(r, 4, QtWidgets.QTableWidgetItem(_val(i["ax"])))
+            self.items_table.setItem(r, 5, QtWidgets.QTableWidgetItem(_val(i["bc"])))
+            self.items_table.setItem(r, 6, QtWidgets.QTableWidgetItem(str(i["qty"])))
+            self.items_table.setItem(r, 7, QtWidgets.QTableWidgetItem(""))
 
     def create_order(self):
         dlg = MKLOrderDialog(self)
@@ -516,7 +579,7 @@ class OrdersPanel(QtWidgets.QGroupBox):
             self.refresh()
 
     def change_status(self):
-        oid = self.current_id()
+        oid = self.current_order_id()
         if not oid:
             return
         status, ok = QtWidgets.QInputDialog.getItem(self, "Статус", "Выберите статус:", MKL_STATUSES, 0, False)
@@ -526,31 +589,78 @@ class OrdersPanel(QtWidgets.QGroupBox):
         self.refresh()
 
     def add_item_to_order(self):
-        oid = self.current_id()
+        oid = self.current_order_id()
         if not oid:
             return
         dlg = MKLAddItemDialog(self)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             d = dlg.data()
             add_mkl_order_item(oid, d["product_id"], d["sph"], d["cyl"], d["ax"], d["bc"], d["qty"])
-            self.refresh()
+            self.refresh_items()
+
+    def edit_item(self):
+        from database import update_mkl_order_item, list_mkl_products
+        iid = self.current_item_id()
+        oid = self.current_order_id()
+        if not iid or not oid:
+            return
+        r = self.items_table.currentRow()
+        # prefill dialog
+        dlg = MKLAddItemDialog(self)
+        # select product by name match
+        prod_name = self.items_table.item(r, 1).text()
+        for idx in range(dlg.product_combo.count()):
+            if dlg.product_combo.itemText(idx) == prod_name:
+                dlg.product_combo.setCurrentIndex(idx)
+                break
+        # set values
+        dlg.sph.setValue(self._to_float(self.items_table.item(r, 2).text(), 0.0))
+        cyl_text = self.items_table.item(r, 3).text()
+        if cyl_text == "":
+            dlg.cyl_none.setChecked(True)
+        else:
+            dlg.cyl.setValue(self._to_float(cyl_text, 0.0))
+        ax_text = self.items_table.item(r, 4).text()
+        if ax_text == "":
+            dlg.ax_none.setChecked(True)
+        else:
+            dlg.ax.setValue(int(self._to_float(ax_text, 0)))
+        bc_text = self.items_table.item(r, 5).text()
+        if bc_text == "":
+            dlg.bc_none.setChecked(True)
+        else:
+            dlg.bc.setValue(self._to_float(bc_text, 8.6))
+        dlg.qty.setValue(int(self._to_float(self.items_table.item(r, 6).text(), 1)))
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            d = dlg.data()
+            update_mkl_order_item(iid, d["product_id"], d["sph"], d["cyl"], d["ax"], d["bc"], d["qty"])
+            self.refresh_items()
+
+    def delete_item(self):
+        from database import delete_mkl_order_item
+        iid = self.current_item_id()
+        if not iid:
+            return
+        if QtWidgets.QMessageBox.question(self, "Удалить", "Удалить позицию?") == QtWidgets.QMessageBox.Yes:
+            delete_mkl_order_item(iid)
+            self.refresh_items()
 
     def delete_order(self):
-        oid = self.current_id()
+        oid = self.current_order_id()
         if not oid:
             return
         if QtWidgets.QMessageBox.question(self, "Удалить", "Удалить заказ и позиции?") == QtWidgets.QMessageBox.Yes:
             delete_mkl_order(oid)
             self.refresh()
 
-    def _context_menu(self, pos):
+    def _orders_menu(self, pos):
         menu = QtWidgets.QMenu(self)
         act_new = menu.addAction("Новый заказ")
         act_status = menu.addAction("Изменить статус")
         act_add_item = menu.addAction("Добавить позицию")
         act_delete = menu.addAction("Удалить заказ")
         act_export = menu.addAction("Экспорт по статусу")
-        action = menu.exec_(self.table.mapToGlobal(pos))
+        action = menu.exec_(self.orders_table.mapToGlobal(pos))
         if action == act_new:
             self.create_order()
         elif action == act_status:
@@ -562,7 +672,21 @@ class OrdersPanel(QtWidgets.QGroupBox):
         elif action == act_export:
             self.export_by_status()
 
+    def _items_menu(self, pos):
+        menu = QtWidgets.QMenu(self)
+        act_add = menu.addAction("Добавить позицию")
+        act_edit = menu.addAction("Изменить позицию")
+        act_delete = menu.addAction("Удалить позицию")
+        action = menu.exec_(self.items_table.mapToGlobal(pos))
+        if action == act_add:
+            self.add_item_to_order()
+        elif action == act_edit:
+            self.edit_item()
+        elif action == act_delete:
+            self.delete_item()
+
     def export_by_status(self):
+        from utils_export import export_txt, export_csv, export_xlsx
         status, ok = QtWidgets.QInputDialog.getItem(self, "Экспорт", "Статус для экспорта:", MKL_STATUSES, 0, False)
         if not ok:
             return
@@ -570,29 +694,50 @@ class OrdersPanel(QtWidgets.QGroupBox):
         if not data:
             QtWidgets.QMessageBox.information(self, "Экспорт", "Нет данных для экспорта.")
             return
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Сохранить как", f"mkl_{status}.txt", "Text (*.txt)")
+        fmt, ok = QtWidgets.QInputDialog.getItem(self, "Формат", "Выберите формат:", ["TXT", "CSV", "XLSX"], 0, False)
+        if not ok:
+            return
+        default_name = f"mkl_{status.lower()}.{fmt.lower()}"
+        filters = ";;".join(["Text (*.txt)", "CSV (*.csv)", "Excel (*.xlsx)"])
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Сохранить как", default_name, filters)
         if not path:
             return
-        with open(path, "w", encoding="utf-8") as f:
-            for row in data:
-                items = get_mkl_order_items(int(row["id"]))
-                for i in items:
-                    line = "|".join(
-                        [
-                            str(row["id"]),
-                            row["full_name"],
-                            row["phone"] or "",
-                            row["status"],
-                            i["product_name"],
-                            _val(i["sph"]),
-                            _val(i["cyl"]),
-                            _val(i["ax"]),
-                            _val(i["bc"]),
-                            str(i["qty"]),
-                        ]
-                    )
-                    f.write(line + "\n")
-        QtWidgets.QMessageBox.information(self, "Экспорт", f"Экспортировано в файл:\n{path}")
+        rows = []
+        # header
+        rows.append(["OrderID", "Клиент", "Телефон", "Статус", "Товар", "SPH", "CYL", "AX", "BC", "Qty"])
+        for row in data:
+            items = get_mkl_order_items(int(row["id"]))
+            for i in items:
+                rows.append(
+                    [
+                        str(row["id"]),
+                        row["full_name"],
+                        row["phone"] or "",
+                        row["status"],
+                        i["product_name"],
+                        _val(i["sph"]),
+                        _val(i["cyl"]),
+                        _val(i["ax"]),
+                        _val(i["bc"]),
+                        str(i["qty"]),
+                    ]
+                )
+        try:
+            if fmt == "TXT":
+                export_txt(path, rows, sep="|")
+            elif fmt == "CSV":
+                export_csv(path, rows)
+            else:
+                export_xlsx(path, rows)
+            QtWidgets.QMessageBox.information(self, "Экспорт", f"Экспортировано в файл:\n{path}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка экспорта", str(e))
+
+    def _to_float(self, s: str, default: float) -> float:
+        try:
+            return float(s)
+        except Exception:
+            return default
 
 
 def _val(v) -> str:

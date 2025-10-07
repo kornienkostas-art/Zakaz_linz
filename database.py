@@ -1,8 +1,11 @@
 import sqlite3
 from pathlib import Path
 from typing import List, Tuple, Optional, Any, Dict
+import shutil
+from datetime import datetime
 
 DB_PATH = Path(__file__).with_name("orders_management.db")
+BACKUP_DIR = Path(__file__).with_name("backups")
 
 
 def get_connection() -> sqlite3.Connection:
@@ -107,6 +110,39 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+    # auto-backup on first init of session
+    try:
+        backup_db()
+    except Exception:
+        # non-fatal
+        pass
+
+
+def backup_db(target_path: Optional[str] = None) -> str:
+    """
+    Create a timestamped backup of the database into backups/ folder.
+    Returns path to backup file.
+    """
+    if not DB_PATH.exists():
+        return ""
+    BACKUP_DIR.mkdir(exist_ok=True)
+    if target_path is None:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        target = BACKUP_DIR / f"orders_management_{ts}.db"
+    else:
+        target = Path(target_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DB_PATH, target)
+    return target.as_posix()
+
+
+def restore_db(from_path: str) -> None:
+    """Restore the main DB from a backup file."""
+    src = Path(from_path)
+    if not src.exists():
+        raise FileNotFoundError(from_path)
+    shutil.copy2(src, DB_PATH)
 
 
 # Helper CRUD functions for MKL
@@ -215,6 +251,25 @@ def add_mkl_order_item(order_id: int, product_id: int, sph: Optional[float], cyl
     iid = cur.lastrowid
     conn.close()
     return int(iid)
+
+
+def update_mkl_order_item(item_id: int, product_id: int, sph: Optional[float], cyl: Optional[float], ax: Optional[int], bc: Optional[float], qty: int) -> None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE mkl_order_items SET product_id=?, sph=?, cyl=?, ax=?, bc=?, qty=? WHERE id=?",
+        (product_id, sph, cyl, ax, bc, qty, item_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_mkl_order_item(item_id: int) -> None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM mkl_order_items WHERE id=?", (item_id,))
+    conn.commit()
+    conn.close()
 
 
 def delete_mkl_order(order_id: int) -> None:
