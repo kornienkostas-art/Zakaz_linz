@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QMenu,
 )
+from PySide6.QtWidgets import QHeaderView
 
 try:
     # Optional Material theme (pip install qt-material)
@@ -270,55 +271,13 @@ class CustomerDialog(QDialog):
 
 
 class ProductDialog(QDialog):
-    def __init__(
-        self,
-        parent=None,
-        name: str = "",
-        sph: float = 0.0,
-        cyl: Optional[float] = None,
-        ax: Optional[int] = None,
-        bc: Optional[float] = None,
-        quantity: int = 1,
-    ):
+    def __init__(self, parent=None, name: str = ""):
         super().__init__(parent)
         self.setWindowTitle("Товар (МКЛ)")
         layout = QFormLayout(self)
 
         self.name_edit = QLineEdit(name)
-
-        self.sph_spin = QDoubleSpinBox()
-        self.sph_spin.setRange(-30.0, 30.0)
-        self.sph_spin.setSingleStep(0.25)
-        self.sph_spin.setValue(sph)
-
-        self.cyl_spin = QDoubleSpinBox()
-        self.cyl_spin.setRange(-10.0, 10.0)
-        self.cyl_spin.setSingleStep(0.25)
-        self.cyl_spin.setSpecialValueText("")  # пусто
-        self.cyl_spin.setValue(cyl if cyl is not None else self.cyl_spin.minimum())
-
-        self.ax_spin = QSpinBox()
-        self.ax_spin.setRange(0, 180)
-        self.ax_spin.setSpecialValueText("")
-        self.ax_spin.setValue(ax if ax is not None else self.ax_spin.minimum())
-
-        self.bc_spin = QDoubleSpinBox()
-        self.bc_spin.setRange(8.0, 9.0)
-        self.bc_spin.setSingleStep(0.1)
-        self.bc_spin.setSpecialValueText("")
-        self.bc_spin.setDecimals(2)
-        self.bc_spin.setValue(bc if bc is not None else self.bc_spin.minimum())
-
-        self.qty_spin = QSpinBox()
-        self.qty_spin.setRange(1, 20)
-        self.qty_spin.setValue(quantity)
-
         layout.addRow("Название", self.name_edit)
-        layout.addRow("SPH", self.sph_spin)
-        layout.addRow("CYL", self.cyl_spin)
-        layout.addRow("AX", self.ax_spin)
-        layout.addRow("BC", self.bc_spin)
-        layout.addRow("Количество", self.qty_spin)
 
         btns = QHBoxLayout()
         self.save_btn = QPushButton("Сохранить")
@@ -330,24 +289,8 @@ class ProductDialog(QDialog):
         self.save_btn.clicked.connect(self.accept)
         self.cancel_btn.clicked.connect(self.reject)
 
-    def values(self) -> Tuple[str, float, Optional[float], Optional[int], Optional[float], int]:
-        name = self.name_edit.text().strip()
-        sph = float(self.sph_spin.value())
-
-        cyl = float(self.cyl_spin.value())
-        if cyl == self.cyl_spin.minimum() and self.cyl_spin.specialValueText():
-            cyl = None
-
-        ax = int(self.ax_spin.value())
-        if ax == self.ax_spin.minimum() and self.ax_spin.specialValueText():
-            ax = None
-
-        bc = float(self.bc_spin.value())
-        if bc == self.bc_spin.minimum() and self.bc_spin.specialValueText():
-            bc = None
-
-        qty = int(self.qty_spin.value())
-        return name, sph, cyl, ax, bc, qty
+    def value(self) -> str:
+        return self.name_edit.text().strip()
 
 
 class MKLOrderDialog(QDialog):
@@ -660,16 +603,11 @@ class MKLTab(QWidget):
 
         add_customer_action = QAction("Добавить клиента", self)
         del_customer_action = QAction("Удалить клиента", self)
-        add_product_action = QAction("Добавить товар", self)
-        del_product_action = QAction("Удалить товар", self)
         add_order_action = QAction("Создать заказ", self)
         export_action = QAction("Экспорт заказов по статусу", self)
 
         toolbar.addAction(add_customer_action)
         toolbar.addAction(del_customer_action)
-        toolbar.addSeparator()
-        toolbar.addAction(add_product_action)
-        toolbar.addAction(del_product_action)
         toolbar.addSeparator()
         toolbar.addAction(add_order_action)
         toolbar.addSeparator()
@@ -695,51 +633,36 @@ class MKLTab(QWidget):
         # Customers table
         self.customers_table = QTableWidget(0, 3)
         self.customers_table.setHorizontalHeaderLabels(["ID", "ФИО", "Телефон"])
-        self.customers_table.horizontalHeader().setStretchLastSection(True)
+        self.customers_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.customers_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.customers_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.customers_table.setWordWrap(True)
         # Context menu for customers
         self.customers_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customers_table.customContextMenuRequested.connect(self.customers_context_menu)
 
-        # Products table
-        self.products_table = QTableWidget(0, 7)
-        self.products_table.setHorizontalHeaderLabels(["ID", "Название", "SPH", "CYL", "AX", "BC", "Кол-во"])
-        self.products_table.horizontalHeader().setStretchLastSection(True)
-        self.products_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.products_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        # Context menu for products
-        self.products_table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.products_table.customContextMenuRequested.connect(self.products_context_menu)
-
         # Orders table
         self.orders_table = QTableWidget(0, 6)
         self.orders_table.setHorizontalHeaderLabels(["ID", "Клиент", "Товар", "Статус", "Создан", "Действия"])
-        self.orders_table.horizontalHeader().setStretchLastSection(True)
+        self.orders_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.orders_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.orders_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.orders_table.setWordWrap(True)
 
         mkl_group_top = QGroupBox("Клиенты")
         l_top = QVBoxLayout(mkl_group_top)
         l_top.addWidget(self.customers_table)
-
-        mkl_group_mid = QGroupBox("Товары (МКЛ)")
-        l_mid = QVBoxLayout(mkl_group_mid)
-        l_mid.addWidget(self.products_table)
 
         mkl_group_bottom = QGroupBox("Заказы (МКЛ)")
         l_bottom = QVBoxLayout(mkl_group_bottom)
         l_bottom.addWidget(self.orders_table)
 
         splitter.addWidget(mkl_group_top)
-        splitter.addWidget(mkl_group_mid)
         splitter.addWidget(mkl_group_bottom)
 
         # Connections
         add_customer_action.triggered.connect(self.add_customer)
         del_customer_action.triggered.connect(self.delete_selected_customer)
-        add_product_action.triggered.connect(self.add_product)
-        del_product_action.triggered.connect(self.delete_selected_product)
         add_order_action.triggered.connect(self.add_order)
         export_action.triggered.connect(self.export_orders)
 
@@ -747,7 +670,6 @@ class MKLTab(QWidget):
         self.status_filter.currentIndexChanged.connect(self.refresh_orders)
 
         self.customers_table.cellDoubleClicked.connect(self.edit_customer)
-        self.products_table.cellDoubleClicked.connect(self.edit_product)
         self.orders_table.cellClicked.connect(self.handle_order_cell_click)
 
         self.refresh_all()
