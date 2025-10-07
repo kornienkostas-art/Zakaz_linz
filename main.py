@@ -1,6 +1,9 @@
 import sys
 from PyQt5 import QtWidgets
-from qt_material import apply_stylesheet
+try:
+    from qt_material import apply_stylesheet
+except Exception:
+    apply_stylesheet = None
 
 from database import init_db
 from mkl_interface import MKLInterface
@@ -11,8 +14,9 @@ def main():
     init_db()
 
     app = QtWidgets.QApplication(sys.argv)
-    # Яркая тема интерфейса
-    apply_stylesheet(app, theme="light_cyan.xml")
+    # Яркая тема интерфейса (если модуль qt_material установлен)
+    if apply_stylesheet:
+        apply_stylesheet(app, theme="light_cyan.xml")
 
     win = QtWidgets.QMainWindow()
     win.setWindowTitle("Система управления заказами")
