@@ -23,16 +23,29 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
-from .db import Database
-from .validators import (
-    validate_phone,
-    validate_sph,
-    validate_cyl,
-    validate_ax,
-    validate_bc,
-    validate_qty,
-    normalize_empty_str,
-)
+# Импорты пакета или локальные при запуске скриптов напрямую
+try:
+    from .db import Database
+    from .validators import (
+        validate_phone,
+        validate_sph,
+        validate_cyl,
+        validate_ax,
+        validate_bc,
+        validate_qty,
+        normalize_empty_str,
+    )
+except ImportError:
+    from db import Database
+    from validators import (
+        validate_phone,
+        validate_sph,
+        validate_cyl,
+        validate_ax,
+        validate_bc,
+        validate_qty,
+        normalize_empty_str,
+    )
 
 
 MKL_STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
