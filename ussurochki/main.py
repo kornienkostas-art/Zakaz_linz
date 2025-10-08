@@ -1,11 +1,23 @@
 import os
 import sys
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QApplication
 
-from .db import Database
-from .utils import ensure_app_data_dir, ThemeManager
-from .ui.main_window import MainWindow
+# Support running both:
+# - python -m ussurochki.main
+# - python ussurochki/main.py
+try:
+    from .db import Database
+    from .utils import ensure_app_data_dir, ThemeManager
+    from .ui.main_window import MainWindow
+except ImportError:
+    # If launched as a script, add project root to sys.path and import absolutely
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+    if PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, PROJECT_ROOT)
+    from ussurochki.db import Database  # type: ignore
+    from ussurochki.utils import ensure_app_data_dir, ThemeManager  # type: ignore
+    from ussurochki.ui.main_window import MainWindow  # type: ignore
 
 
 def main():
