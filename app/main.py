@@ -168,12 +168,16 @@ class Header(QtWidgets.QWidget):
         layout.setSpacing(16)
 
         self.logo = LogoWidget()
+        # Базовый размер логотипа
+        self.logo.setMinimumSize(84, 84)
+        self.logo.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+
         self.title = QtWidgets.QLabel("УссурОЧки.рф")
         self.title.setObjectName("Title")
         self.subtitle = QtWidgets.QLabel("Панель управления заказами")
         self.subtitle.setObjectName("Subtitle")
 
-        # Try to apply brand font if available
+        # Применить брендовый шрифт при наличии
         self.apply_brand_font()
 
         text_box = QtWidgets.QVBoxLayout()
@@ -190,7 +194,7 @@ class Header(QtWidgets.QWidget):
         self.settings_btn.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
         layout.addWidget(self.settings_btn, 0, QtCore.Qt.AlignTop)
 
-        # Signal placeholder
+        # Сигнал-заглушка
         self.settings_btn.clicked.connect(self.on_settings)
 
     def apply_brand_font(self):
@@ -200,6 +204,14 @@ class Header(QtWidgets.QWidget):
             f.setPointSize(24)
             f.setWeight(QtGui.QFont.DemiBold)
             self.title.setFont(f)
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(event)
+        # Адаптация размера логотипа в зависимости от ширины заголовка
+        # При фуллскрине логотип увеличится, но не будет чрезмерным
+        width = max( self.width(), 1 )
+        size = int(max(84, min(160, width * 0.10)))
+        self.logo.setFixedSize(size, size)
 
     @QtCore.Slot()
     def on_settings(self):
@@ -253,7 +265,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("УссурОЧки.рф — Управление заказами")
         self.setMinimumSize(720, 480)
 
-        # Central container with card-like look
+        # Центральный контейнер
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
 
@@ -261,22 +273,20 @@ class MainWindow(QtWidgets.QMainWindow):
         root.setContentsMargins(24, 24, 24, 24)
         root.setSpacing(0)
 
-        # Center the card
+        # Дать карточке возможность растягиваться во фуллскрине
         card_holder = QtWidgets.QHBoxLayout()
-        card_holder.addStretch()
         self.card = Card()
-        self.card.setFixedWidth(640)
+        self.card.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         card_holder.addWidget(self.card)
-        card_holder.addStretch()
 
         root.addLayout(card_holder)
 
-        # Status bar subtle message
+        # Статус-бар
         status = QtWidgets.QStatusBar()
         status.showMessage("Готово")
         self.setStatusBar(status)
 
-        # Apply stylesheet
+        # Применить стили
         self.apply_styles()
 
     def apply_styles(self):
