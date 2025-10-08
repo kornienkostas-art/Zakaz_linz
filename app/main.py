@@ -1,4 +1,5 @@
 import sys
+import math
 from PySide6 import QtCore, QtGui, QtWidgets
 
 
@@ -32,74 +33,76 @@ class LogoWidget(QtWidgets.QWidget):
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        try:
+            rect = self.rect().adjusted(8, 8, -8, -8)
+            cx = rect.center().x()
+            cy = rect.center().y()
+            r = min(rect.width(), rect.height()) / 2
 
-        rect = self.rect().adjusted(8, 8, -8, -8)
-        cx = rect.center().x()
-        cy = rect.center().y()
-        r = min(rect.width(), rect.height()) / 2
+            # Concentric rings
+            for i, w in enumerate((2.5, 1.5, 1.0)):
+                rr = r - i * 4
+                pen = QtGui.QPen(ACCENT, w)
+                pen.setCosmetic(True)
+                painter.setPen(pen)
+                painter.setBrush(QtCore.Qt.NoBrush)
+                painter.drawEllipse(QtCore.QPointF(cx, cy), rr, rr)
 
-        # Concentric rings
-        for i, w in enumerate((2.5, 1.5, 1.0)):
-            rr = r - i * 4
-            pen = QtGui.QPen(ACCENT, w)
-            pen.setCosmetic(True)
-            painter.setPen(pen)
+            # Subtle radial ticks
+            painter.setPen(QtGui.QPen(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 120), 1, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+            for angle in range(0, 360, 30):
+                a = math.radians(angle)
+                p1 = QtCore.QPointF(cx + (r - 6) * math.cos(a), cy + (r - 6) * math.sin(a))
+                p2 = QtCore.QPointF(cx + (r - 10) * math.cos(a), cy + (r - 10) * math.sin(a))
+                painter.drawLine(p1, p2)
+
+            # Inner grid
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255, 40), 1))
+            grid = rect.adjusted(10, 10, -10, -10)
+            step = grid.width() / 4
+            for i in range(1, 4):
+                # vertical
+                x = grid.left() + i * step
+                painter.drawLine(QtCore.QPointF(x, grid.top()), QtCore.QPointF(x, grid.bottom()))
+                # horizontal
+                y = grid.top() + i * step
+                painter.drawLine(QtCore.QPointF(grid.left(), y), QtCore.QPointF(grid.right(), y))
+
+            # Monogram for "У" with strict geometry and inner cut
+            path = QtGui.QPainterPath()
+            w = rect.width()
+            h = rect.height()
+            x = rect.left()
+            y = rect.top()
+
+            # Outer U
+            path.moveTo(x + w * 0.28, y + h * 0.22)
+            path.lineTo(x + w * 0.28, y + h * 0.68)
+            path.quadTo(x + w * 0.50, y + h * 0.88, x + w * 0.72, y + h * 0.68)
+            path.lineTo(x + w * 0.72, y + h * 0.22)
+
+            # Inner cut
+            cut = QtGui.QPainterPath()
+            cut.moveTo(x + w * 0.40, y + h * 0.32)
+            cut.lineTo(x + w * 0.40, y + h * 0.60)
+            cut.quadTo(x + w * 0.50, y + h * 0.70, x + w * 0.60, y + h * 0.60)
+            cut.lineTo(x + w * 0.60, y + h * 0.32)
+
+            painter.setPen(QtGui.QPen(ACCENT, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
             painter.setBrush(QtCore.Qt.NoBrush)
-            painter.drawEllipse(QtCore.QPointF(cx, cy), rr, rr)
+            painter.drawPath(path)
 
-        # Subtle radial ticks
-        painter.setPen(QtGui.QPen(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 120), 1, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
-        for angle in range(0, 360, 30):
-            a = QtCore.qDegreesToRadians(angle)
-            p1 = QtCore.QPointF(cx + (r - 6) * QtCore.qCos(a), cy + (r - 6) * QtCore.qSin(a))
-            p2 = QtCore.QPointF(cx + (r - 10) * QtCore.qCos(a), cy + (r - 10) * QtCore.qSin(a))
-            painter.drawLine(p1, p2)
+            painter.setPen(QtGui.QPen(QtGui.QColor(DARK_BG), 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
+            painter.drawPath(cut)
 
-        # Inner grid
-        painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255, 40), 1))
-        grid = rect.adjusted(10, 10, -10, -10)
-        step = grid.width() / 4
-        for i in range(1, 4):
-            # vertical
-            x = grid.left() + i * step
-            painter.drawLine(QtCore.QPointF(x, grid.top()), QtCore.QPointF(x, grid.bottom()))
-            # horizontal
-            y = grid.top() + i * step
-            painter.drawLine(QtCore.QPointF(grid.left(), y), QtCore.QPointF(grid.right(), y))
-
-        # Monogram for "У" with strict geometry and inner cut
-        path = QtGui.QPainterPath()
-        w = rect.width()
-        h = rect.height()
-        x = rect.left()
-        y = rect.top()
-
-        # Outer U
-        path.moveTo(x + w * 0.28, y + h * 0.22)
-        path.lineTo(x + w * 0.28, y + h * 0.68)
-        path.quadTo(x + w * 0.50, y + h * 0.88, x + w * 0.72, y + h * 0.68)
-        path.lineTo(x + w * 0.72, y + h * 0.22)
-
-        # Inner cut
-        cut = QtGui.QPainterPath()
-        cut.moveTo(x + w * 0.40, y + h * 0.32)
-        cut.lineTo(x + w * 0.40, y + h * 0.60)
-        cut.quadTo(x + w * 0.50, y + h * 0.70, x + w * 0.60, y + h * 0.60)
-        cut.lineTo(x + w * 0.60, y + h * 0.32)
-
-        painter.setPen(QtGui.QPen(ACCENT, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-        painter.setBrush(QtCore.Qt.NoBrush)
-        painter.drawPath(path)
-
-        painter.setPen(QtGui.QPen(QtGui.QColor(DARK_BG), 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-        painter.drawPath(cut)
-
-        # Diagonal detail stroke
-        painter.setPen(QtGui.QPen(ACCENT, 2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
-        painter.drawLine(
-            QtCore.QPointF(x + w * 0.30, y + h * 0.24),
-            QtCore.QPointF(x + w * 0.70, y + h * 0.24)
-        )
+            # Diagonal detail stroke
+            painter.setPen(QtGui.QPen(ACCENT, 2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+            painter.drawLine(
+                QtCore.QPointF(x + w * 0.30, y + h * 0.24),
+                QtCore.QPointF(x + w * 0.70, y + h * 0.24)
+            )
+        finally:
+            painter.end()
 
 
 class Header(QtWidgets.QWidget):
@@ -251,8 +254,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def enable_high_dpi():
-    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
-    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
+    # Qt6 включает high-DPI по умолчанию; явные атрибуты устарели.
+    # Оставляем функцию для потенциальной дальнейшей настройки.
+    pass
 
 
 def main():
