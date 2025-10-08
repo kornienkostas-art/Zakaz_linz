@@ -90,6 +90,25 @@ class MainWindow(ttk.Frame):
         # Separator
         self.style.configure("TSeparator", background=border)
 
+        # Table (Treeview) style
+        self.style.configure(
+            "Data.Treeview",
+            background=card_bg,
+            fieldbackground=card_bg,
+            foreground=text_primary,
+            rowheight=28,
+            bordercolor=border,
+            borderwidth=1,
+        )
+        self.style.configure(
+            "Data.Treeview.Heading",
+            background=button_bg,
+            foreground=text_primary,
+            font=("Segoe UI", 11, "bold"),
+            bordercolor=border,
+            borderwidth=1,
+        )
+
         # Save some colors for drawing
         self._colors = {
             "bg": bg,
@@ -148,15 +167,115 @@ class MainWindow(ttk.Frame):
         )
         footer.grid(row=4, column=0, sticky="w", pady=(20, 0))
 
-    # Placeholder actions
+    # Actions
     def _on_order_mkl(self):
-        messagebox.showinfo("Заказ МКЛ", "Раздел 'Заказ МКЛ' будет реализован позже.")
+        MKLOrdersWindow(self.master)
 
     def _on_order_meridian(self):
         messagebox.showinfo("Заказ Меридиан", "Раздел 'Заказ Меридиан' будет реализован позже.")
 
     def _on_settings(self):
         messagebox.showinfo("Настройки", "Раздел 'Настройки' будет реализован позже.")
+
+
+class MKLOrdersWindow(tk.Toplevel):
+    """Окно 'Заказ МКЛ' с таблицей данных."""
+    COLUMNS = (
+        "fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty"
+    )
+    HEADERS = {
+        "fio": "ФИО клиента",
+        "phone": "Телефон",
+        "product": "Товар",
+        "sph": "Sph",
+        "cyl": "Cyl",
+        "ax": "Ax",
+        "bc": "Bc",
+        "qty": "Количество",
+    }
+
+    def __init__(self, master: tk.Tk):
+        super().__init__(master)
+        self.title("Заказ МКЛ")
+        self.configure(bg="#0f172a")
+        self.geometry("900x480")
+        self.minsize(760, 420)
+        # Center relative to parent
+        self.update_idletasks()
+        x = master.winfo_rootx() + 40
+        y = master.winfo_rooty() + 40
+        self.geometry(f"+{x}+{y}")
+
+        # Close behavior
+        self.transient(master)
+        self.grab_set()  # modal-like
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+        # Build UI
+        self._build_table()
+
+    def _build_table(self):
+        container = ttk.Frame(self, style="Card.TFrame", padding=16)
+        container.pack(fill="both", expand=True)
+
+        header = ttk.Label(container, text="Заказ МКЛ • Таблица данных", style="Title.TLabel")
+        sub = ttk.Label(
+            container,
+            text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, Bc, Количество",
+            style="Subtitle.TLabel",
+        )
+        header.pack(anchor="w")
+        sub.pack(anchor="w", pady=(4, 12))
+
+        ttk.Separator(container).pack(fill="x", pady=(8, 12))
+
+        # Treeview with scrollbars
+        table_frame = ttk.Frame(container, style="Card.TFrame")
+        table_frame.pack(fill="both", expand=True)
+
+        columns = self.COLUMNS
+        self.tree = ttk.Treeview(
+            table_frame,
+            columns=columns,
+            show="headings",
+            style="Data.Treeview",
+        )
+
+        # Define headings and columns widths
+        for col in columns:
+            text = self.HEADERS[col]
+            self.tree.heading(col, text=text, anchor="w")
+            width = {
+                "fio": 180,
+                "phone": 120,
+                "product": 160,
+                "sph": 80,
+                "cyl": 80,
+                "ax": 80,
+                "bc": 80,
+                "qty": 100,
+            }[col]
+            self.tree.column(col, width=width, anchor="w", stretch=True)
+
+        # Scrollbars
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+
+        # Hint footer
+        hint = ttk.Label(
+            container,
+            text="Данные пока пустые. Добавление/редактирование и локальная БД (SQLite) подключим на следующих шагах.",
+            style="Subtitle.TLabel",
+        )
+        hint.pack(anchor="w", pady=(12, 0))
 
 
 def main():
