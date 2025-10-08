@@ -2,7 +2,7 @@ import re
 from typing import Optional
 
 
-PHONE_RE = re.compile(r"^(\+7|8)\d{10}$")
+PHONE_RE = re.compile(r"^(\+7|8)-\d{3}-\d{3}-\d{2}-\d{2}$")
 
 
 def validate_phone(phone: str) -> bool:
