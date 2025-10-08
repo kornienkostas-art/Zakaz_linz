@@ -200,6 +200,11 @@ class MeridianOrdersPage(QWidget):
         if dlg.exec():
             self.reload()
 
+    def _new_order(self) -> None:
+        dlg = MeridianOrderDialog(self.conn, None, self)
+        if dlg.exec():
+            self.reload()
+
     def _open_context_menu(self, pos: QPoint) -> None:
         menu = QMenu(self)
         open_act = menu.addAction("Открыть")
