@@ -164,6 +164,45 @@ class Card(QtWidgets.QFrame):
         layout.addWidget(self.actions)
 
 
+class AddClientDialog(QtWidgets.QDialog):
+    """Диалог добавления клиента: ФИО и телефон. Телефон отображаем в формате 8-XXX-XXX-XX-XX."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Добавить клиента")
+        self.setModal(True)
+        self.resize(420, 180)
+
+        layout = QtWidgets.QFormLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        self.name_edit = QtWidgets.QLineEdit()
+        self.name_edit.setPlaceholderText("ФИО клиента")
+        self.phone_edit = QtWidgets.QLineEdit()
+        self.phone_edit.setPlaceholderText("Телефон (можно вводить произвольно)")
+
+        layout.addRow("ФИО:", self.name_edit)
+        layout.addRow("Телефон:", self.phone_edit)
+
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_data(self):
+        return self.name_edit.text().strip(), self.phone_edit.text().strip()
+
+    @staticmethod
+    def format_phone(raw: str) -> str:
+        digits = "".join(ch for ch in raw if ch.isdigit())
+        if not digits:
+            return ""
+        # Берём последние 10 цифр и добавляем префикс 8
+        last10 = digits[-10:].rjust(10, "0")
+        groups = [last10[0:3], last10[3:6], last10[6:8], last10[8:10]]
+        return f"8-{groups[0]}-{groups[1]}-{groups[2]}-{groups[3]}"
+
+
 class MklOrdersWindow(QtWidgets.QMainWindow):
     """Окно 'Заказы МКЛ' — таблица клиентов и заказов, с кнопками действий (заглушки)."""
     def __init__(self, parent=None):
@@ -225,10 +264,10 @@ class MklOrdersWindow(QtWidgets.QMainWindow):
 
         root.addLayout(actions_panel)
 
-        # Таблица по центру
+        # Таблица по центру (убираем столбец № заказа, добавляем телефон)
         self.table = QtWidgets.QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels([
-            "Клиент", "Заказ №", "Товары", "Кол-во", "Сумма", "Статус"
+            "Клиент (ФИО)", "Телефон", "Товары", "Кол-во", "Сумма", "Статус"
         ])
         header = self.table.horizontalHeader()
         header.setStretchLastSection(True)
@@ -238,30 +277,23 @@ class MklOrdersWindow(QtWidgets.QMainWindow):
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
 
-        # Жёстко задаём цвета через палитру и локальные стили, чтобы не зависеть от глобальных QSS
+        # Жёсткие локальные стили таблицы
         pal = self.table.palette()
-        pal.setColor(QtGui.QPalette.Base, QtGui.QColor("#1c1c22"))          # фон таблицы
-        pal.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor("#191920")) # чередующиеся строки
-        pal.setColor(QtGui.QPalette.Text, QtGui.QColor("#e9edf3"))          # цвет текста в ячейках
-        pal.setColor(QtGui.QPalette.Window, QtGui.QColor("#1c1c22"))        # фон заголовков/виджета
+        pal.setColor(QtGui.QPalette.Base, QtGui.QColor("#1c1c22"))
+        pal.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor("#191920"))
+        pal.setColor(QtGui.QPalette.Text, QtGui.QColor("#e9edf3"))
+        pal.setColor(QtGui.QPalette.Window, QtGui.QColor("#1c1c22"))
         pal.setColor(QtGui.QPalette.Button, QtGui.QColor("#2a2a33"))
         pal.setColor(QtGui.QPalette.ButtonText, QtGui.QColor("#cfd3da"))
         self.table.setPalette(pal)
-
-        # Локальный стиль для заголовков и ячеек
         self.table.setStyleSheet("""
             QTableWidget {
                 background: #1c1c22;
                 color: #e9edf3;
                 gridline-color: #2f2f38;
             }
-            QTableWidget::item {
-                padding: 6px 8px;
-            }
-            QTableWidget::item:selected {
-                background: #2f3240;
-                color: #ffffff;
-            }
+            QTableWidget::item { padding: 6px 8px; }
+            QTableWidget::item:selected { background: #2f3240; color: #ffffff; }
             QHeaderView::section {
                 background: #2a2a33;
                 color: #cfd3da;
@@ -276,7 +308,7 @@ class MklOrdersWindow(QtWidgets.QMainWindow):
         # Пример данных (заглушка)
         self._populate_sample()
 
-        # Привязка заглушек
+        # Привязка действий
         self._connect_actions()
 
         # Статус-бар
@@ -284,9 +316,34 @@ class MklOrdersWindow(QtWidgets.QMainWindow):
         sb.showMessage("Готово — функционал будет добавлен позже.")
         self.setStatusBar(sb)
 
+        # Центрировать окно
+        self.center_on_screen()
+
+    def center_on_screen(self):
+        screen = QtWidgets.QApplication.primaryScreen()
+        if not screen:
+            return
+        geo = screen.availableGeometry()
+        self.move(geo.center() - self.rect().center())
+
     def _connect_actions(self):
         info = lambda msg: QtWidgets.QMessageBox.information(self, "МКЛ", msg)
-        self.btn_add_client.clicked.connect(lambda: info("Добавление клиента — будет реализовано позже."))
+
+        def add_client():
+            dlg = AddClientDialog(self)
+            if dlg.exec() == QtWidgets.QDialog.Accepted:
+                name, phone_raw = dlg.get_data()
+                phone = AddClientDialog.format_phone(phone_raw)
+                # Добавляем строку в таблицу: заполняем ФИО и телефон, остальные пустые
+                r = self.table.rowCount()
+                self.table.insertRow(r)
+                self.table.setItem(r, 0, QtWidgets.QTableWidgetItem(name))
+                self.table.setItem(r, 1, QtWidgets.QTableWidgetItem(phone))
+                # Пустые значения для прочих колонок
+                for c in range(2, self.table.columnCount()):
+                    self.table.setItem(r, c, QtWidgets.QTableWidgetItem(""))
+
+        self.btn_add_client.clicked.connect(add_client)
         self.btn_edit_client.clicked.connect(lambda: info("Редактирование клиента — будет реализовано позже."))
         self.btn_delete_client.clicked.connect(lambda: info("Удаление клиента — будет реализовано позже."))
 
@@ -299,9 +356,9 @@ class MklOrdersWindow(QtWidgets.QMainWindow):
 
     def _populate_sample(self):
         rows = [
-            ("Иванов Иван", "MKL-00123", "Линзы X; Раствор Y", "3", "4 500 ₽", "В обработке"),
-            ("Петров Пётр", "MKL-00124", "Линзы Z", "1", "1 500 ₽", "Отгружен"),
-            ("ООО «МКЛ+»", "MKL-00125", "Комплект XZ", "2", "7 800 ₽", "Доставлен"),
+            ("Иванов Иван", "8-915-123-45-67", "Линзы X; Раствор Y", "3", "4 500 ₽", "В обработке"),
+            ("Петров Пётр", "8-999-555-11-22", "Линзы Z", "1", "1 500 ₽", "Отгружен"),
+            ("ООО «МКЛ+»", "8-800-200-00-00", "Комплект XZ", "2", "7 800 ₽", "Доставлен"),
         ]
         self.table.setRowCount(len(rows))
         for r, row in enumerate(rows):
