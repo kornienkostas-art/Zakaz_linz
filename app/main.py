@@ -137,9 +137,14 @@ class MainActions(QtWidgets.QWidget):
         layout.addWidget(self.btn_mkl, 0, 0)
         layout.addWidget(self.btn_meridian, 0, 1)
 
-        # Placeholder actions
+        # Действия
         self.btn_mkl.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "МКЛ", "Раздел 'Заказы МКЛ' будет реализован позже."))
-        self.btn_meridian.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "Меридиан", "Раздел 'Заказы Меридиан' будет реализован позже."))
+        self.btn_meridian.clicked.connect(self.open_meridian_orders)
+
+    def open_meridian_orders(self):
+        # Открыть окно заказов «Меридиан»
+        self._meridian_win = MeridianOrdersWindow(self)
+        self._meridian_win.show()
 
 
 class Card(QtWidgets.QFrame):
@@ -157,6 +162,116 @@ class Card(QtWidgets.QFrame):
 
         layout.addWidget(self.header)
         layout.addWidget(self.actions)
+
+
+class MeridianOrdersWindow(QtWidgets.QMainWindow):
+    """Окно 'Заказы Меридиан' — таблица клиентов и заказов, с кнопками действий (заглушки)."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Меридиан — Заказы")
+        self.resize(900, 600)
+
+        central = QtWidgets.QWidget()
+        self.setCentralWidget(central)
+
+        root = QtWidgets.QVBoxLayout(central)
+        root.setContentsMargins(16, 16, 16, 16)
+        root.setSpacing(12)
+
+        # Заголовок
+        title = QtWidgets.QLabel("Заказы Меридиан")
+        title.setObjectName("Title")
+        root.addWidget(title, 0, QtCore.Qt.AlignLeft)
+
+        # Панель действий
+        actions_panel = QtWidgets.QHBoxLayout()
+        actions_panel.setSpacing(8)
+
+        # Группа: клиенты
+        self.btn_add_client = QtWidgets.QPushButton("Добавить клиента")
+        self.btn_edit_client = QtWidgets.QPushButton("Редактировать клиента")
+        self.btn_delete_client = QtWidgets.QPushButton("Удалить клиента")
+
+        # Группа: товары
+        self.btn_add_product = QtWidgets.QPushButton("Добавить товар")
+        self.btn_edit_product = QtWidgets.QPushButton("Редактировать товар")
+        self.btn_delete_product = QtWidgets.QPushButton("Удалить товар")
+
+        # Заказ и статус
+        self.btn_add_order = QtWidgets.QPushButton("Добавить заказ")
+        self.btn_change_status = QtWidgets.QPushButton("Статус заказа")
+
+        # Стили кнопок
+        for btn in (
+            self.btn_add_client, self.btn_edit_client, self.btn_delete_client,
+            self.btn_add_product, self.btn_edit_product, self.btn_delete_product,
+            self.btn_add_order, self.btn_change_status
+        ):
+            btn.setObjectName("PrimaryBtn")
+            btn.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+
+        # Сборка панели
+        actions_panel.addWidget(self.btn_add_client)
+        actions_panel.addWidget(self.btn_edit_client)
+        actions_panel.addWidget(self.btn_delete_client)
+        actions_panel.addSpacing(16)
+        actions_panel.addWidget(self.btn_add_product)
+        actions_panel.addWidget(self.btn_edit_product)
+        actions_panel.addWidget(self.btn_delete_product)
+        actions_panel.addSpacing(16)
+        actions_panel.addWidget(self.btn_add_order)
+        actions_panel.addWidget(self.btn_change_status)
+        actions_panel.addStretch()
+
+        root.addLayout(actions_panel)
+
+        # Таблица по центру
+        self.table = QtWidgets.QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels([
+            "Клиент", "Заказ №", "Товары", "Кол-во", "Сумма", "Статус"
+        ])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        root.addWidget(self.table, 1)
+
+        # Пример данных (заглушка)
+        self._populate_sample()
+
+        # Привязка заглушек
+        self._connect_actions()
+
+        # Статус-бар
+        sb = QtWidgets.QStatusBar()
+        sb.showMessage("Готово — функционал будет добавлен позже.")
+        self.setStatusBar(sb)
+
+    def _connect_actions(self):
+        info = lambda msg: QtWidgets.QMessageBox.information(self, "Меридиан", msg)
+        self.btn_add_client.clicked.connect(lambda: info("Добавление клиента — будет реализовано позже."))
+        self.btn_edit_client.clicked.connect(lambda: info("Редактирование клиента — будет реализовано позже."))
+        self.btn_delete_client.clicked.connect(lambda: info("Удаление клиента — будет реализовано позже."))
+
+        self.btn_add_product.clicked.connect(lambda: info("Добавление товара — будет реализовано позже."))
+        self.btn_edit_product.clicked.connect(lambda: info("Редактирование товара — будет реализовано позже."))
+        self.btn_delete_product.clicked.connect(lambda: info("Удаление товара — будет реализовано позже."))
+
+        self.btn_add_order.clicked.connect(lambda: info("Добавление заказа — будет реализовано позже."))
+        self.btn_change_status.clicked.connect(lambda: info("Изменение статуса — будет реализовано позже."))
+
+    def _populate_sample(self):
+        rows = [
+            ("Иванов Иван", "M-00123", "Линзы X; Раствор Y", "3", "4 500 ₽", "В обработке"),
+            ("Петров Пётр", "M-00124", "Линзы Z", "1", "1 500 ₽", "Отгружен"),
+            ("ООО «Меридиан+»", "M-00125", "Комплект XZ", "2", "7 800 ₽", "Доставлен"),
+        ]
+        self.table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            for c, val in enumerate(row):
+                item = QtWidgets.QTableWidgetItem(val)
+                self.table.setItem(r, c, item)
 
 
 class MainWindow(QtWidgets.QMainWindow):
