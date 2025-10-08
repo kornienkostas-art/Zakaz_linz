@@ -1,0 +1,70 @@
+/* Global */
+QMainWindow {
+    background: #121216; /* deep dark */
+}
+
+QStatusBar {
+    background: transparent;
+    color: #7f8590;
+}
+
+/* Card container */
+#Card {
+    background: #1c1c22;
+    border-radius: 20px;
+    border: 1px solid #2a2a33;
+    /* subtle shadow */
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+/* Header typography */
+#Title {
+    color: #e6b43c; /* gold accent */
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+}
+
+#Subtitle {
+    color: #9aa0a6;
+    font-size: 12px;
+}
+
+/* Buttons */
+#PrimaryBtn {
+    color: #ffffff;
+    background: #2a2a33;
+    border: 1px solid #3a3a44;
+    border-radius: 14px;
+    font-size: 16px;
+    padding: 14px 22px;
+}
+
+#PrimaryBtn:hover {
+    background: #34343e;
+    border-color: #474753;
+}
+
+#PrimaryBtn:pressed {
+    background: #2a2a33;
+    border-color: #59596a;
+}
+
+/* Settings */
+#SettingsBtn {
+    color: #e6b43c;
+    background: transparent;
+    border: 1px solid #3a3a44;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-weight: 500;
+}
+
+#SettingsBtn:hover {
+    border-color: #59596a;
+    color: #ffd680;
+}
+
+#SettingsBtn:pressed {
+    border-color: #7a7a8a;
+}
