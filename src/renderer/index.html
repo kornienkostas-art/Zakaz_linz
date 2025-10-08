@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>УссурОЧки.рф — Управление заказами</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src 'self' data:;" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Shoelace UI -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.6.0/cdn/themes/dark.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.6.0/cdn/shoelace.js"></script>
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <sl-dialog label="О приложении" id="aboutDialog">
+      <p>УссурОЧки.рф — Управление заказами. Локальная БД (SQLite), светлая/тёмная тема, экспорт TXT.</p>
+      <sl-button slot="footer" variant="primary" onclick="document.getElementById('aboutDialog').hide()">Закрыть</sl-button>
+    </sl-dialog>
+
+    <header class="app-header">
+      <div class="brand">
+        <sl-icon name="eyeglasses"></sl-icon>
+        <span class="title">УссурОЧки.рф</span>
+      </div>
+      <div class="actions">
+        <sl-switch id="themeSwitch" size="small" checked>Тёмная</sl-switch>
+        <sl-button size="small" variant="text" onclick="document.getElementById('aboutDialog').show()">О приложении</sl-button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section id="homeView" class="view active">
+        <div class="menu-grid">
+          <sl-card class="menu-card" onclick="goView('mklView')">
+            <div slot="header">
+              <sl-icon name="clipboard-data"></sl-icon> Заказы МКЛ
+            </div>
+            <small>Клиенты, товары, статусы: не заказан / заказан / прозвонен / вручен</small>
+          </sl-card>
+
+          <sl-card class="menu-card" onclick="goView('meridianView')">
+            <div slot="header">
+              <sl-icon name="list-check"></sl-icon> Заказы Меридиан
+            </div>
+            <small>Автонумерация, статусы: не заказан / заказан</small>
+          </sl-card>
+
+          <sl-card class="menu-card" onclick="goView('settingsView')">
+            <div slot="header">
+              <sl-icon name="gear"></sl-icon> Настройки
+            </div>
+            <small>Тема, папки БД и экспорта</small>
+          </sl-card>
+        </div>
+      </section>
+
+      <section id="mklView" class="view">
+        <div class="view-header">
+          <h2>Заказы МКЛ</h2>
+          <div class="toolbar">
+            <sl-select id="mklFilter" size="small" placeholder="Фильтр по статусу">
+              <sl-option value="">Все</sl-option>
+              <sl-option value="не заказан">Не заказан</sl-option>
+              <sl-option value="заказан">Заказан</sl-option>
+              <sl-option value="прозвонен">Прозвонен</sl-option>
+              <sl-option value="вручен">Вручен</sl-option>
+            </sl-select>
+            <sl-button size="small" variant="primary" id="mklAddOrderBtn"><sl-icon name="plus-lg"></sl-icon> Добавить заказ</sl-button>
+            <sl-button size="small" variant="neutral" id="mklExportBtn"><sl-icon name="filetype-txt"></sl-icon> Экспорт TXT</sl-button>
+            <sl-button size="small" variant="text" onclick="goView('homeView')">Назад</sl-button>
+          </div>
+        </div>
+
+        <div class="split">
+          <div class="pane">
+            <h3>Список заказов</h3>
+            <div id="mklOrdersList" class="list"></div>
+          </div>
+          <div class="pane">
+            <h3>Позиции заказа</h3>
+            <div id="mklOrderItems" class="list"></div>
+            <div class="items-actions">
+              <sl-button size="small" variant="primary" id="mklSaveItemsBtn">Сохранить позиции</sl-button>
+            </div>
+
+            <hr />
+            <h3>Клиенты</h3>
+            <div class="row">
+              <sl-input id="clientName" placeholder="ФИО"></sl-input>
+              <sl-input id="clientPhone" placeholder="Телефон"></sl-input>
+              <sl-button id="clientAddBtn" variant="primary" size="small"><sl-icon name="person-plus"></sl-icon> Добавить</sl-button>
+            </div>
+            <div id="clientsList" class="list"></div>
+
+            <hr />
+            <h3>Товары</h3>
+            <div class="row">
+              <sl-input id="productName" placeholder="Наименование"></sl-input>
+              <sl-input id="productDesc" placeholder="Описание"></sl-input>
+              <sl-input id="productPrice" type="number" placeholder="Цена"></sl-input>
+              <sl-button id="productAddBtn" variant="primary" size="small"><sl-icon name="bag-plus"></sl-icon> Добавить</sl-button>
+            </div>
+            <div id="productsList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="meridianView" class="view">
+        <div class="view-header">
+          <h2>Заказы Меридиан</h2>
+          <div class="toolbar">
+            <sl-select id="meridianFilter" size="small" placeholder="Фильтр по статусу">
+              <sl-option value="">Все</sl-option>
+              <sl-option value="не заказан">Не заказан</sl-option>
+              <sl-option value="заказан">Заказан</sl-option>
+            </sl-select>
+            <sl-button size="small" variant="primary" id="meridianAddOrderBtn"><sl-icon name="plus-lg"></sl-icon> Добавить заказ</sl-button>
+            <sl-button size="small" variant="neutral" id="meridianExportBtn"><sl-icon name="filetype-txt"></sl-icon> Экспорт TXT</sl-button>
+            <sl-button size="small" variant="text" onclick="goView('homeView')">Назад</sl-button>
+          </div>
+        </div>
+
+        <div class="split">
+          <div class="pane">
+            <h3>Список заказов</h3>
+            <div id="meridianOrdersList" class="list"></div>
+          </div>
+          <div class="pane">
+            <h3>Позиции заказа</h3>
+            <div id="meridianOrderItems" class="list"></div>
+            <div class="row">
+              <sl-input id="meridianItemName" placeholder="Наименование товара"></sl-input>
+              <sl-input id="meridianItemQty" type="number" placeholder="Кол-во" value="1"></sl-input>
+              <sl-button id="meridianAddItemBtn" size="small" variant="primary"><sl-icon name="plus"></sl-icon> Добавить позицию</sl-button>
+            </div>
+            <div class="items-actions">
+              <sl-button size="small" variant="primary" id="meridianSaveItemsBtn">Сохранить позиции</sl-button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="settingsView" class="view">
+        <div class="view-header">
+          <h2>Настройки</h2>
+          <div class="toolbar">
+            <sl-button size="small" variant="text" onclick="goView('homeView')">Назад</sl-button>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <sl-card>
+            <div slot="header"><sl-icon name="moon-stars"></sl-icon> Тема</div>
+            <p>Переключатель в шапке: светлая/тёмная.</p>
+          </sl-card>
+          <sl-card>
+            <div slot="header"><sl-icon name="folder"></sl-icon> Папки</div>
+            <p>База данных: ./data/ussurochki.db</p>
+            <p>Экспорт TXT: ./exports/</p>
+          </sl-card>
+        </div>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
