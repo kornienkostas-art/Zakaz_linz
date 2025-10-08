@@ -89,7 +89,7 @@ class MKLOrderDialog(QDialog):
     def _make_ui(self) -> None:
         self.name_edit = QLineEdit()
         self.phone_edit = QLineEdit()
-        phone_re = QRegularExpression(r"^(\\+7|8)-?\\d{3}-?\\d{3}-?\\d{2}-?\\d{2}$")
+        phone_re = QRegularExpression(r"^(\+7|8)-?\d{3}-?\d{3}-?\d{2}-?\d{2}$")
         self.phone_edit.setValidator(QRegularExpressionValidator(phone_re))
         self.status_combo = QComboBox()
         for s in [OrderStatus.NOT_ORDERED, OrderStatus.ORDERED, OrderStatus.CALLED, OrderStatus.DELIVERED]:
@@ -408,6 +408,7 @@ class MeridianOrderDialog(QDialog):
 
         d_spin = OptionalSpinBox()
         d_spin.setMaximum(90)
+        d_spin.setSingleStep(5)
         if prefill and prefill.get("d") is not None:
             d_spin.setValue(int(prefill["d"]))
         else:

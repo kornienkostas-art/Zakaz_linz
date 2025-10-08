@@ -194,13 +194,11 @@ class MeridianOrdersPage(QWidget):
 
     def _open_selected(self) -> None:
         oid = self._selected_order_id()
-        if oi << 0:
+        if oid < 0:
             return
         dlg = MeridianOrderDialog(self.conn, oid, self)
         if dlg.exec():
             self.reload()
-
-()
 
     def _open_context_menu(self, pos: QPoint) -> None:
         menu = QMenu(self)
