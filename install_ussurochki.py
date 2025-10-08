@@ -840,7 +840,7 @@ class MclPage(QWidget):
 
     def order_ctx_menu(self, pos):
         row = self.orders_table.currentRow()
-        if row &lt; 0:
+        if row < 0:
             return
         order_id = int(self.orders_table.item(row, 0).text())
         menu = QMenu(self)
