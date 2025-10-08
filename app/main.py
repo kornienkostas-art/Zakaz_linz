@@ -26,82 +26,36 @@ class BrandFontLoader:
 
 
 class LogoWidget(QtWidgets.QWidget):
-    """Эмблема с концентрическими кольцами и монограммой «Уо» в центре."""
+    """Простой строгий логотип: круг с мягкой заливкой и стилизованная «У»."""
     def sizeHint(self):
-        return QtCore.QSize(76, 76)
+        return QtCore.QSize(64, 64)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
         try:
-            rect = self.rect().adjusted(8, 8, -8, -8)
-            cx = rect.center().x()
-            cy = rect.center().y()
-            r = min(rect.width(), rect.height()) / 2
+            rect = self.rect().adjusted(6, 6, -6, -6)
 
-            # Кольца-рамки
-            for i, w in enumerate((3.0, 1.8, 1.2)):
-                rr = r - i * 4
-                pen = QtGui.QPen(ACCENT, w)
-                pen.setCosmetic(True)
-                painter.setPen(pen)
-                painter.setBrush(QtCore.Qt.NoBrush)
-                painter.drawEllipse(QtCore.QPointF(cx, cy), rr, rr)
+            # Базовый круг
+            painter.setPen(QtGui.QPen(ACCENT, 2))
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 30)))
+            painter.drawEllipse(rect)
 
-            # Радиальные метки
-            painter.setPen(QtGui.QPen(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 140), 1, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
-            for angle in range(0, 360, 30):
-                a = math.radians(angle)
-                p1 = QtCore.QPointF(cx + (r - 6) * math.cos(a), cy + (r - 6) * math.sin(a))
-                p2 = QtCore.QPointF(cx + (r - 11) * math.cos(a), cy + (r - 11) * math.sin(a))
-                painter.drawLine(p1, p2)
-
-            # Монограмма «Уо» — «У» крупнее, «о» компактнее и смещена вправо
+            # Стилизованная «У»
+            path = QtGui.QPainterPath()
             w = rect.width()
             h = rect.height()
             x = rect.left()
             y = rect.top()
 
+            path.moveTo(x + w * 0.25, y + h * 0.25)
+            path.lineTo(x + w * 0.25, y + h * 0.75)
+            path.quadTo(x + w * 0.5, y + h * 0.95, x + w * 0.75, y + h * 0.75)
+            path.lineTo(x + w * 0.75, y + h * 0.25)
+
+            painter.setPen(QtGui.QPen(ACCENT, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
             painter.setBrush(QtCore.Qt.NoBrush)
-
-            # «У» — большая, массивная
-            painter.setPen(QtGui.QPen(ACCENT, 3.2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-            u_path = QtGui.QPainterPath()
-            # Основной контур «У»
-            u_path.moveTo(x + w * 0.28, y + h * 0.26)
-            u_path.lineTo(x + w * 0.36, y + h * 0.58)
-            u_path.quadTo(x + w * 0.50, y + h * 0.76, x + w * 0.64, y + h * 0.58)
-            u_path.lineTo(x + w * 0.72, y + h * 0.26)
-            # Верхние диагонали «У», подчёркивающие букву
-            u_path.moveTo(x + w * 0.42, y + h * 0.26)
-            u_path.lineTo(x + w * 0.50, y + h * 0.38)
-            u_path.lineTo(x + w * 0.58, y + h * 0.26)
-            painter.drawPath(u_path)
-
-            # «о» — меньше и правее, чтобы визуально читалось как буква
-            painter.setPen(QtGui.QPen(ACCENT, 2.8, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-            o_outer_center = QtCore.QPointF(x + w * 0.66, y + h * 0.52)
-            o_r_outer = min(w, h) * 0.10
-            o_r_inner = o_r_outer * 0.55
-
-            o_path = QtGui.QPainterPath()
-            o_path.addEllipse(o_outer_center, o_r_outer, o_r_outer)
-
-            o_hole = QtGui.QPainterPath()
-            o_hole.addEllipse(o_outer_center, o_r_inner, o_r_inner)
-
-            composed = QtGui.QPainterPath()
-            composed.addPath(o_path)
-            composed = composed.subtracted(o_hole)
-            painter.drawPath(composed)
-
-            # Акцентная горизонтальная штриха под монограммой для баланса
-            painter.setPen(QtGui.QPen(ACCENT, 2))
-            painter.drawLine(
-                QtCore.QPointF(x + w * 0.30, y + h * 0.70),
-                QtCore.QPointF(x + w * 0.72, y + h * 0.70)
-            )
-
+            painter.drawPath(path)
         finally:
             painter.end()
 
