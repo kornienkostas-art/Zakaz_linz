@@ -164,11 +164,11 @@ class Card(QtWidgets.QFrame):
         layout.addWidget(self.actions)
 
 
-class MeridianOrdersWindow(QtWidgets.QMainWindow):
-    """Окно 'Заказы Меридиан' — таблица клиентов и заказов, с кнопками действий (заглушки)."""
+class MklOrdersWindow(QtWidgets.QMainWindow):
+    """Окно 'Заказы МКЛ' — таблица клиентов и заказов, с кнопками действий (заглушки)."""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Меридиан — Заказы")
+        self.setWindowTitle("МКЛ — Заказы")
         self.resize(900, 600)
 
         central = QtWidgets.QWidget()
@@ -179,7 +179,7 @@ class MeridianOrdersWindow(QtWidgets.QMainWindow):
         root.setSpacing(12)
 
         # Заголовок
-        title = QtWidgets.QLabel("Заказы Меридиан")
+        title = QtWidgets.QLabel("Заказы МКЛ")
         title.setObjectName("Title")
         root.addWidget(title, 0, QtCore.Qt.AlignLeft)
 
@@ -249,7 +249,7 @@ class MeridianOrdersWindow(QtWidgets.QMainWindow):
         self.setStatusBar(sb)
 
     def _connect_actions(self):
-        info = lambda msg: QtWidgets.QMessageBox.information(self, "Меридиан", msg)
+        info = lambda msg: QtWidgets.QMessageBox.information(self, "МКЛ", msg)
         self.btn_add_client.clicked.connect(lambda: info("Добавление клиента — будет реализовано позже."))
         self.btn_edit_client.clicked.connect(lambda: info("Редактирование клиента — будет реализовано позже."))
         self.btn_delete_client.clicked.connect(lambda: info("Удаление клиента — будет реализовано позже."))
@@ -263,9 +263,9 @@ class MeridianOrdersWindow(QtWidgets.QMainWindow):
 
     def _populate_sample(self):
         rows = [
-            ("Иванов Иван", "M-00123", "Линзы X; Раствор Y", "3", "4 500 ₽", "В обработке"),
-            ("Петров Пётр", "M-00124", "Линзы Z", "1", "1 500 ₽", "Отгружен"),
-            ("ООО «Меридиан+»", "M-00125", "Комплект XZ", "2", "7 800 ₽", "Доставлен"),
+            ("Иванов Иван", "MKL-00123", "Линзы X; Раствор Y", "3", "4 500 ₽", "В обработке"),
+            ("Петров Пётр", "MKL-00124", "Линзы Z", "1", "1 500 ₽", "Отгружен"),
+            ("ООО «МКЛ+»", "MKL-00125", "Комплект XZ", "2", "7 800 ₽", "Доставлен"),
         ]
         self.table.setRowCount(len(rows))
         for r, row in enumerate(rows):
