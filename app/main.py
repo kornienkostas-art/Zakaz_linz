@@ -56,51 +56,51 @@ class LogoWidget(QtWidgets.QWidget):
                 p2 = QtCore.QPointF(cx + (r - 11) * math.cos(a), cy + (r - 11) * math.sin(a))
                 painter.drawLine(p1, p2)
 
-            # Монограмма «Уо» — геометрический, строгий стиль
+            # Монограмма «Уо» — «У» крупнее, «о» компактнее и смещена вправо
             w = rect.width()
             h = rect.height()
             x = rect.left()
             y = rect.top()
 
             painter.setBrush(QtCore.Qt.NoBrush)
-            painter.setPen(QtGui.QPen(ACCENT, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
 
-            # Буква «У»
+            # «У» — большая, массивная
+            painter.setPen(QtGui.QPen(ACCENT, 3.2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
             u_path = QtGui.QPainterPath()
-            u_path.moveTo(x + w * 0.30, y + h * 0.28)
-            u_path.lineTo(x + w * 0.36, y + h * 0.55)
-            u_path.quadTo(x + w * 0.50, y + h * 0.70, x + w * 0.64, y + h * 0.55)
-            u_path.lineTo(x + w * 0.70, y + h * 0.28)
-            # Верхние диагонали «У»
-            u_path.moveTo(x + w * 0.42, y + h * 0.28)
+            # Основной контур «У»
+            u_path.moveTo(x + w * 0.28, y + h * 0.26)
+            u_path.lineTo(x + w * 0.36, y + h * 0.58)
+            u_path.quadTo(x + w * 0.50, y + h * 0.76, x + w * 0.64, y + h * 0.58)
+            u_path.lineTo(x + w * 0.72, y + h * 0.26)
+            # Верхние диагонали «У», подчёркивающие букву
+            u_path.moveTo(x + w * 0.42, y + h * 0.26)
             u_path.lineTo(x + w * 0.50, y + h * 0.38)
-            u_path.lineTo(x + w * 0.58, y + h * 0.28)
+            u_path.lineTo(x + w * 0.58, y + h * 0.26)
+            painter.drawPath(u_path)
 
-            # Буква «о» — круг с внутренним просветом (строгая геометрия)
-            o_outer_center = QtCore.QPointF(x + w * 0.50, y + h * 0.50)
-            o_r_outer = min(w, h) * 0.14
+            # «о» — меньше и правее, чтобы визуально читалось как буква
+            painter.setPen(QtGui.QPen(ACCENT, 2.8, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
+            o_outer_center = QtCore.QPointF(x + w * 0.66, y + h * 0.52)
+            o_r_outer = min(w, h) * 0.10
             o_r_inner = o_r_outer * 0.55
 
-            # Внешний круг «о»
             o_path = QtGui.QPainterPath()
             o_path.addEllipse(o_outer_center, o_r_outer, o_r_outer)
 
-            # Внутренний просвет «о» (вырез)
             o_hole = QtGui.QPainterPath()
             o_hole.addEllipse(o_outer_center, o_r_inner, o_r_inner)
 
-            # Отрисовка
-            painter.drawPath(u_path)
-
-            # Создаём составной путь «о» с вырезом
             composed = QtGui.QPainterPath()
             composed.addPath(o_path)
             composed = composed.subtracted(o_hole)
             painter.drawPath(composed)
 
-            # Акцентная горизонтальная штриха под монограммой
+            # Акцентная горизонтальная штриха под монограммой для баланса
             painter.setPen(QtGui.QPen(ACCENT, 2))
-            painter.drawLine(QtCore.QPointF(x + w * 0.32, y + h * 0.68), QtCore.QPointF(x + w * 0.68, y + h * 0.68))
+            painter.drawLine(
+                QtCore.QPointF(x + w * 0.30, y + h * 0.70),
+                QtCore.QPointF(x + w * 0.72, y + h * 0.70)
+            )
 
         finally:
             painter.end()
