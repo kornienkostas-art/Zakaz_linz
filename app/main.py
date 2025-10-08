@@ -235,6 +235,7 @@ class MklOrdersWindow(QtWidgets.QMainWindow):
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
         root.addWidget(self.table, 1)
 
         # Пример данных (заглушка)

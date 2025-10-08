@@ -69,3 +69,31 @@ QStatusBar {
 #SettingsBtn:pressed {
     border-color: #7a7a8a;
 }
+
+/* Tables */
+QTableView, QTableWidget {
+    background: #1c1c22;
+    color: #e9edf3; /* light text */
+    gridline-color: #2f2f38;
+    alternate-background-color: #191920;
+    selection-background-color: #2f3240;
+    selection-color: #ffffff;
+    outline: none;
+}
+
+QHeaderView::section {
+    background: #2a2a33;
+    color: #cfd3da;
+    border: 1px solid #3a3a44;
+    padding: 8px 10px;
+    font-weight: 500;
+}
+
+QTableView::item, QTableWidget::item {
+    padding: 6px 8px;
+}
+
+QTableView::item:selected, QTableWidget::item:selected {
+    background: #2f3240;
+    color: #ffffff;
+}
