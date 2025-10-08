@@ -7,37 +7,99 @@ DARK_BG = QtGui.QColor(18, 18, 22)   # deep dark background
 CARD_BG = QtGui.QColor(28, 28, 34)   # card background
 
 
+class BrandFontLoader:
+    """Loads a custom brand font if present in assets. Falls back gracefully."""
+    FONT_PATH = "app/assets/fonts/UssurBrand.ttf"
+    FAMILY_NAME = None
+
+    @classmethod
+    def load(cls):
+        file = QtCore.QFileInfo(cls.FONT_PATH).absoluteFilePath()
+        if QtCore.QFile.exists(file):
+            font_id = QtGui.QFontDatabase.addApplicationFont(file)
+            if font_id != -1:
+                families = QtGui.QFontDatabase.applicationFontFamilies(font_id)
+                if families:
+                    cls.FAMILY_NAME = families[0]
+        return cls.FAMILY_NAME
+
+
 class LogoWidget(QtWidgets.QWidget):
-    """Simple geometric logo drawn with QPainter to avoid external assets."""
+    """Geometric, strict logo with concentric rings, grid and monogram."""
     def sizeHint(self):
-        return QtCore.QSize(64, 64)
+        return QtCore.QSize(76, 76)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
 
-        rect = self.rect().adjusted(6, 6, -6, -6)
+        rect = self.rect().adjusted(8, 8, -8, -8)
+        cx = rect.center().x()
+        cy = rect.center().y()
+        r = min(rect.width(), rect.height()) / 2
 
-        # Base circle
-        painter.setPen(QtGui.QPen(ACCENT, 2))
-        painter.setBrush(QtGui.QBrush(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 30)))
-        painter.drawEllipse(rect)
+        # Concentric rings
+        for i, w in enumerate((2.5, 1.5, 1.0)):
+            rr = r - i * 4
+            pen = QtGui.QPen(ACCENT, w)
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+            painter.setBrush(QtCore.Qt.NoBrush)
+            painter.drawEllipse(QtCore.QPointF(cx, cy), rr, rr)
 
-        # Stylized "У" mark
+        # Subtle radial ticks
+        painter.setPen(QtGui.QPen(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 120), 1, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+        for angle in range(0, 360, 30):
+            a = QtCore.qDegreesToRadians(angle)
+            p1 = QtCore.QPointF(cx + (r - 6) * QtCore.qCos(a), cy + (r - 6) * QtCore.qSin(a))
+            p2 = QtCore.QPointF(cx + (r - 10) * QtCore.qCos(a), cy + (r - 10) * QtCore.qSin(a))
+            painter.drawLine(p1, p2)
+
+        # Inner grid
+        painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255, 40), 1))
+        grid = rect.adjusted(10, 10, -10, -10)
+        step = grid.width() / 4
+        for i in range(1, 4):
+            # vertical
+            x = grid.left() + i * step
+            painter.drawLine(QtCore.QPointF(x, grid.top()), QtCore.QPointF(x, grid.bottom()))
+            # horizontal
+            y = grid.top() + i * step
+            painter.drawLine(QtCore.QPointF(grid.left(), y), QtCore.QPointF(grid.right(), y))
+
+        # Monogram for "У" with strict geometry and inner cut
         path = QtGui.QPainterPath()
         w = rect.width()
         h = rect.height()
         x = rect.left()
         y = rect.top()
-        # Draw a strict, geometric U-like mark
-        path.moveTo(x + w * 0.25, y + h * 0.25)
-        path.lineTo(x + w * 0.25, y + h * 0.75)
-        path.quadTo(x + w * 0.5, y + h * 0.95, x + w * 0.75, y + h * 0.75)
-        path.lineTo(x + w * 0.75, y + h * 0.25)
+
+        # Outer U
+        path.moveTo(x + w * 0.28, y + h * 0.22)
+        path.lineTo(x + w * 0.28, y + h * 0.68)
+        path.quadTo(x + w * 0.50, y + h * 0.88, x + w * 0.72, y + h * 0.68)
+        path.lineTo(x + w * 0.72, y + h * 0.22)
+
+        # Inner cut
+        cut = QtGui.QPainterPath()
+        cut.moveTo(x + w * 0.40, y + h * 0.32)
+        cut.lineTo(x + w * 0.40, y + h * 0.60)
+        cut.quadTo(x + w * 0.50, y + h * 0.70, x + w * 0.60, y + h * 0.60)
+        cut.lineTo(x + w * 0.60, y + h * 0.32)
 
         painter.setPen(QtGui.QPen(ACCENT, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
         painter.setBrush(QtCore.Qt.NoBrush)
         painter.drawPath(path)
+
+        painter.setPen(QtGui.QPen(QtGui.QColor(DARK_BG), 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
+        painter.drawPath(cut)
+
+        # Diagonal detail stroke
+        painter.setPen(QtGui.QPen(ACCENT, 2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+        painter.drawLine(
+            QtCore.QPointF(x + w * 0.30, y + h * 0.24),
+            QtCore.QPointF(x + w * 0.70, y + h * 0.24)
+        )
 
 
 class Header(QtWidgets.QWidget):
@@ -52,6 +114,9 @@ class Header(QtWidgets.QWidget):
         self.title.setObjectName("Title")
         self.subtitle = QtWidgets.QLabel("Панель управления заказами")
         self.subtitle.setObjectName("Subtitle")
+
+        # Try to apply brand font if available
+        self.apply_brand_font()
 
         text_box = QtWidgets.QVBoxLayout()
         text_box.setSpacing(2)
@@ -69,6 +134,14 @@ class Header(QtWidgets.QWidget):
 
         # Signal placeholder
         self.settings_btn.clicked.connect(self.on_settings)
+
+    def apply_brand_font(self):
+        family = BrandFontLoader.load()
+        if family:
+            f = QtGui.QFont(family)
+            f.setPointSize(24)
+            f.setWeight(QtGui.QFont.DemiBold)
+            self.title.setFont(f)
 
     @QtCore.Slot()
     def on_settings(self):
@@ -204,7 +277,7 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
-    
+
 
 if __name__ == "__main__":
     main()

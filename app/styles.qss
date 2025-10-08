@@ -20,6 +20,7 @@ QStatusBar {
 /* Header typography */
 #Title {
     color: #e6b43c; /* gold accent */
+    font-family: "UssurBrand", "Inter", "Segoe UI", "SF Pro Text", "Arial";
     font-size: 24px;
     font-weight: 600;
     letter-spacing: 0.4px;
