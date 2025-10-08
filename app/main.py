@@ -230,12 +230,47 @@ class MklOrdersWindow(QtWidgets.QMainWindow):
         self.table.setHorizontalHeaderLabels([
             "Клиент", "Заказ №", "Товары", "Кол-во", "Сумма", "Статус"
         ])
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        header = self.table.horizontalHeader()
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
+
+        # Жёстко задаём цвета через палитру и локальные стили, чтобы не зависеть от глобальных QSS
+        pal = self.table.palette()
+        pal.setColor(QtGui.QPalette.Base, QtGui.QColor("#1c1c22"))          # фон таблицы
+        pal.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor("#191920")) # чередующиеся строки
+        pal.setColor(QtGui.QPalette.Text, QtGui.QColor("#e9edf3"))          # цвет текста в ячейках
+        pal.setColor(QtGui.QPalette.Window, QtGui.QColor("#1c1c22"))        # фон заголовков/виджета
+        pal.setColor(QtGui.QPalette.Button, QtGui.QColor("#2a2a33"))
+        pal.setColor(QtGui.QPalette.ButtonText, QtGui.QColor("#cfd3da"))
+        self.table.setPalette(pal)
+
+        # Локальный стиль для заголовков и ячеек
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background: #1c1c22;
+                color: #e9edf3;
+                gridline-color: #2f2f38;
+            }
+            QTableWidget::item {
+                padding: 6px 8px;
+            }
+            QTableWidget::item:selected {
+                background: #2f3240;
+                color: #ffffff;
+            }
+            QHeaderView::section {
+                background: #2a2a33;
+                color: #cfd3da;
+                border: 1px solid #3a3a44;
+                padding: 8px 10px;
+                font-weight: 500;
+            }
+        """)
+
         root.addWidget(self.table, 1)
 
         # Пример данных (заглушка)
