@@ -619,26 +619,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main():
-    # High-DPI scaling for readability
-    try:
-        # On Windows, enable automatic scaling
-        from ctypes import windll
-        windll.shcore.SetProcessDpiAwareness(1)
-    except Exception:
-        pass
-
-    root = tk.Tk()
-
-    # Tk scaling improves text/UI size on HiDPI
-    try:
-        root.tk.call("tk", "scaling", 1.2)
-    except tk.TclError:
-        pass
-
-    MainWindow(root)
-    root.mainloop()
-
-
-if __name__ == "__main__":
     main()
