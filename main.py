@@ -3,7 +3,7 @@ import sys
 from typing import Optional, List, Tuple
 
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton, QStackedWidget,
     QHBoxLayout, QTableWidget, QTableWidgetItem, QLineEdit, QComboBox, QMessageBox,
@@ -897,6 +897,21 @@ class HomePage(QWidget):
         super().__init__(parent)
         self.switch_callback = switch_callback
         layout = QVBoxLayout(self)
+
+        # Лого (если файл существует: assets/logo.png|jpg|jpeg)
+        logo_label = QLabel()
+        logo_label.setAlignment(Qt.AlignHCenter)
+        logo_path = self._find_logo_path()
+        if logo_path:
+            pm = QPixmap(logo_path)
+            if not pm.isNull():
+                # масштабируем по ширине с сохранением пропорций
+                pm = pm.scaledToWidth(260, Qt.SmoothTransformation)
+                logo_label.setPixmap(pm)
+                layout.addSpacing(8)
+                layout.addWidget(logo_label)
+                layout.addSpacing(8)
+
         title = QLabel("УссурОЧки.рф")
         font = title.font()
         font.setPointSize(22)
@@ -926,6 +941,18 @@ class HomePage(QWidget):
         b2.clicked.connect(lambda: self.switch_callback("meridian"))
         b3.clicked.connect(lambda: self.switch_callback("settings"))
 
+    def _find_logo_path(self) -> Optional[str]:
+        base = os.getcwd()
+        cand = [
+            os.path.join(base, "assets", "logo.png"),
+            os.path.join(base, "assets", "logo.jpg"),
+            os.path.join(base, "assets", "logo.jpeg"),
+        ]
+        for p in cand:
+            if os.path.exists(p):
+                return p
+        return None
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -938,6 +965,9 @@ class MainWindow(QMainWindow):
         self.theme = "dark"
         self.export_path = os.path.join(os.getcwd(), "export")
         os.makedirs(self.export_path, exist_ok=True)
+
+        # Установим иконку окна, если есть лого
+        self._apply_window_icon()
 
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
@@ -957,6 +987,14 @@ class MainWindow(QMainWindow):
         act_mcl = QAction("МКЛ", self)
         act_mer = QAction("Меридиан", self)
         act_settings = QAction("Настройки", self)
+        # Иконки в тулбар, если есть
+        icon = self.windowIcon()
+        if not icon.isNull():
+            act_home.setIcon(icon)
+            act_mcl.setIcon(icon)
+            act_mer.setIcon(icon)
+            act_settings.setIcon(icon)
+
         toolbar.addAction(act_home)
         toolbar.addAction(act_mcl)
         toolbar.addAction(act_mer)
@@ -976,6 +1014,14 @@ class MainWindow(QMainWindow):
         else:
             qdarktheme.setup_theme("light")
         self.repaint()
+
+    def _apply_window_icon(self):
+        base = os.getcwd()
+        for name in ("logo.png", "logo.jpg", "logo.jpeg"):
+            p = os.path.join(base, "assets", name)
+            if os.path.exists(p):
+                self.setWindowIcon(QIcon(p))
+                break
 
     def switch_page(self, page: str):
         mapping = {"home": 0, "mcl": 1, "meridian": 2, "settings": 3}
