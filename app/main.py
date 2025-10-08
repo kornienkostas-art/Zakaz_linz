@@ -26,7 +26,7 @@ class BrandFontLoader:
 
 
 class LogoWidget(QtWidgets.QWidget):
-    """Geometric, strict logo with concentric rings, grid and monogram."""
+    """Строгий тигр в круглой эмблеме: кольца, метки и геометрическая голова тигра."""
     def sizeHint(self):
         return QtCore.QSize(76, 76)
 
@@ -39,7 +39,7 @@ class LogoWidget(QtWidgets.QWidget):
             cy = rect.center().y()
             r = min(rect.width(), rect.height()) / 2
 
-            # Concentric rings
+            # Кольца-рамки
             for i, w in enumerate((2.5, 1.5, 1.0)):
                 rr = r - i * 4
                 pen = QtGui.QPen(ACCENT, w)
@@ -48,7 +48,7 @@ class LogoWidget(QtWidgets.QWidget):
                 painter.setBrush(QtCore.Qt.NoBrush)
                 painter.drawEllipse(QtCore.QPointF(cx, cy), rr, rr)
 
-            # Subtle radial ticks
+            # Радиальные метки
             painter.setPen(QtGui.QPen(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 120), 1, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
             for angle in range(0, 360, 30):
                 a = math.radians(angle)
@@ -56,51 +56,106 @@ class LogoWidget(QtWidgets.QWidget):
                 p2 = QtCore.QPointF(cx + (r - 10) * math.cos(a), cy + (r - 10) * math.sin(a))
                 painter.drawLine(p1, p2)
 
-            # Inner grid
-            painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255, 40), 1))
-            grid = rect.adjusted(10, 10, -10, -10)
-            step = grid.width() / 4
-            for i in range(1, 4):
-                # vertical
-                x = grid.left() + i * step
-                painter.drawLine(QtCore.QPointF(x, grid.top()), QtCore.QPointF(x, grid.bottom()))
-                # horizontal
-                y = grid.top() + i * step
-                painter.drawLine(QtCore.QPointF(grid.left(), y), QtCore.QPointF(grid.right(), y))
-
-            # Monogram for "У" with strict geometry and inner cut
-            path = QtGui.QPainterPath()
+            # Область для головы тигра
             w = rect.width()
             h = rect.height()
             x = rect.left()
             y = rect.top()
 
-            # Outer U
-            path.moveTo(x + w * 0.28, y + h * 0.22)
-            path.lineTo(x + w * 0.28, y + h * 0.68)
-            path.quadTo(x + w * 0.50, y + h * 0.88, x + w * 0.72, y + h * 0.68)
-            path.lineTo(x + w * 0.72, y + h * 0.22)
-
-            # Inner cut
-            cut = QtGui.QPainterPath()
-            cut.moveTo(x + w * 0.40, y + h * 0.32)
-            cut.lineTo(x + w * 0.40, y + h * 0.60)
-            cut.quadTo(x + w * 0.50, y + h * 0.70, x + w * 0.60, y + h * 0.60)
-            cut.lineTo(x + w * 0.60, y + h * 0.32)
-
-            painter.setPen(QtGui.QPen(ACCENT, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-            painter.setBrush(QtCore.Qt.NoBrush)
-            painter.drawPath(path)
-
-            painter.setPen(QtGui.QPen(QtGui.QColor(DARK_BG), 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-            painter.drawPath(cut)
-
-            # Diagonal detail stroke
-            painter.setPen(QtGui.QPen(ACCENT, 2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
-            painter.drawLine(
-                QtCore.QPointF(x + w * 0.30, y + h * 0.24),
-                QtCore.QPointF(x + w * 0.70, y + h * 0.24)
+            head = QtCore.QRectF(
+                x + w * 0.28,
+                y + h * 0.30,
+                w * 0.44,
+                h * 0.40
             )
+
+            # Голова (овал) с золотой обводкой и мягкой заливкой
+            painter.setPen(QtGui.QPen(ACCENT, 2.5))
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 40)))
+            painter.drawRoundedRect(head, 12, 12)
+
+            # Уши (треугольники)
+            painter.setBrush(QtCore.Qt.NoBrush)
+            painter.setPen(QtGui.QPen(ACCENT, 2))
+            ear_left = QtGui.QPolygonF([
+                QtCore.QPointF(head.left() + head.width() * 0.15, head.top() - head.height() * 0.10),
+                QtCore.QPointF(head.left() + head.width() * 0.05, head.top() + head.height() * 0.10),
+                QtCore.QPointF(head.left() + head.width() * 0.25, head.top() + head.height() * 0.05),
+            ])
+            ear_right = QtGui.QPolygonF([
+                QtCore.QPointF(head.right() - head.width() * 0.15, head.top() - head.height() * 0.10),
+                QtCore.QPointF(head.right() - head.width() * 0.05, head.top() + head.height() * 0.10),
+                QtCore.QPointF(head.right() - head.width() * 0.25, head.top() + head.height() * 0.05),
+            ])
+            painter.drawPolygon(ear_left)
+            painter.drawPolygon(ear_right)
+
+            # Глаза
+            painter.setPen(QtGui.QPen(ACCENT, 2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+            eye_r = min(head.width(), head.height()) * 0.045
+            eye_y = head.center().y() - head.height() * 0.08
+            eye_dx = head.width() * 0.16
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(255, 255, 255, 30)))
+            painter.drawEllipse(QtCore.QPointF(head.center().x() - eye_dx, eye_y), eye_r, eye_r)
+            painter.drawEllipse(QtCore.QPointF(head.center().x() + eye_dx, eye_y), eye_r, eye_r)
+
+            # Нос (маленький треугольник)
+            nose = QtGui.QPolygonF([
+                QtCore.QPointF(head.center().x(), head.center().y()),
+                QtCore.QPointF(head.center().x() - head.width() * 0.06, head.center().y() + head.height() * 0.08),
+                QtCore.QPointF(head.center().x() + head.width() * 0.06, head.center().y() + head.height() * 0.08),
+            ])
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 60)))
+            painter.setPen(QtGui.QPen(ACCENT, 2))
+            painter.drawPolygon(nose)
+
+            # Рот (небольшая дуга)
+            painter.setPen(QtGui.QPen(ACCENT, 2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+            mouth_rect = QtCore.QRectF(
+                head.center().x() - head.width() * 0.16,
+                head.center().y() + head.height() * 0.02,
+                head.width() * 0.32,
+                head.height() * 0.30
+            )
+            path_mouth = QtGui.QPainterPath()
+            path_mouth.arcMoveTo(mouth_rect, 200)
+            path_mouth.arcTo(mouth_rect, 200, 140)
+            painter.drawPath(path_mouth)
+
+            # Усы
+            whisker_len = head.width() * 0.28
+            painter.drawLine(
+                QtCore.QPointF(head.center().x() - head.width() * 0.10, head.center().y() + head.height() * 0.06),
+                QtCore.QPointF(head.center().x() - head.width() * 0.10 - whisker_len * 0.6, head.center().y() + head.height() * 0.04)
+            )
+            painter.drawLine(
+                QtCore.QPointF(head.center().x() - head.width() * 0.10, head.center().y() + head.height() * 0.08),
+                QtCore.QPointF(head.center().x() - head.width() * 0.10 - whisker_len * 0.55, head.center().y() + head.height() * 0.10)
+            )
+            painter.drawLine(
+                QtCore.QPointF(head.center().x() + head.width() * 0.10, head.center().y() + head.height() * 0.06),
+                QtCore.QPointF(head.center().x() + head.width() * 0.10 + whisker_len * 0.6, head.center().y() + head.height() * 0.04)
+            )
+            painter.drawLine(
+                QtCore.QPointF(head.center().x() + head.width() * 0.10, head.center().y() + head.height() * 0.08),
+                QtCore.QPointF(head.center().x() + head.width() * 0.10 + whisker_len * 0.55, head.center().y() + head.height() * 0.10)
+            )
+
+            # Полосы тигра (строго геометрические)
+            painter.setPen(QtGui.QPen(ACCENT, 2, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+            stripes = [
+                (QtCore.QPointF(head.left() + head.width() * 0.10, head.top() + head.height() * 0.22),
+                 QtCore.QPointF(head.left() + head.width() * 0.28, head.top() + head.height() * 0.30)),
+                (QtCore.QPointF(head.right() - head.width() * 0.10, head.top() + head.height() * 0.22),
+                 QtCore.QPointF(head.right() - head.width() * 0.28, head.top() + head.height() * 0.30)),
+                (QtCore.QPointF(head.left() + head.width() * 0.12, head.top() + head.height() * 0.42),
+                 QtCore.QPointF(head.left() + head.width() * 0.30, head.top() + head.height() * 0.46)),
+                (QtCore.QPointF(head.right() - head.width() * 0.12, head.top() + head.height() * 0.42),
+                 QtCore.QPointF(head.right() - head.width() * 0.30, head.top() + head.height() * 0.46)),
+            ]
+            for p1, p2 in stripes:
+                painter.drawLine(p1, p2)
+
         finally:
             painter.end()
 
