@@ -240,9 +240,11 @@ class MKLOrdersWindow(tk.Toplevel):
 
         btn_clients = ttk.Button(toolbar, text="Клиент", style="Menu.TButton", command=self._open_clients)
         btn_products = ttk.Button(toolbar, text="Добавить Товар", style="Menu.TButton", command=self._open_products)
+        btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
 
         btn_clients.pack(side="left")
         btn_products.pack(side="left", padx=(8, 0))
+        btn_new_order.pack(side="left", padx=(8, 0))
 
     def _build_table(self):
         container = ttk.Frame(self, style="Card.TFrame", padding=16)
@@ -304,7 +306,7 @@ class MKLOrdersWindow(tk.Toplevel):
         # Hint footer
         hint = ttk.Label(
             container,
-            text="Данные пока пустые. Добавление/редактирование и локальная БД (SQLite) подключим на следующих шагах.",
+            text="Создавайте новые заказы через кнопку 'Новый заказ'. БД подключим позже.",
             style="Subtitle.TLabel",
         )
         hint.pack(anchor="w", pady=(12, 0))
@@ -314,6 +316,33 @@ class MKLOrdersWindow(tk.Toplevel):
 
     def _open_products(self):
         ProductsWindow(self, self.products)
+
+    def _new_order(self):
+        OrderForm(self, clients=self.clients, products=self.products, on_save=self._save_order)
+
+    def _save_order(self, order: dict):
+        # Добавляем заказ и обновляем таблицу
+        self.orders.append(order)
+        self._refresh_orders_view()
+
+    def _refresh_orders_view(self):
+        # Очистить и отрисовать из self.orders
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        for idx, item in enumerate(self.orders):
+            values = (
+                item.get("fio", ""),
+                item.get("phone", ""),
+                item.get("product", ""),
+                item.get("sph", ""),
+                item.get("cyl", ""),
+                item.get("ax", ""),
+                item.get("bc", ""),
+                item.get("qty", ""),
+                item.get("status", ""),
+                item.get("date", ""),
+            )
+            self.tree.insert("", "end", iid=str(idx), values=values)
 
 
 class ClientsWindow(tk.Toplevel):
@@ -594,6 +623,275 @@ class ProductForm(tk.Toplevel):
             return
         if self.on_save:
             self.on_save(data)
+        self.destroy()
+
+
+class OrderForm(tk.Toplevel):
+    """Форма создания нового заказа."""
+    def __init__(self, master, clients: list[dict], products: list[dict], on_save=None):
+        super().__init__(master)
+        self.title("Новый заказ")
+        self.configure(bg="#0f172a")
+        set_initial_geometry(self, min_w=820, min_h=640, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+        self.on_save = on_save
+        self.clients = clients
+        self.products = products
+
+        # Vars
+        self.client_var = tk.StringVar()
+        self.product_var = tk.StringVar()
+        self.sph_var = tk.StringVar(value="0")
+        self.cyl_var = tk.StringVar(value="")
+        self.ax_var = tk.StringVar(value="")
+        self.bc_var = tk.StringVar(value="")
+        self.qty_var = tk.IntVar(value=1)
+
+        # UI
+        self._build_ui()
+
+    def _build_ui(self):
+        card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        card.pack(fill="both", expand=True)
+        card.columnconfigure(0, weight=1)
+        card.columnconfigure(1, weight=1)
+
+        # Client selection with autocomplete
+        ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
+        self.client_combo.grid(row=1, column=0, sticky="ew")
+        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
+
+        # Product selection with autocomplete
+        ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+        self.product_combo.grid(row=1, column=1, sticky="ew")
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+
+        ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+
+        # Characteristics
+        # SPH
+        sph_frame = ttk.Frame(card, style="Card.TFrame")
+        sph_frame.grid(row=3, column=0, sticky="nsew", padx=(0, 8))
+        ttk.Label(sph_frame, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
+        self.sph_entry = ttk.Entry(sph_frame, textvariable=self.sph_var)
+        self.sph_entry.pack(fill="x")
+        self.sph_entry.bind("<KeyRelease>", lambda e: self._update_suggestions("sph"))
+        self.sph_sugg = ttk.Frame(sph_frame, style="Card.TFrame")
+        self.sph_sugg.pack(fill="x", pady=(6, 0))
+
+        # CYL
+        cyl_frame = ttk.Frame(card, style="Card.TFrame")
+        cyl_frame.grid(row=3, column=1, sticky="nsew", padx=(8, 0))
+        ttk.Label(cyl_frame, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
+        self.cyl_entry = ttk.Entry(cyl_frame, textvariable=self.cyl_var)
+        self.cyl_entry.pack(fill="x")
+        self.cyl_entry.bind("<KeyRelease>", lambda e: self._update_suggestions("cyl"))
+        self.cyl_sugg = ttk.Frame(cyl_frame, style="Card.TFrame")
+        self.cyl_sugg.pack(fill="x", pady=(6, 0))
+
+        # AX
+        ax_frame = ttk.Frame(card, style="Card.TFrame")
+        ax_frame.grid(row=4, column=0, sticky="nsew", padx=(0, 8), pady=(8, 0))
+        ttk.Label(ax_frame, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").pack(anchor="w")
+        self.ax_entry = ttk.Entry(ax_frame, textvariable=self.ax_var)
+        self.ax_entry.pack(fill="x")
+
+        # BC
+        bc_frame = ttk.Frame(card, style="Card.TFrame")
+        bc_frame.grid(row=4, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
+        ttk.Label(bc_frame, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").pack(anchor="w")
+        self.bc_entry = ttk.Entry(bc_frame, textvariable=self.bc_var)
+        self.bc_entry.pack(fill="x")
+
+        # QTY
+        qty_frame = ttk.Frame(card, style="Card.TFrame")
+        qty_frame.grid(row=5, column=0, sticky="nsew", pady=(8, 0))
+        ttk.Label(qty_frame, text="Количество (1…20)", style="Subtitle.TLabel").pack(anchor="w")
+        self.qty_spin = ttk.Spinbox(qty_frame, from_=1, to=20, textvariable=self.qty_var, width=8)
+        self.qty_spin.pack(anchor="w")
+
+        # Footer and save
+        footer = ttk.Label(card, text="Статус по умолчанию: Не заказан • Дата устанавливается автоматически", style="Subtitle.TLabel")
+        footer.grid(row=6, column=0, columnspan=2, sticky="w", pady=(12, 0))
+
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        ttk.Button(btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+    # Helpers: values for combo and filtering
+    def _client_values(self):
+        return [f'{c.get("fio","")} — {c.get("phone","")}' for c in self.clients]
+
+    def _product_values(self):
+        return [p.get("name", "") for p in self.products]
+
+    def _filter_clients(self):
+        term = self.client_var.get().strip().lower()
+        values = self._client_values()
+        if term:
+            values = [v for v in values if term in v.lower()]
+        self.client_combo["values"] = values
+        # show dropdown to suggest
+        try:
+            self.client_combo.event_generate("<Down>")
+        except Exception:
+            pass
+
+    def _filter_products(self):
+        term = self.product_var.get().strip().lower()
+        values = self._product_values()
+        if term:
+            values = [v for v in values if term in v.lower()]
+        self.product_combo["values"] = values
+        try:
+            self.product_combo.event_generate("<Down>")
+        except Exception:
+            pass
+
+    # Numeric suggestions and normalization
+    @staticmethod
+    def _normalize_decimal(text: str) -> str:
+        return (text or "").replace(",", ".").strip()
+
+    def _update_suggestions(self, field: str):
+        # Build suggestions based on current input (nearest steps)
+        if field == "sph":
+            entry = self.sph_entry
+            sugg_frame = self.sph_sugg
+            min_v, max_v, step = -30.0, 30.0, 0.25
+        elif field == "cyl":
+            entry = self.cyl_entry
+            sugg_frame = self.cyl_sugg
+            min_v, max_v, step = -10.0, 10.0, 0.25
+        else:
+            return
+
+        text = self._normalize_decimal(entry.get())
+        # Try parse partial number; if empty, clear suggestions
+        try:
+            base = float(text) if text not in {"", "-", "+"} else None
+        except ValueError:
+            base = None
+
+        for w in sugg_frame.winfo_children():
+            w.destroy()
+
+        suggestions = []
+        if base is not None:
+            # snap base to range
+            base = max(min_v, min(max_v, base))
+            # Generate around base: base ± step multiples
+            deltas = [0, -step, -2*step, -3*step, -4*step, step, 2*step, 3*step, 4*step]
+            for d in deltas:
+                v = base + d
+                if min_v <= v <= max_v:
+                    suggestions.append(round(v, 2))
+            # Unique keep order
+            seen = set()
+            suggestions = [x for x in suggestions if not (x in seen or seen.add(x))]
+
+        # Render suggestions as buttons
+        for v in suggestions:
+            b = ttk.Button(sugg_frame, text=f"{v:.2f}", style="Menu.TButton",
+                           command=(lambda val=v: entry.delete(0, "end") or entry.insert(0, f"{val:.2f}")))
+            b.pack(side="left", padx=(0, 6))
+
+    @staticmethod
+    def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
+        """Convert string to stepped value within range. Return '' if empty and allowed."""
+        text = (value_str or "").replace(",", ".").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = float(text)
+        except ValueError:
+            v = 0.0 if min_v <= 0.0 <= max_v else min_v
+        # Clamp
+        v = max(min_v, min(max_v, v))
+        # Snap to nearest step
+        steps = round((v - min_v) / step)
+        snapped = min_v + steps * step
+        # Final clamp for floating rounding
+        snapped = max(min_v, min(max_v, snapped))
+        return f"{snapped:.2f}"
+
+    @staticmethod
+    def _snap_int(value_str: str, min_v: int, max_v: int, allow_empty: bool = False) -> str:
+        text = (value_str or "").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = int(float(text.replace(",", ".")))
+        except ValueError:
+            v = min_v
+        v = max(min_v, min(max_v, v))
+        return str(v)
+
+    def _parse_client(self, text: str) -> tuple[str, str]:
+        """Return (fio, phone) from 'FIO — phone' or direct input."""
+        t = (text or "").strip()
+        if "—" in t:
+            parts = t.split("—", 1)
+            return parts[0].strip(), parts[1].strip()
+        # Try find match from dataset
+        term = t.lower()
+        for c in self.clients:
+            if term in c.get("fio", "").lower() or term in c.get("phone", "").lower():
+                return c.get("fio", ""), c.get("phone", "")
+        return t, ""
+
+    def _parse_product(self, text: str) -> str:
+        t = (text or "").strip()
+        # Try exact match
+        for p in self.products:
+            if t.lower() == p.get("name", "").lower():
+                return p.get("name", "")
+        # Or first contains
+        for p in self.products:
+            if t.lower() in p.get("name", "").lower():
+                return p.get("name", "")
+        return t
+
+    def _save(self):
+        # Compose order dict with validation/snap
+        fio, phone = self._parse_client(self.client_var.get())
+        product = self._parse_product(self.product_var.get())
+
+        sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=False)
+        cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
+        ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
+        bc = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
+        qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
+
+        if not fio:
+            messagebox.showinfo("Проверка", "Выберите или введите клиента.")
+            return
+        if not product:
+            messagebox.showinfo("Проверка", "Выберите или введите товар.")
+            return
+
+        from datetime import datetime
+        order = {
+            "fio": fio,
+            "phone": phone,
+            "product": product,
+            "sph": sph,
+            "cyl": cyl,
+            "ax": ax,
+            "bc": bc,
+            "qty": qty,
+            "status": "Не заказан",
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+
+        if self.on_save:
+            self.on_save(order)
         self.destroy()
 
 
