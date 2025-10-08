@@ -138,13 +138,13 @@ class MainActions(QtWidgets.QWidget):
         layout.addWidget(self.btn_meridian, 0, 1)
 
         # Действия
-        self.btn_mkl.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "МКЛ", "Раздел 'Заказы МКЛ' будет реализован позже."))
-        self.btn_meridian.clicked.connect(self.open_meridian_orders)
+        self.btn_mkl.clicked.connect(self.open_mkl_orders)
+        self.btn_meridian.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "Меридиан", "Раздел 'Заказы Меридиан' будет реализован позже."))
 
-    def open_meridian_orders(self):
-        # Открыть окно заказов «Меридиан»
-        self._meridian_win = MeridianOrdersWindow(self)
-        self._meridian_win.show()
+    def open_mkl_orders(self):
+        # Открыть окно заказов «МКЛ»
+        self._mkl_win = MklOrdersWindow(self)
+        self._mkl_win.show()
 
 
 class Card(QtWidgets.QFrame):
