@@ -103,13 +103,18 @@ class SettingsWindow(QWidget):
 
     def _backup_db(self):
         # копируем файл БД в выбранную папку экспорта
-        src_db = os.path.join(self.settings.base_dir, "usurochki.sqlite")
-        if not os.path.exists(src_db):
+        # поддерживаем старое имя на случай существующей БД
+        candidates = [
+            os.path.join(self.settings.base_dir, "ussurochki.sqlite"),
+            os.path.join(self.settings.base_dir, "usurochki.sqlite"),
+        ]
+        src_db = next((p for p in candidates if os.path.exists(p)), None)
+        if not src_db:
             QMessageBox.warning(self, "Ошибка", "Файл БД не найден.")
             return
         dst_dir = self.settings.get_export_dir()
         os.makedirs(dst_dir, exist_ok=True)
-        dst_path = os.path.join(dst_dir, "usurochki_backup.sqlite")
+        dst_path = os.path.join(dst_dir, "ussurochki_backup.sqlite")
         try:
             import shutil
             shutil.copy2(src_db, dst_path)

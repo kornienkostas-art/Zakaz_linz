@@ -46,11 +46,16 @@ class ClientDialog(QDialog):
 
         self.name_edit = QLineEdit(name)
         self.phone_edit = QLineEdit(phone)
-        # Маска/валидация номера телефона: +7-XXX-XXX-XX-XX или 8-XXX-XXX-XX-XX
-        from PyQt6.QtGui import QRegularExpressionValidator, QRegularExpression
+        # Автоформатирование номера телефона: +7-XXX-XXX-XX-XX или 8-XXX-XXX-XX-XX
         self.phone_edit.setPlaceholderText("+7-XXX-XXX-XX-XX или 8-XXX-XXX-XX-XX")
-        phone_re = QRegularExpression(r"^(\+7|8)-\d{3}-\d{3}-\d{2}-\d{2}$")
-        self.phone_edit.setValidator(QRegularExpressionValidator(phone_re))
+        def _apply_mask(t: str):
+            if t.startswith("+7"):
+                self.phone_edit.setInputMask("+7-000-000-00-00;_")
+            elif t.startswith("8"):
+                self.phone_edit.setInputMask("8-000-000-00-00;_")
+            else:
+                self.phone_edit.setInputMask("")
+        self.phone_edit.textEdited.connect(_apply_mask)
 
         layout.addRow("ФИО*", self.name_edit)
         layout.addRow("Телефон", self.phone_edit)

@@ -4,17 +4,25 @@ from datetime import datetime
 from typing import List, Optional, Tuple, Dict, Any
 
 
-DB_FILENAME = "usurochki.sqlite"
+DB_FILENAME = "ussurochki.sqlite"
 
 
 class Database:
     def __init__(self, base_dir: Optional[str] = None):
         self.base_dir = base_dir or os.path.join(os.path.dirname(__file__), "data")
         os.makedirs(self.base_dir, exist_ok=True)
-        self.db_path = os.path.join(self.base_dir, DB_FILENAME)
-        self.conn = sqlite3.connect(self.db_path)
-        self.conn.row_factory = sqlite3.Row
-        self._init_schema()
+
+        # Миграция имени файла БД с одинарной S на двойную S
+        old_db = os.path.join(self.base_dir, "usurochki.sqlite")
+        new_db = os.path.join(self.base_dir, DB_FILENAME)
+        if os.path.exists(old_db) and not os.path.exists(new_db):
+            try:
+                os.replace(old_db, new_db)
+            except Exception:
+                # если не удалось переименовать — продолжим с новым именем
+                pass
+
+        self.db_path = new
 
     def _init_schema(self):
         cur = self.conn.cursor()
