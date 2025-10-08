@@ -1,8 +1,23 @@
-# Brand Font
+# Брендовый шрифт
 
-Place your brand TTF font file here and name it `UssurBrand.ttf`.
+Разместите TTF-файл брендового шрифта в этой папке и назовите его `UssurBrand.ttf`.
 
-Example:
-- app/assets/fonts/UssurBrand.ttf
+Пример пути:
+- `app/assets/fonts/UssurBrand.ttf`
 
-The app will try to load this font at startup and apply it to the header title. If the file is absent, the UI will gracefully fall back to system fonts.
+Приложение автоматически попытается загрузить этот шрифт при запуске и применит его к заголовку “УссурОЧки.рф”. Если файл отсутствует или не удаётся загрузить, будет использован системный шрифт (Inter/Segoe UI/SF Pro/Arial — в зависимости от платформы).
+
+Рекомендации:
+- Используйте TTF (TrueType). OTF/WOFF не поддерживаются этим способом.
+- Если у вас уже есть готовый фирменный шрифт, переименуйте его в `UssurBrand.ttf` и поместите в данную папку.
+- При необходимости можно заменить файл на другой — приложение подхватит изменения при следующем запуске.
+
+Проверка:
+1. Установите зависимости: `pip install PySide6`
+2. Запустите приложение: `python app/main.py`
+3. Убедитесь, что заголовок в шапке отображается вашим шрифтом.
+
+Если шрифт не применился:
+- Проверьте, что файл существует по пути `app/assets/fonts/UssurBrand.ttf`
+- Убедитесь, что файл шрифта не повреждён
+- Перезапустите приложение после замены файла
