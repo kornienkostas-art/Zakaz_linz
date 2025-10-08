@@ -1,4 +1,5 @@
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -8,7 +9,6 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QToolBar,
-    QAction,
     QStyle,
 )
 
