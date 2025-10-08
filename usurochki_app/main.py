@@ -12,11 +12,19 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
 )
 
-from .db import Database
-from .theme import apply_dark_theme, apply_light_theme, common_stylesheet
-from .settings import SettingsManager, SettingsWindow
-from .mkl import MKLWindow
-from .meridian import MeridianWindow
+# Импорты пакета или локальные при запуске скрипта напрямую
+try:
+    from .db import Database
+    from .theme import apply_dark_theme, apply_light_theme, common_stylesheet
+    from .settings import SettingsManager, SettingsWindow
+    from .mkl import MKLWindow
+    from .meridian import MeridianWindow
+except ImportError:
+    from db import Database
+    from theme import apply_dark_theme, apply_light_theme, common_stylesheet
+    from settings import SettingsManager, SettingsWindow
+    from mkl import MKLWindow
+ow
 
 
 class MainWindow(QWidget):
