@@ -93,12 +93,14 @@ class BigNavButton(QPushButton):
 class FadingStackedWidget(QStackedWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._anim = QPropertyAnimation(self, b"opacity", self)
-        self._anim.setDuration(220)
-        self._anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        # Initialize opacity effect BEFORE creating animation (getter may be called immediately)
         self._opacity_effect = QGraphicsOpacityEffect(self)
         self._opacity_effect.setOpacity(1.0)
         self.setGraphicsEffect(self._opacity_effect)
+
+        self._anim = QPropertyAnimation(self, b"opacity", self)
+        self._anim.setDuration(220)
+        self._anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
 
     def setCurrentIndex(self, index: int):
         self._fade_to(index)
@@ -125,7 +127,11 @@ class FadingStackedWidget(QStackedWidget):
         self._anim.start()
 
     def get_opacity(self) -> float:
-        return self._opacity_effect.opacity()
+        # Safe guard in case property queried before __init__ finished
+        try:
+            return self._opacity_effect.opacity()
+        except Exception:
+            return 1.0
 
     def set_opacity(self, value: float):
         self._opacity_effect.setOpacity(value)
