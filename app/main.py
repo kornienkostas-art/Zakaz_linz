@@ -26,7 +26,7 @@ class BrandFontLoader:
 
 
 class LogoWidget(QtWidgets.QWidget):
-    """Брутальный тигр: угловатая геометрия, много полос и текстур."""
+    """Эмблема с концентрическими кольцами и монограммой «Уо» в центре."""
     def sizeHint(self):
         return QtCore.QSize(76, 76)
 
@@ -39,7 +39,7 @@ class LogoWidget(QtWidgets.QWidget):
             cy = rect.center().y()
             r = min(rect.width(), rect.height()) / 2
 
-            # Кольца-рамки (чуть толще, чтобы придать веса)
+            # Кольца-рамки
             for i, w in enumerate((3.0, 1.8, 1.2)):
                 rr = r - i * 4
                 pen = QtGui.QPen(ACCENT, w)
@@ -56,106 +56,51 @@ class LogoWidget(QtWidgets.QWidget):
                 p2 = QtCore.QPointF(cx + (r - 11) * math.cos(a), cy + (r - 11) * math.sin(a))
                 painter.drawLine(p1, p2)
 
-            # Основные размеры для головы
+            # Монограмма «Уо» — геометрический, строгий стиль
             w = rect.width()
             h = rect.height()
             x = rect.left()
             y = rect.top()
 
-            # Угловатая голова в виде многоугольника (челюсть, скулы)
-            head_poly = QtGui.QPolygonF([
-                QtCore.QPointF(x + w * 0.35, y + h * 0.28),  # левый верх
-                QtCore.QPointF(x + w * 0.30, y + h * 0.40),  # левый скула
-                QtCore.QPointF(x + w * 0.32, y + h * 0.54),  # левая челюсть
-                QtCore.QPointF(x + w * 0.50, y + h * 0.62),  # подбородок
-                QtCore.QPointF(x + w * 0.68, y + h * 0.54),  # правая челюсть
-                QtCore.QPointF(x + w * 0.70, y + h * 0.40),  # правая скула
-                QtCore.QPointF(x + w * 0.65, y + h * 0.28),  # правый верх
-                QtCore.QPointF(x + w * 0.50, y + h * 0.22),  # лоб центр
-            ])
-            painter.setPen(QtGui.QPen(ACCENT, 2.5))
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 30)))
-            painter.drawPolygon(head_poly)
-
-            # Уши — острые треугольники
             painter.setBrush(QtCore.Qt.NoBrush)
-            painter.setPen(QtGui.QPen(ACCENT, 2.2))
-            ear_left = QtGui.QPolygonF([
-                QtCore.QPointF(x + w * 0.36, y + h * 0.24),
-                QtCore.QPointF(x + w * 0.28, y + h * 0.34),
-                QtCore.QPointF(x + w * 0.40, y + h * 0.34),
-            ])
-            ear_right = QtGui.QPolygonF([
-                QtCore.QPointF(x + w * 0.64, y + h * 0.24),
-                QtCore.QPointF(x + w * 0.72, y + h * 0.34),
-                QtCore.QPointF(x + w * 0.60, y + h * 0.34),
-            ])
-            painter.drawPolygon(ear_left)
-            painter.drawPolygon(ear_right)
+            painter.setPen(QtGui.QPen(ACCENT, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
 
-            # Глаза — узкие «щели»
-            painter.setPen(QtGui.QPen(ACCENT, 2.4, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
-            eye_y = y + h * 0.38
-            eye_w = w * 0.08
-            painter.drawLine(QtCore.QPointF(x + w * 0.42, eye_y), QtCore.QPointF(x + w * 0.42 + eye_w, eye_y - h * 0.02))
-            painter.drawLine(QtCore.QPointF(x + w * 0.58 - eye_w, eye_y - h * 0.02), QtCore.QPointF(x + w * 0.58, eye_y))
+            # Буква «У»
+            u_path = QtGui.QPainterPath()
+            u_path.moveTo(x + w * 0.30, y + h * 0.28)
+            u_path.lineTo(x + w * 0.36, y + h * 0.55)
+            u_path.quadTo(x + w * 0.50, y + h * 0.70, x + w * 0.64, y + h * 0.55)
+            u_path.lineTo(x + w * 0.70, y + h * 0.28)
+            # Верхние диагонали «У»
+            u_path.moveTo(x + w * 0.42, y + h * 0.28)
+            u_path.lineTo(x + w * 0.50, y + h * 0.38)
+            u_path.lineTo(x + w * 0.58, y + h * 0.28)
 
-            # «Брови» — V-образные накладки над глазами
-            painter.setPen(QtGui.QPen(ACCENT, 2.0))
-            painter.drawLine(QtCore.QPointF(x + w * 0.40, y + h * 0.34), QtCore.QPointF(x + w * 0.50, y + h * 0.32))
-            painter.drawLine(QtCore.QPointF(x + w * 0.60, y + h * 0.34), QtCore.QPointF(x + w * 0.50, y + h * 0.32))
+            # Буква «о» — круг с внутренним просветом (строгая геометрия)
+            o_outer_center = QtCore.QPointF(x + w * 0.50, y + h * 0.50)
+            o_r_outer = min(w, h) * 0.14
+            o_r_inner = o_r_outer * 0.55
 
-            # Нос — ромб
-            nose = QtGui.QPolygonF([
-                QtCore.QPointF(x + w * 0.50, y + h * 0.44),
-                QtCore.QPointF(x + w * 0.45, y + h * 0.48),
-                QtCore.QPointF(x + w * 0.50, y + h * 0.52),
-                QtCore.QPointF(x + w * 0.55, y + h * 0.48),
-            ])
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 60)))
-            painter.setPen(QtGui.QPen(ACCENT, 2.2))
-            painter.drawPolygon(nose)
+            # Внешний круг «о»
+            o_path = QtGui.QPainterPath()
+            o_path.addEllipse(o_outer_center, o_r_outer, o_r_outer)
 
-            # Рот — прямая с «клыками»
-            painter.setPen(QtGui.QPen(ACCENT, 2.2))
-            painter.drawLine(QtCore.QPointF(x + w * 0.42, y + h * 0.54), QtCore.QPointF(x + w * 0.58, y + h * 0.54))
-            fang_left = QtGui.QPolygonF([
-                QtCore.QPointF(x + w * 0.46, y + h * 0.54),
-                QtCore.QPointF(x + w * 0.44, y + h * 0.60),
-                QtCore.QPointF(x + w * 0.48, y + h * 0.54),
-            ])
-            fang_right = QtGui.QPolygonF([
-                QtCore.QPointF(x + w * 0.52, y + h * 0.54),
-                QtCore.QPointF(x + w * 0.56, y + h * 0.54),
-                QtCore.QPointF(x + w * 0.56, y + h * 0.60),
-            ])
-            painter.drawPolygon(fang_left)
-            painter.drawPolygon(fang_right)
+            # Внутренний просвет «о» (вырез)
+            o_hole = QtGui.QPainterPath()
+            o_hole.addEllipse(o_outer_center, o_r_inner, o_r_inner)
 
-            # Брутальные полосы — больше, резче
-            painter.setPen(QtGui.QPen(ACCENT, 2.2))
-            stripes = [
-                # лобные V-полосы
-                (QtCore.QPointF(x + w * 0.50, y + h * 0.26), QtCore.QPointF(x + w * 0.44, y + h * 0.32)),
-                (QtCore.QPointF(x + w * 0.50, y + h * 0.26), QtCore.QPointF(x + w * 0.56, y + h * 0.32)),
-                # верхние боковые
-                (QtCore.QPointF(x + w * 0.34, y + h * 0.36), QtCore.QPointF(x + w * 0.42, y + h * 0.40)),
-                (QtCore.QPointF(x + w * 0.66, y + h * 0.36), QtCore.QPointF(x + w * 0.58, y + h * 0.40)),
-                # средние боковые
-                (QtCore.QPointF(x + w * 0.33, y + h * 0.46), QtCore.QPointF(x + w * 0.41, y + h * 0.48)),
-                (QtCore.QPointF(x + w * 0.67, y + h * 0.46), QtCore.QPointF(x + w * 0.59, y + h * 0.48)),
-                # нижние боковые
-                (QtCore.QPointF(x + w * 0.36, y + h * 0.54), QtCore.QPointF(x + w * 0.44, y + h * 0.56)),
-                (QtCore.QPointF(x + w * 0.64, y + h * 0.54), QtCore.QPointF(x + w * 0.56, y + h * 0.56)),
-            ]
-            for p1, p2 in stripes:
-                painter.drawLine(p1, p2)
+            # Отрисовка
+            painter.drawPath(u_path)
 
-            # Текстурная штриховка внутри (тонкие линии)
-            painter.setPen(QtGui.QPen(QtGui.QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 120), 1))
-            for i in range(4):
-                painter.drawLine(QtCore.QPointF(x + w * (0.40 + i * 0.04), y + h * 0.42),
-                                  QtCore.QPointF(x + w * (0.44 + i * 0.04), y + h * 0.50))
+            # Создаём составной путь «о» с вырезом
+            composed = QtGui.QPainterPath()
+            composed.addPath(o_path)
+            composed = composed.subtracted(o_hole)
+            painter.drawPath(composed)
+
+            # Акцентная горизонтальная штриха под монограммой
+            painter.setPen(QtGui.QPen(ACCENT, 2))
+            painter.drawLine(QtCore.QPointF(x + w * 0.32, y + h * 0.68), QtCore.QPointF(x + w * 0.68, y + h * 0.68))
 
         finally:
             painter.end()
