@@ -889,7 +889,22 @@ class MeridianOrdersView(ttk.Frame):
         for i in self.tree.get_children():
             self.tree.delete(i)
         for idx, o in enumerate(self.orders):
-            # Count items via DB (if
+            # Count items via DB (if available) to show positions count
+            items_count = 0
+            if db and o.get("id") is not None:
+                try:
+                    items_count = len(db.get_meridian_items(o["id"]))
+                except Exception:
+                    items_count = 0
+            values = (
+                o.get("title", ""),
+                items_count,
+                o.get("status", ""),
+                o.get("date", ""),
+            )
+            tag = f"status_{o.get('status','Не заказан')}"
+            self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+
     def _export_txt(self):
         """Export items from orders with status 'Не заказан' to TXT. Grouped by product name."""
         import os
@@ -1675,7 +1690,8 @@ class MKLOrdersView(ttk.Frame):
                         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
                     })
                 except Exception as e:
-                    messagebox.showerror("База данных", f"Не удалось обновить статус заказа)
+                    messagebox.showerror("База данных", f"Не удалось обновить статус заказа:\n{e}")
+            self._refresh_orders_view()
 
     def _change_status(self):
         """Open a small dialog to change status of selected order."""
