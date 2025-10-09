@@ -288,19 +288,23 @@ class MKLOrdersView(ttk.Frame):
         # Back to main menu (accented)
         btn_back = ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back)
 
-        # Order: Новый заказ, Редактировать, Удалить, Клиент, Добавить Товар
+        # Order: Новый заказ, Редактировать, Удалить, Сменить статус, Клиент, Добавить Товар, Экспорт TXT
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
         btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
+        btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
         btn_clients = ttk.Button(toolbar, text="Клиент", style="Menu.TButton", command=self._open_clients)
         btn_products = ttk.Button(toolbar, text="Добавить Товар", style="Menu.TButton", command=self._open_products)
+        btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
 
         btn_back.pack(side="left")
         btn_new_order.pack(side="left", padx=(8, 0))
         btn_edit_order.pack(side="left", padx=(8, 0))
         btn_delete_order.pack(side="left", padx=(8, 0))
+        btn_change_status.pack(side="left", padx=(8, 0))
         btn_clients.pack(side="left", padx=(8, 0))
         btn_products.pack(side="left", padx=(8, 0))
+        btn_export.pack(side="left", padx=(8, 0))
 
     def _go_back(self):
         # Destroy current view and call provided on_back to re-create main menu
@@ -467,6 +471,72 @@ class MKLOrdersView(ttk.Frame):
             self.orders[idx]["status"] = status
             self.orders[idx]["date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             self._refresh_orders_view()
+
+    def _change_status(self):
+        """Open a small dialog to change status of selected order."""
+        idx = self._selected_index()
+        if idx is None:
+            return
+        current = self.orders[idx].get("status", "Не заказан")
+
+        dialog = tk.Toplevel(self)
+        dialog.title("Сменить статус")
+        dialog.configure(bg="#f8fafc")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        ttk.Label(dialog, text="Выберите статус", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", padx=12, pady=(12, 4))
+        var = tk.StringVar(value=current)
+        combo = ttk.Combobox(dialog, textvariable=var, values=self.STATUSES, height=6)
+        combo.grid(row=1, column=0, sticky="ew", padx=12)
+        ttk.Separator(dialog).grid(row=2, column=0, sticky="ew", padx=12, pady=(12, 12))
+
+        btns = ttk.Frame(dialog, style="Card.TFrame")
+        btns.grid(row=3, column=0, sticky="e", padx=12, pady=(0, 12))
+        ttk.Button(btns, text="ОК", style="Menu.TButton", command=lambda: (self._set_status(var.get()), dialog.destroy())).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
+
+        dialog.columnconfigure(0, weight=1)
+
+    def _export_txt(self):
+        """Export only orders with status 'Не заказан' grouped by product to TXT."""
+        import os
+        groups: dict[str, list[dict]] = {}
+        for o in self.orders:
+            if (o.get("status", "") or "").strip() == "Не заказан":
+                key = (o.get("product", "") or "").strip() or "(Без названия)"
+                groups.setdefault(key, []).append(o)
+
+        if not groups:
+            messagebox.showinfo("Экспорт", "Нет заказов со статусом 'Не заказан' для экспорта.")
+            return
+
+        lines: list[str] = []
+        for product, items in groups.items():
+            lines.append(product)
+            for o in items:
+                parts = []
+                # Append non-empty fields only
+                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("bc", "BC")):
+                    val = (o.get(key, "") or "").strip()
+                    if val != "":
+                        parts.append(f"{label}: {val}")
+                qty = (o.get("qty", "") or "").strip()
+                if qty != "":
+                    parts.append(f"Количество: {qty}")
+                # Add line; if no parts, skip empty line
+                if parts:
+                    lines.append(" ".join(parts))
+            lines.append("")  # blank line after product group
+
+        content = "\n".join(lines).strip() + "\n"
+        filepath = os.path.join(os.getcwd(), "orders_export.txt")
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(content)
+            messagebox.showinfo("Экспорт", f"Экспорт выполнен:\n{filepath}")
+        except Exception as e:
+            messagebox.showerror("Экспорт", f"Ошибка записи файла:\n{e}")
 
     def _refresh_orders_view(self):
         # Очистить и отрисовать из self.orders
