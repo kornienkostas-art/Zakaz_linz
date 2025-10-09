@@ -850,47 +850,35 @@ class OrderForm(tk.Toplevel):
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
-        # Characteristics
-        # SPH
-        sph_frame = ttk.Frame(card, style="Card.TFrame")
-        sph_frame.grid(row=3, column=0, sticky="nsew", padx=(0, 8))
-        ttk.Label(sph_frame, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
-        self.sph_entry = ttk.Entry(sph_frame, textvariable=self.sph_var)
-        self.sph_entry.pack(fill="x")
-        # Validation: SPH −30..+30 (allow empty while typing)
+        # Characteristics — ровная таблица 2×2: заголовки в одной строке, поля в следующей
+        # Row 3: labels
+        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
+        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
+        # Row 4: entries
+        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
+        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        # Validation
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
-
-        # CYL
-        cyl_frame = ttk.Frame(card, style="Card.TFrame")
-        cyl_frame.grid(row=3, column=1, sticky="nsew", padx=(8, 0))
-        ttk.Label(cyl_frame, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
-        self.cyl_entry = ttk.Entry(cyl_frame, textvariable=self.cyl_var)
-        self.cyl_entry.pack(fill="x")
-        # Validation: CYL −10..+10 (allow empty while typing)
         cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
-        # AX
-        ax_frame = ttk.Frame(card, style="Card.TFrame")
-        ax_frame.grid(row=4, column=0, sticky="nsew", padx=(0, 8), pady=(8, 0))
-        ttk.Label(ax_frame, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").pack(anchor="w")
-        self.ax_entry = ttk.Entry(ax_frame, textvariable=self.ax_var)
-        self.ax_entry.pack(fill="x")
-        # Validation: AX 0..180 integer (allow empty while typing)
+        # Row 5: labels
+        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+        # Row 6: entries
+        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
+        self.ax_entry.grid(row=6, column=0, sticky="ew", padx=(0, 8))
+        self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
+        self.bc_entry.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        # Validation
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
-
-        # BC
-        bc_frame = ttk.Frame(card, style="Card.TFrame")
-        bc_frame.grid(row=4, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
-        ttk.Label(bc_frame, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").pack(anchor="w")
-        self.bc_entry = ttk.Entry(bc_frame, textvariable=self.bc_var)
-        self.bc_entry.pack(fill="x")
-        # Validation: BC 8.0..9.0 (allow empty while typing)
         bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 8.0, 9.0)), "%P")
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
@@ -899,26 +887,21 @@ class OrderForm(tk.Toplevel):
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
-        # QTY
-        qty_frame = ttk.Frame(card, style="Card.TFrame")
-        qty_frame.grid(row=5, column=0, sticky="nsew", pady=(8, 0))
-        ttk.Label(qty_frame, text="Количество (1…20)", style="Subtitle.TLabel").pack(anchor="w")
-        self.qty_spin = ttk.Spinbox(qty_frame, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.pack(anchor="w")
+        # Row 7: QTY and Status (ровно в одной строке)
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
+        self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
+        self.qty_spin.grid(row=8, column=0, sticky="w")
 
-        # Status
-        status_frame = ttk.Frame(card, style="Card.TFrame")
-        status_frame.grid(row=5, column=1, sticky="nsew", pady=(8, 0))
-        ttk.Label(status_frame, text="Статус", style="Subtitle.TLabel").pack(anchor="w")
-        self.status_combo = ttk.Combobox(status_frame, textvariable=self.status_var, values=self.statuses, height=6)
-        self.status_combo.pack(fill="x")
+        ttk.Label(card, text="Статус", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        self.status_combo = ttk.Combobox(card, textvariable=self.status_var, values=self.statuses, height=6)
+        self.status_combo.grid(row=8, column=1, sticky="ew")
 
         # Footer and save
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
-        footer.grid(row=6, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
 
