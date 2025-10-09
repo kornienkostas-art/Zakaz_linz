@@ -625,8 +625,7 @@ class MainWindow(ttk.Frame):
                     _stop_tray(self.master)
                 except Exception:
                     pass
-                self.master.destr_codeoynew(</)
-estroy()
+                self.master.destroy()
 
         self.master.protocol("WM_DELETE_WINDOW", on_close)
 
