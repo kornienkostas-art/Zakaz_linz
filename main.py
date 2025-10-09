@@ -499,7 +499,7 @@ class MKLOrdersView(ttk.Frame):
         dialog.columnconfigure(0, weight=1)
 
     def _export_txt(self):
-        """Export only orders with status 'Не заказан' grouped by product to TXT, with header 'МКЛ' and current date."""
+        """Export only orders with status 'Не заказан' grouped by product to TXT. Filename: MKL_DD.MM.YY.txt"""
         import os
         from datetime import datetime
 
@@ -514,11 +514,6 @@ class MKLOrdersView(ttk.Frame):
             return
 
         lines: list[str] = []
-        # Header: МКЛ and current date/time
-        lines.append("МКЛ")
-        lines.append(datetime.now().strftime("%Y-%m-%d %H:%M"))
-        lines.append("")
-
         for product, items in groups.items():
             lines.append(product)
             for o in items:
@@ -537,7 +532,10 @@ class MKLOrdersView(ttk.Frame):
             lines.append("")  # blank line after product group
 
         content = "\n".join(lines).strip() + "\n"
-        filepath = os.path.join(os.getcwd(), "orders_export.txt")
+        # Filename like MKL_09.10.25.txt (DD.MM.YY)
+        date_str = datetime.now().strftime("%d.%m.%y")
+        filename = f"MKL_{date_str}.txt"
+        filepath = os.path.join(os.getcwd(), filename)
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
