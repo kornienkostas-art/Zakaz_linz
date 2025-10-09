@@ -1466,6 +1466,16 @@ class MeridianOrderEditorView(ttk.Frame):
         ttk.Button(btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
+    def _go_back(self):
+        """Return back to the previous view with cleanup."""
+        try:
+            self.destroy()
+        finally:
+            cb = getattr(self, "on_back", None)
+            if callable(cb):
+                cbnew(</)
+))
+
 
 class MKLOrdersView(ttk.Frame):
     COLUMNS = (
