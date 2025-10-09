@@ -846,15 +846,6 @@ class MeridianOrdersView(ttk.Frame):
                     self.master.db.replace_meridian_items(order_id, updated.get("items", []))
                 except Exception as e:
                     messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
-            self._refresh_orders_vi_code):
-        idx = self._selected_index()
-        if idx is None:
-            return
-        old_status = self.orders[idx].get("status", "Не заказан")
-        if status != old_status:
-            from datetime import datetime
-            self.orders[idx]["status"] = status
-            self.orders[idx]["date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             self._refresh_orders_view()
 
     def _change_status(self):
@@ -891,11 +882,14 @@ class MeridianOrdersView(ttk.Frame):
             except Exception as e:
                 messagebox.showerror("База данных", f"Не удалось загрузить заказы Меридиан:\n{e}")
                 self.orders = []
+        else:
+            # No DB: keep current list
+            self.orders = getattr(self, "orders", [])
         # Clear and render
         for i in self.tree.get_children():
             self.tree.delete(i)
-        for idx, o in enumerate
-
+        for idx, o in enumerate(self.orders):
+            # Count items via DB (if
     def _export_txt(self):
         """Export items from orders with status 'Не заказан' to TXT. Grouped by product name."""
         import os
@@ -1648,7 +1642,13 @@ class MeridianOrderEditorView(ttk.Frame):
         if idx is None:
             return
         if messagebox.askyesno("Удалить", "Удалить выбранный заказ?"):
-            self.orders.pop(idx)
+            order = self.orders[idx]
+            order_id = order.get("id")
+            if self.db and order_id:
+                try:
+                    self.db.delete_mkl_order(order_id)
+                except Exception as e:
+                    messagebox.showerror("База данных", f"Не удалось удалить заказ МКЛ:\n{e}")
             self._refresh_orders_view()
 
     def _set_status(self, status: str):
@@ -1661,12 +1661,13 @@ class MeridianOrderEditorView(ttk.Frame):
         if status != old_status:
             if self.master.db and order_id:
                 try:
-                    self.master.db.update_meridian_order(order_id, {
+                    # Обновление статуса для заказа МКЛ
+                    self.master.db.update_mkl_order(order_id, {
                         "status": status,
                         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
                     })
                 except Exception as e:
-                    messagebox.showerror("База данных", f"Не удалосьfresh_orders_view()
+                    messagebox.showerror("База данных", f"Не удалось обновить статус заказа)
 
     def _change_status(self):
         """Open a small dialog to change status of selected order."""
