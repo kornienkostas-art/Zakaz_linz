@@ -608,6 +608,24 @@ class MainWindow(ttk.Frame):
 
         self.master.protocol("WM_DELETE_WINDOW", on_close)
 
+        # Minimize-to-tray on clicking the taskbar minimize button
+        def on_unmap(event=None):
+            try:
+                # Trigger only when the window is minimized (iconic), not when withdrawn
+                if self.master.state() == "iconic":
+                    if bool(self.master.app_settings.get("minimize_to_tray", True)) and pystray is not None and Image is not None:
+                        # Hide window and show tray icon
+                        self.master.withdraw()
+                        _start_tray(self.master)
+            except Exception:
+                pass
+
+        # Bind to Unmap event (fires on minimize)
+        try:
+            self.master.bind("<Unmap>", on_unmap)
+        except Exception:
+            pass
+
         # Make the frame fill the window
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
