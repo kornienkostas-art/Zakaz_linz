@@ -680,10 +680,6 @@ class OrderForm(tk.Toplevel):
         ttk.Label(sph_frame, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
         self.sph_entry = ttk.Entry(sph_frame, textvariable=self.sph_var)
         self.sph_entry.pack(fill="x")
-        self.sph_entry.bind("<KeyRelease>", lambda e: self._update_suggestions("sph"))
-        self.sph_entry.bind("<FocusOut>", lambda e: self._clear_suggestions("sph"))
-        self.sph_sugg = ttk.Frame(sph_frame, style="Card.TFrame")
-        self.sph_sugg.pack(fill="x", pady=(6, 0))
 
         # CYL
         cyl_frame = ttk.Frame(card, style="Card.TFrame")
@@ -691,10 +687,6 @@ class OrderForm(tk.Toplevel):
         ttk.Label(cyl_frame, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
         self.cyl_entry = ttk.Entry(cyl_frame, textvariable=self.cyl_var)
         self.cyl_entry.pack(fill="x")
-        self.cyl_entry.bind("<KeyRelease>", lambda e: self._update_suggestions("cyl"))
-        self.cyl_entry.bind("<FocusOut>", lambda e: self._clear_suggestions("cyl"))
-        self.cyl_sugg = ttk.Frame(cyl_frame, style="Card.TFrame")
-        self.cyl_sugg.pack(fill="x", pady=(6, 0))
 
         # AX
         ax_frame = ttk.Frame(card, style="Card.TFrame")
@@ -739,7 +731,6 @@ class OrderForm(tk.Toplevel):
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        # show dropdown to suggest
         try:
             self.client_combo.event_generate("<Down>")
         except Exception:
@@ -756,74 +747,10 @@ class OrderForm(tk.Toplevel):
         except Exception:
             pass
 
-    # Numeric suggestions and normalization
+    # Normalization and snapping (без подсказок)
     @staticmethod
     def _normalize_decimal(text: str) -> str:
         return (text or "").replace(",", ".").strip()
-
-    def _clear_suggestions(self, field: str):
-        frame = self.sph_sugg if field == "sph" else self.cyl_sugg if field == "cyl" else None
-        if frame:
-            for w in frame.winfo_children():
-                w.destroy()
-
-    def _set_value(self, entry: ttk.Entry, sugg_frame: ttk.Frame, value: float):
-        entry.delete(0, "end")
-        entry.insert(0, f"{value:.2f}")
-        for w in sugg_frame.winfo_children():
-            w.destroy()
-
-    def _update_suggestions(self, field: str):
-        # Build suggestions based on current input (monotonic sequence from the entered value)
-        if field == "sph":
-            entry = self.sph_entry
-            sugg_frame = self.sph_sugg
-            min_v, max_v, step = -30.0, 30.0, 0.25
-        elif field == "cyl":
-            entry = self.cyl_entry
-            sugg_frame = self.cyl_sugg
-            min_v, max_v, step = -10.0, 10.0, 0.25
-        else:
-            return
-
-        text = self._normalize_decimal(entry.get())
-
-        # Try parse number; if empty or just sign, clear suggestions
-        try:
-            base = float(text) if text not in {"", "-", "+"} else None
-        except ValueError:
-            base = None
-
-        # Clear old suggestions
-        for w in sugg_frame.winfo_children():
-            w.destroy()
-
-        if base is None:
-            return
-
-        # Clamp base within bounds
-        base = max(min_v, min(max_v, base))
-
-        # Determine direction: if base >= 0 -> increasing; if base < 0 -> decreasing
-        suggestions = [base]
-        # Generate up to 8 further suggestions in the chosen direction
-        count = 8
-        for i in range(1, count + 1):
-            next_val = base + (step * i) if base >= 0 else base - (step * i)
-            if min_v <= next_val <= max_v:
-                suggestions.append(round(next_val, 2))
-            else:
-                break
-
-        # Render suggestions as buttons (hide after choose)
-        for v in suggestions:
-            b = ttk.Button(
-                sugg_frame,
-                text=f"{float(v):.2f}",
-                style="Menu.TButton",
-                command=lambda val=v: self._set_value(entry, sugg_frame, float(val)),
-            )
-            b.pack(side="left", padx=(0, 6))
 
     @staticmethod
     def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
