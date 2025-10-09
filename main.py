@@ -695,6 +695,9 @@ class MeridianOrdersView(ttk.Frame):
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
         btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
         btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
+        # New: open Clients and Products as embedded views
+        btn_clients = ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=self._open_clients)
+        btn_products = ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products)
         btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
 
         btn_back.pack(side="left")
@@ -702,6 +705,8 @@ class MeridianOrdersView(ttk.Frame):
         btn_edit_order.pack(side="left", padx=(8, 0))
         btn_delete_order.pack(side="left", padx=(8, 0))
         btn_change_status.pack(side="left", padx=(8, 0))
+        btn_clients.pack(side="left", padx=(8, 0))
+        btn_products.pack(side="left", padx=(8, 0))
         btn_export.pack(side="left", padx=(8, 0))
 
     def _go_back(self):
@@ -765,16 +770,14 @@ class MeridianOrdersView(ttk.Frame):
         finally:
             self.menu.grab_release()
 
-    def _selected_index(self):
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showinfo("Выбор", "Пожалуйста, выберите заказ.")
-            return None
-        try:
-            return int(sel[0])
-        except ValueError:
-            return None
-
+    def _open_clients(self):
+        # Открыть клиентов как встроенный вид; назад вернёт к текущему представлению Меридиан
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            ClientsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master,
     def _new_order(self):
         MeridianOrderForm(self, on_save=self._save_order)
 
