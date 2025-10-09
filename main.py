@@ -26,6 +26,30 @@ def set_initial_geometry(win: tk.Tk | tk.Toplevel, min_w: int, min_h: int, cente
     win.geometry(f"+{x}+{y}")
 
 
+def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 200, steps: int = 10):
+    """Simple fade-out, swap view, fade-in on the root window."""
+    try:
+        # Fade out
+        for i in range(steps):
+            alpha = 1.0 - (i + 1) / steps
+            root.attributes("-alpha", max(0.0, alpha))
+            root.update_idletasks()
+            root.after(int(duration_ms / steps))
+        # Swap content
+        swap_callback()
+        root.update_idletasks()
+        # Fade in
+        for i in range(steps):
+            alpha = (i + 1) / steps
+            root.attributes("-alpha", min(1.0, alpha))
+            root.update_idletasks()
+            root.after(int(duration_ms / steps))
+        root.attributes("-alpha", 1.0)
+    except tk.TclError:
+        # If alpha not supported, just swap
+        swap_callback()
+
+
 class MainWindow(ttk.Frame):
     def __init__(self, master: tk.Tk):
         super().__init__(master, padding=24)
@@ -103,6 +127,22 @@ class MainWindow(ttk.Frame):
             background=[("active", button_hover)],
             relief=[("pressed", "sunken"), ("!pressed", "flat")],
             foreground=[("disabled", text_muted), ("!disabled", text_primary)]
+        )
+
+        # Accent button style (for primary actions like Back)
+        accent_hover = "#2563eb"  # darker blue
+        self.style.configure(
+            "Accent.TButton",
+            background=accent,
+            foreground="#ffffff",
+            font=("Segoe UI", 12, "bold"),
+            padding=(16, 12),
+            borderwidth=1
+        )
+        self.style.map(
+            "Accent.TButton",
+            background=[("active", accent_hover)],
+            foreground=[("disabled", "#ffffff"), ("!disabled", "#ffffff")]
         )
 
         # Separator
@@ -187,9 +227,14 @@ class MainWindow(ttk.Frame):
 
     # Actions
     def _on_order_mkl(self):
-        # Переключаемся на представление заказов внутри главного окна
-        self.destroy()
-        MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+        # Плавный переход на представление заказов внутри главного окна
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+        fade_transition(self.master, swap)
 
     def _on_order_meridian(self):
         messagebox.showinfo("Заказ Меридиан", "Раздел 'Заказ Меридиан' будет реализован позже.")
@@ -240,8 +285,8 @@ class MKLOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        # Back to main menu
-        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Menu.TButton", command=self._go_back)
+        # Back to main menu (accented)
+        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back)
 
         # Order: Новый заказ, Редактировать, Удалить, Клиент, Добавить Товар
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
