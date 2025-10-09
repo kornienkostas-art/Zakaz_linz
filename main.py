@@ -615,11 +615,11 @@ class MeridianOrderForm(tk.Toplevel):
         card.pack(fill="both", expand=True)
         card.columnconfigure(0, weight=1)
 
-        # Order status: для новых заказов не показываем выбор, статус по умолчанию "Не заказан"
-        header = ttk.Frame(card, style="Card.TFrame")
-        header.grid(row=0, column=0, sticky="ew")
-        ttk.Label(header, text="Статус заказа", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        if self.is_new:
+        # Order status: для новых заказов вовсе не показываем блок статуса
+        if not self.is_new:
+            header = ttk.Frame(card, style="Card.TFrame")
+            header.grid(row=0, column=0, sticky="ew")
+            ttk.Label(header, text="Статус заказа", style="Subtitle.TLabel").grid(row=0, column     if self.is_new:
             ttk.Label(header, text="Не заказан", style="Subtitle.TLabel").grid(row=1, column=0, sticky="w")
         else:
             ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid(row=1, column=0, sticky="ew")
