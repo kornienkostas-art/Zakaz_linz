@@ -1408,7 +1408,7 @@ class MKLOrdersView(ttk.Frame):
         "status": "Статус",
         "date": "Дата",
     }
-    STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вруч_codeенnew"</]
+    STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
 
     def __init__(self, master: tk.Tk, on_back):
         super().__init__(master, style="Card.TFrame", padding=0)
