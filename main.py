@@ -80,6 +80,9 @@ class MainWindow(ttk.Frame):
 
         # Make the frame fill the window
         self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
+        self.columnconfigure(0, weight=1)
 
     # Modern, readable style
     def _setup_style(self):
