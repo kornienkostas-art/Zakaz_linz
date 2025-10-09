@@ -403,6 +403,10 @@ class MeridianOrdersView(ttk.Frame):
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
 
+        # Status tag colors (light theme)
+        self.tree.tag_configure("status_Не заказан", background="#fee2e2", foreground="#7f1d1d")
+        self.tree.tag_configure("status_Заказан", background="#fef3c7", foreground="#7c2d12")
+
         # Context menu
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Редактировать", command=self._edit_order)
@@ -413,6 +417,8 @@ class MeridianOrdersView(ttk.Frame):
             status_menu.add_command(label=s, command=lambda st=s: self._set_status(st))
         self.menu.add_cascade(label="Статус", menu=status_menu)
         self.tree.bind("<Button-3>", self._show_context_menu)
+        # Double-click to edit
+        self.tree.bind("<Double-1>", lambda e: self._edit_order())
 
     def _show_context_menu(self, event):
         try:
@@ -437,8 +443,14 @@ class MeridianOrdersView(ttk.Frame):
         MeridianOrderForm(self, on_save=self._save_order)
 
     def _save_order(self, order: dict):
+        # Автогенерация имени заказа по порядку, если не задано
+        title = (order.get("title", "") or "").strip()
+        if not title:
+            title = f"Заказ Меридиан #{len(self.orders) + 1}"
+            order["title"] = title
         self.orders.append(order)
-        self._refresh_orders_view()
+        self._refresh_orders_vi_codeewnew(</)
+iew()
 
     def _edit_order(self):
         idx = self._selected_index()
@@ -507,7 +519,9 @@ class MeridianOrdersView(ttk.Frame):
                 o.get("status", ""),
                 o.get("date", ""),
             )
-            self.tree.insert("", "end", iid=str(idx), values=values)
+            tag = f"status_{o.get('status','Не заказан')}"
+            self.tree.insert("", "end", iid=str(idx), values=values, tags=(ta_codeg,new)</)
+s=values)
 
     def _export_txt(self):
         """Export items from orders with status 'Не заказан' to TXT. Grouped by product name."""
@@ -585,7 +599,7 @@ class MeridianOrderForm(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
 
         self.on_save = on_save
-        # Order-level vars
+        # Order-level vars (без ручного ввода имени)
         self.title_var = tk.StringVar(value=(initial or {}).get("title", ""))
         self.statuses = ["Не заказан", "Заказан"]
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
@@ -602,15 +616,12 @@ class MeridianOrderForm(tk.Toplevel):
         card.pack(fill="both", expand=True)
         card.columnconfigure(0, weight=1)
 
-        # Order title and status
+        # Order status only; имя генерируется автоматически при сохранении
         header = ttk.Frame(card, style="Card.TFrame")
         header.grid(row=0, column=0, sticky="ew")
-        ttk.Label(header, text="Название заказа", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(header, textvariable=self.title_var).grid(row=1, column=0, sticky="ew")
-        ttk.Label(header, text="Статус", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w", padx=(12, 0))
-        ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid(row=1, column=1, sticky="ew", padx=(12, 0))
+        ttk.Label(header, text="Статус заказа", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid(row=1, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
-        header.columnconfigure(1, weight=1)
 
         ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(12, 12))
 
@@ -704,14 +715,10 @@ class MeridianOrderForm(tk.Toplevel):
             self._refresh_items_view()
 
     def _save(self):
-        title = (self.title_var.get() or "").strip()
         status = (self.status_var.get() or "Не заказан").strip()
-        if not title:
-            messagebox.showinfo("Проверка", "Введите название заказа.")
-            return
         from datetime import datetime
         order = {
-            "title": title,
+            "title": (self.title_var.get() or "").strip(),  # может быть пустым, имя назначит родитель
             "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "items": self.items.copy(),
@@ -777,9 +784,10 @@ class MeridianItemForm(tk.Toplevel):
         ttk.Label(card, text="D (40…90, шаг 5) — в экспорте добавляется 'мм'", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8, 0))
         self.d_entry = ttk.Entry(card, textvariable=self.d_var)
         self.d_entry.grid(row=5, column=1, sticky="ew")
-        d_vcmd = (self.register(lambda v: self._vc_int(v, 40, 90)), "%P")
+        # Relaxed validation: allow digits while typing; bounds/step applied on focus out
+        d_vcmd = (self.register(self._vc_int_relaxed), "%P")
         self.d_entry.configure(validate="key", validatecommand=d_vcmd)
-        self.d_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("d"))
+        self.d_entry.bin("<dFocusOut>", lambda e: self._apply_snap_for("_coded"new)</)
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=6, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
@@ -814,6 +822,16 @@ class MeridianItemForm(tk.Toplevel):
         except ValueError:
             return False
         return (min_v <= num <= max_v)
+
+    def _vc_int_relaxed(self, new_value: str) -> bool:
+        """Allow empty or digits during typing without range enforcement."""
+        v = (new_value or "").strip()
+        if v == "":
+            return True
+        # allow plus/minus temporarily
+        if v in {"+", "-"}:
+            return True
+        # allow digits only (no range)
 
     def _apply_snap_for(self, field: str):
         if field == "sph":
