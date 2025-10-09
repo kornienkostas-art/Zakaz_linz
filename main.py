@@ -535,13 +535,23 @@ class MKLOrdersView(ttk.Frame):
         # Filename like MKL_09.10.25.txt (DD.MM.YY)
         date_str = datetime.now().strftime("%d.%m.%y")
         filename = f"MKL_{date_str}.txt"
-        filepath = os.path.join(os.getcwd(), filename)
+        # Prefer Desktop path
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        save_dir = desktop if os.path.isdir(desktop) else os.getcwd()
+        filepath = os.path.join(save_dir, filename)
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
             messagebox.showinfo("Экспорт", f"Экспорт выполнен:\n{filepath}")
-        except Exception as e:
-            messagebox.showerror("Экспорт", f"Ошибка записи файла:\n{e}")
+            # Try to open the file with default editor (Windows: Notepad)
+            try:
+                import platform, subprocess
+                if hasattr(os, "startfile"):
+                    os.startfile(filepath)  # Windows
+                else:
+                    sysname = platform.system()
+                    if sysname == "Darwin":
+                        subprocess.run(["n{e}")
 
     def _refresh_orders_view(self):
         # Очистить и отрисовать из self.orders
