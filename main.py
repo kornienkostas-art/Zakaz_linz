@@ -332,9 +332,9 @@ class MKLOrdersWindow(tk.Toplevel):
         self.tree.bind("<Button-3>", self._show_context_menu)  # Right-click
 
     def _configure_status_tags(self):
-        # Colors for dark theme
-        # Not ordered: slate
-        self.tree.tag_configure("status_Не заказан", background="#0f172a", foreground="#e5e7eb")
+        # Row highlighting by status
+        # Not ordered: RED
+        self.tree.tag_configure("status_Не заказан", background="#3f1212", foreground="#fecaca")  # dark red bg, light red text
         # Ordered: amber
         self.tree.tag_configure("status_Заказан", background="#3a2e0b", foreground="#f5e0a1")
         # Called: cyan/blue
@@ -775,12 +775,17 @@ class OrderForm(tk.Toplevel):
         self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
+        # Open dropdown on focus or click
+        self.client_combo.bind("<FocusIn>", lambda e: self._open_combo(self.client_combo))
+        self.client_combo.bind("<Button-1>", lambda e: self._open_combo(self.client_combo))
 
         # Product selection with autocomplete
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        self.product_combo.bind("<FocusIn>", lambda e: self._open_combo(self.product_combo))
+        self.product_combo.bind("<Button-1>", lambda e: self._open_combo(self.product_combo))
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
@@ -848,20 +853,21 @@ class OrderForm(tk.Toplevel):
         values = self._client_values()
         if term:
             values = [v for v in values if term in v.lower()]
+        # Update list without forcing dropdown open (avoids caret/Backspace issues)
         self.client_combo["values"] = values
-        try:
-            self.client_combo.event_generate("<Down>")
-        except Exception:
-            pass
 
     def _filter_products(self):
         term = self.product_var.get().strip().lower()
         values = self._product_values()
         if term:
             values = [v for v in values if term in v.lower()]
+        # Update list without forcing dropdown open
         self.product_combo["values"] = values
+
+    def _open_combo(self, combo: ttk.Combobox):
+        # Open dropdown programmatically when focusing/clicking the field
         try:
-            self.product_combo.event_generate("<Down>")
+            combo.event_generate("<Down>")
         except Exception:
             pass
 
