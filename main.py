@@ -26,7 +26,7 @@ def set_initial_geometry(win: tk.Tk | tk.Toplevel, min_w: int, min_h: int, cente
     win.geometry(f"+{x}+{y}")
 
 
-def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 200, steps: int = 10):
+def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 120, steps: int = 8):
     """Simple fade-out, swap view, fade-in on the root window."""
     try:
         # Fade out
@@ -803,7 +803,7 @@ class OrderForm(tk.Toplevel):
         # Vars
         self.client_var = tk.StringVar()
         self.product_var = tk.StringVar()
-        self.sph_var = tk.StringVar(value="0")
+        self.sph_var = tk.StringVar(value="")
         self.cyl_var = tk.StringVar(value="")
         self.ax_var = tk.StringVar(value="")
         self.bc_var = tk.StringVar(value="")
@@ -814,7 +814,7 @@ class OrderForm(tk.Toplevel):
         if initial:
             self.client_var.set(f'{initial.get("fio","")} — {initial.get("phone","")}'.strip(" —"))
             self.product_var.set(initial.get("product", ""))
-            self.sph_var.set(initial.get("sph", "0"))
+            self.sph_var.set(initial.get("sph", ""))
             self.cyl_var.set(initial.get("cyl", ""))
             self.ax_var.set(initial.get("ax", ""))
             self.bc_var.set(initial.get("bc", ""))
@@ -857,13 +857,19 @@ class OrderForm(tk.Toplevel):
         ttk.Label(sph_frame, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
         self.sph_entry = ttk.Entry(sph_frame, textvariable=self.sph_var)
         self.sph_entry.pack(fill="x")
-
+        # Validation: SPH −30..+30 (allow empty while typing)
+        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
+        self.sph
         # CYL
         cyl_frame = ttk.Frame(card, style="Card.TFrame")
         cyl_frame.grid(row=3, column=1, sticky="nsew", padx=(8, 0))
         ttk.Label(cyl_frame, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").pack(anchor="w")
         self.cyl_entry = ttk.Entry(cyl_frame, textvariable=self.cyl_var)
         self.cyl_entry.pack(fill="x")
+        # Validation: CYL −10..+10 (allow empty while typing)
+        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
+        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
+        self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
         # AX
         ax_frame = ttk.Frame(card, style="Card.TFrame")
@@ -871,6 +877,10 @@ class OrderForm(tk.Toplevel):
         ttk.Label(ax_frame, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").pack(anchor="w")
         self.ax_entry = ttk.Entry(ax_frame, textvariable=self.ax_var)
         self.ax_entry.pack(fill="x")
+        # Validation: AX 0..180 integer (allow empty while typing)
+        ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
+        self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
+        self.ax_entry.bin("<dFocusOut>", lambda e: self._apply_snap_for("a_codex"new)</)
 
         # BC
         bc_frame = ttk.Frame(card, style="Card.TFrame")
@@ -878,6 +888,10 @@ class OrderForm(tk.Toplevel):
         ttk.Label(bc_frame, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").pack(anchor="w")
         self.bc_entry = ttk.Entry(bc_frame, textvariable=self.bc_var)
         self.bc_entry.pack(fill="x")
+        # Validation: BC 8.0..9.0 (allow empty while typing)
+        bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 8.0, 9.0)), "%P")
+        self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
+        self.bc_entry.bin("<dFocusOut>", lambda e: self._apply_snap_for("b_codec"new)</)
 
         # Bind clear shortcuts (Delete) for inputs
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
@@ -947,6 +961,43 @@ class OrderForm(tk.Toplevel):
                 except Exception:
                     pass
         widget.bind("<Delete>", lambda e: clear())
+
+    # Validation helpers
+    def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
+        """Allow empty or partial numeric like '-', '+', '.', ',', within range."""
+        v = (new_value or "").replace(",", ".")
+        if v == "":
+            return True
+        if v in {"+", "-", ".", "-.", "+.", ",", "-,", "+,"}:
+            return True
+        try:
+            num = float(v)
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _vc_int(self, new_value: str, min_v: int, max_v: int) -> bool:
+        v = (new_value or "").strip()
+        if v == "":
+            return True
+        # Allow partial '-' while typing
+        if v == "-" or v == "+":
+            return True
+        try:
+            num = int(float(v.replace(",", ".")))
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _apply_snap_for(self, field: str):
+        if field == "sph":
+            self.sph_var.set(self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True))
+        elif field == "cyl":
+            self.cyl_var.set(self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True))
+        elif field == "ax":
+            self.ax_var.set(self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True))
+        elif field == "bc":
+            self.bc_var.set(self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True))
 
     # Normalization and snapping (без подсказок)
     @staticmethod
