@@ -517,7 +517,7 @@ def _start_tray(master: tk.Tk):
 
     t = threading.Thread(target=run_icon, daemon=True)
     master.tray_thread = t
-    t.sta_codertnew(</)
+    t.start()
 
 
 def _stop_tray(master: tk.Tk):
