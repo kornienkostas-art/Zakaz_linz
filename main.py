@@ -597,10 +597,23 @@ class MainWindow(ttk.Frame):
         # Handle close to minimize to tray
         def on_close():
             try:
-                if bool(self.master.app_settings.get("minimize_to_tray", True)) and pystray is not None:
-                    # Hide window and show tray icon
-                    self.master.withdraw()
-                    _start_tray(self.master)
+                if bool(self.master.app_settings.get("minimize_to_tray", True)):
+                    if pystray is not None and Image is not None:
+                        # Hide window and show tray icon
+                        self.master.withdraw()
+                        _start_tray(self.master)
+                        try:
+                            # Inform user that app is in tray
+                            messagebox.showinfo("Трей", "Приложение свернуто в системный трей.\nИспользуйте значок в трее, чтобы открыть или выйти.")
+                        except Exception:
+                            pass
+                    else:
+                        # Tray unavailable: warn and close
+                        try:
+                            messagebox.showwarning("Трей недоступен", "Библиотеки pystray и Pillow не установлены.\nСворачивание в трей недоступно, приложение будет закрыто.")
+                        except Exception:
+                            pass
+                        self.master.destroy()
                 else:
                     self.master.destroy()
             except Exception:
