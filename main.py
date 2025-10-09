@@ -6,6 +6,16 @@ import sqlite3
 import os
 from datetime import datetime
 import re
+import threading
+
+# Optional dependencies for system tray (pystray + Pillow)
+try:
+    import pystray
+    from PIL import Image, ImageDraw
+except Exception:
+    pystray = None
+    Image = None
+    ImageDraw = None
 
 
 class AppDB:
@@ -353,6 +363,167 @@ def format_phone_mask(raw: str) -> str:
 
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
 
+# --- Autostart (Windows) and system tray helpers ---
+def _get_exec_command() -> str:
+    """
+    Return command string for autostart:
+    - If running as packaged exe (sys.frozen): sys.executable
+    - Else: pythonw.exe + full path to main.py
+    """
+    import sys
+    try:
+        if getattr(sys, "frozen", False):
+            return sys.executable
+        # Fallback: use pythonw.exe to avoid console
+        pythonw = sys.executable  # may be python.exe; try to find pythonw
+        try:
+            base = os.path.dirname(sys.executable)
+            candidate = os.path.join(base, "pythonw.exe")
+            if os.path.isfile(candidate):
+                pythonw = candidate
+        except Exception:
+            pass
+        script = os.path.abspath(__file__)
+        return f'"{pythonw}" "{script}"'
+    except Exception:
+        # Last resort
+        return os.path.abspath(__file__)
+
+def _windows_autostart_set(enabled: bool):
+    """Enable/disable autostart via HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run."""
+    if os.name != "nt":
+        return
+    try:
+        import winreg
+        app_name = "UssurochkiRF"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, winreg.KEY_SET_VALUE) as key:
+            if enabled:
+                cmd = _get_exec_command()
+                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, cmd)
+            else:
+                try:
+                    winreg.DeleteValue(key, app_name)
+                except FileNotFoundError:
+                    pass
+    except Exception:
+        # Ignore errors silently; will be surfaced in UI when toggling
+        pass
+
+def _windows_autostart_get() -> bool:
+    if os.name != "nt":
+        return False
+    try:
+        import winreg
+        app_name = "UssurochkiRF"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, winreg.KEY_READ) as key:
+            try:
+                _ = winreg.QueryValueEx(key, app_name)
+                return True
+            except FileNotFoundError:
+                return False
+    except Exception:
+        return False
+
+def _create_tray_image(settings: dict) -> "Image.Image | None":
+    """Create tray image from logo path or generate a simple one."""
+    if Image is None:
+        return None
+    path = (settings or {}).get("tray_logo_path") or ""
+    if path and os.path.isfile(path):
+        try:
+            img = Image.open(path)
+            # Resize to typical tray icon size
+            img = img.convert("RGBA")
+            img = img.resize((128, 128), Image.LANCZOS)
+            return img
+        except Exception:
+            pass
+    # Fallback: generate simple icon with text 'УО'
+    img = Image.new("RGBA", (128, 128), (248, 250, 252, 255))  # bg #f8fafc
+    draw = ImageDraw.Draw(img)
+    draw.ellipse((8, 8, 120, 120), fill=(59, 130, 246, 255))  # blue circle
+    # Simple white 'УО'
+    try:
+        draw.text((36, 44), "УО", fill=(255, 255, 255, 255))
+    except Exception:
+        pass
+    return img
+
+def _start_tray(master: tk.Tk):
+    """Start system tray icon if pystray is available."""
+    if pystray is None or Image is None:
+        return
+    # Avoid duplicates
+    if getattr(master, "tray_icon", None):
+        return
+
+    settings = getattr(master, "app_settings", {})
+    image = _create_tray_image(settings) or None
+
+    def on_open(icon, item=None):
+        # Show window from tray
+        try:
+            master.after(0, lambda: (_show_main_window(master), _stop_tray(master)))
+        except Exception:
+            pass
+
+    def on_exit(icon, item=None):
+        try:
+            master.after(0, lambda: (_stop_tray(master), master.destroy()))
+        except Exception:
+            pass
+
+    def on_toggle_autostart(icon, item=None):
+        try:
+            cur = _windows_autostart_get()
+            _windows_autostart_set(not cur)
+            # reflect in settings
+            master.app_settings["autostart_enabled"] = not cur
+            # also update menu text by recreating icon
+            _stop_tray(master)
+            _start_tray(master)
+        except Exception:
+            pass
+
+    # Build menu
+    autostart_label = "Автозапуск: " + ("Вкл" if _windows_autostart_get() else "Выкл")
+    menu = pystray.Menu(
+        pystray.MenuItem("Открыть", on_open),
+        pystray.MenuItem(autostart_label, on_toggle_autostart),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Выход", on_exit),
+    )
+
+    icon = pystray.Icon("ussurochki_rf", image, title="УссурОЧки.рф", menu=menu)
+    master.tray_icon = icon
+
+    def run_icon():
+        try:
+            icon.run()
+        except Exception:
+            pass
+
+    t = threading.Thread(target=run_icon, daemon=True)
+    master.tray_thread = t
+    t.start()
+
+def _stop_tray(master: tk.Tk):
+    try:
+        icon = getattr(master, "tray_icon", None)
+        if icon:
+            icon.stop()
+        master.tray_icon = None
+        master.tray_thread = None
+    except Exception:
+        pass
+
+def _show_main_window(master: tk.Tk):
+    try:
+        master.deiconify()
+        master.after(50, lambda: master.attributes("-alpha", 1.0))
+    except Exception:
+        pass
+
 
 
 
@@ -372,17 +543,32 @@ class MainWindow(ttk.Frame):
         set_initial_geometry(self.master, min_w=800, min_h=520)
         self.master.configure(bg="#f8fafc")  # light background
 
-        # Init app settings with default export path (Desktop if exists)
+        # Init app settings with defaults
         try:
             desktop = os.path.join(os.path.expanduser("~"), "Desktop")
             default_export = desktop if os.path.isdir(desktop) else os.getcwd()
         except Exception:
             default_export = None
         if not hasattr(self.master, "app_settings"):
-            self.master.app_settings = {"export_path": default_export}
+            self.master.app_settings = {
+                "export_path": default_export,
+                "autostart_enabled": True,
+                "minimize_to_tray": True,
+                "tray_logo_path": "",
+            }
         else:
-            # Ensure key exists
-            self.master.app_settings.setdefault("export_path", default_export)
+            s = self.master.app_settings
+            s.setdefault("export_path", default_export)
+            s.setdefault("autostart_enabled", True)
+            s.setdefault("minimize_to_tray", True)
+            s.setdefault("tray_logo_path", "")
+
+        # Apply autostart on Windows
+        try:
+            if os.name == "nt":
+                _windows_autostart_set(bool(self.master.app_settings.get("autostart_enabled", True)))
+        except Exception:
+            pass
 
         # Init SQLite DB once and attach to root
         try:
@@ -392,6 +578,20 @@ class MainWindow(ttk.Frame):
             messagebox.showerror("База данных", f"Ошибка инициализации БД:\n{e}")
             # Fallback in-memory stub
             self.master.db = None
+
+        # Handle close to minimize to tray
+        def on_close():
+            try:
+                if bool(self.master.app_settings.get("minimize_to_tray", True)) and pystray is not None:
+                    # Hide window and show tray icon
+                    self.master.withdraw()
+                    _start_tray(self.master)
+                else:
+                    self.master.destroy()
+            except Exception:
+                self.master.destroy()
+
+        self.master.protocol("WM_DELETE_WINDOW", on_close)
 
         # Make the frame fill the window
         self.master.columnconfigure(0, weight=1)
@@ -598,7 +798,12 @@ class SettingsView(ttk.Frame):
         self.grid(sticky="nsew")
 
         # Read current settings from root
-        self.app_settings = getattr(master, "app_settings", {"export_path": None})
+        self.app_settings = getattr(master, "app_settings", {
+            "export_path": None,
+            "autostart_enabled": True,
+            "minimize_to_tray": True,
+            "tray_logo_path": "",
+        })
         current_path = self.app_settings.get("export_path") or ""
 
         # Toolbar with back
@@ -615,6 +820,7 @@ class SettingsView(ttk.Frame):
         header.grid(row=0, column=0, sticky="w", columnspan=3)
         ttk.Separator(card).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 12))
 
+        # Export path
         ttk.Label(card, text="Путь сохранения экспорта (по умолчанию)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", columnspan=3)
         self.path_var = tk.StringVar(value=current_path)
         ttk.Label(card, text="Папка:", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
@@ -622,10 +828,24 @@ class SettingsView(ttk.Frame):
         entry.grid(row=3, column=1, sticky="ew", pady=(8, 0))
         ttk.Button(card, text="Обзор…", style="Menu.TButton", command=self._browse_dir).grid(row=3, column=2, sticky="w", padx=(8, 0), pady=(8, 0))
 
+        # Autostart + tray
         ttk.Separator(card).grid(row=4, column=0, columnspan=3, sticky="ew", pady=(12, 12))
+        self.autostart_var = tk.BooleanVar(value=bool(self.app_settings.get("autostart_enabled", True)))
+        self.tray_var = tk.BooleanVar(value=bool(self.app_settings.get("minimize_to_tray", True)))
+        self.logo_var = tk.StringVar(value=self.app_settings.get("tray_logo_path") or "")
+
+        ttk.Checkbutton(card, text="Запускать с Windows", variable=self.autostart_var).grid(row=5, column=0, sticky="w")
+        ttk.Checkbutton(card, text="Сворачивать в системный трей при закрытии", variable=self.tray_var).grid(row=6, column=0, sticky="w", pady=(8, 0))
+
+        ttk.Label(card, text="Логотип для значка в трее (PNG/ICO)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(12, 0))
+        logo_entry = ttk.Entry(card, textvariable=self.logo_var)
+        logo_entry.grid(row=8, column=0, sticky="ew")
+        ttk.Button(card, text="Выбрать файл…", style="Menu.TButton", command=self._browse_logo).grid(row=8, column=1, sticky="w", padx=(8, 0))
+
+        ttk.Separator(card).grid(row=9, column=0, columnspan=3, sticky="ew", pady=(12, 12))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=5, column=0, columnspan=3, sticky="e")
+        btns.grid(row=10, column=0, columnspan=3, sticky="e")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
 
     def _go_back(self):
@@ -641,18 +861,52 @@ class SettingsView(ttk.Frame):
         if path:
             self.path_var.set(path)
 
+    def _browse_logo(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title="Выберите файл логотипа (PNG/ICO)",
+            filetypes=[("PNG/ICO", "*.png *.ico"), ("Все файлы", "*.*")]
+        )
+        if path:
+            self.logo_var.set(path)
+
     def _save(self):
         path = self.path_var.get().strip()
+        logo_path = self.logo_var.get().strip()
+        autostart_enabled = bool(self.autostart_var.get())
+        tray_enabled = bool(self.tray_var.get())
+
         if not path:
             messagebox.showinfo("Настройки", "Укажите папку для сохранения.")
             return
         try:
-            import os
             if not os.path.isdir(path):
                 messagebox.showinfo("Настройки", "Указанный путь не существует.")
                 return
+
             # Persist in root settings
-            self.master.app_settings["export_path"] = path
+            s = self.master.app_settings
+            s["export_path"] = path
+            s["tray_logo_path"] = logo_path
+            s["autostart_enabled"] = autostart_enabled
+            s["minimize_to_tray"] = tray_enabled
+
+            # Apply autostart on Windows
+            if os.name == "nt":
+                try:
+                    _windows_autostart_set(autostart_enabled)
+                except Exception as e:
+                    messagebox.showerror("Автозапуск", f"Не удалось применить автозапуск:\n{e}")
+
+            # If tray icon is running and logo changed or tray toggled, restart tray
+            try:
+                if getattr(self.master, "tray_icon", None):
+                    _stop_tray(self.master)
+                    if tray_enabled and pystray is not None:
+                        _start_tray(self.master)
+            except Exception:
+                pass
+
             messagebox.showinfo("Настройки", "Сохранено.")
             self._go_back()
         except Exception as e:
