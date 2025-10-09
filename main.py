@@ -1812,6 +1812,72 @@ class ProductsWindow(tk.Toplevel):
         self._build_ui()
         self._reload()
 
+    def _build_ui(self):
+        # Toolbar
+        bar = ttk.Frame(self, style="Card.TFrame", padding=16)
+        bar.pack(fill="x")
+        ttk.Button(bar, text="Добавить", style="Menu.TButton", command=self._add).pack(side="left")
+        ttk.Button(bar, text="Редактировать", style="Menu.TButton", command=self._edit).pack(side="left", padx=(8, 0))
+        ttk.Button(bar, text="Удалить", style="Menu.TButton", command=self._delete).pack(side="left", padx=(8, 0))
+
+        # Table
+        table_card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        table_card.pack(fill="both", expand=True)
+
+        columns = ("name",)
+        self.tree = ttk.Treeview(table_card, columns=columns, show="headings", style="Data.Treeview")
+        self.tree.heading("name", text="Название товара", anchor="w")
+        self.tree.column("name", width=600, anchor="w")
+
+        y_scroll = ttk.Scrollbar(table_card, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscroll=y_scroll.set)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        table_card.columnconfigure(0, weight=1)
+        table_card.rowconfigure(0, weight=1)
+
+        self._refresh_view()
+
+    def _reload(self):
+        """Загрузить список товаров из БД."""
+        try:
+            self._dataset = self.db.list_products() if self.db else []
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось загрузить товары:\n{e}")
+            self._dataset = []
+        self._filtered = list(self._dataset)
+        self._refresh_view()
+
+    def _refresh_view(self):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        for idx, item in enumerate(self._filtered):
+            self.tree.insert("", "end", iid=str(idx), values=(item.get("name", ""),))
+
+    def _selected_index(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Выбор", "Пожалуйста, выберите товар.")
+            return None
+        try:
+            return int(sel[0])
+        except ValueError:
+            return None
+
+    def _add(self):
+        ProductForm(self, on_save=self._on_add_save)
+
+    def _on_add_save(self, data: dict):
+        try:
+            if self.db:
+                self.db.add_product(data.get("name", ""))
+            else:
+                self._dataset.append({"id": None, **data})
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось добавить товар:\n{e}")
+        self._reload()
+
     def _edit(self):
         idx = self._selected_index()
         if idx is None:
