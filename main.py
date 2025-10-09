@@ -65,11 +65,21 @@ class MainWindow(ttk.Frame):
         set_initial_geometry(self.master, min_w=800, min_h=520)
         self.master.configure(bg="#f8fafc")  # light background
 
+        # Init app settings with default export path (Desktop if exists)
+        try:
+            import os
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            default_export = desktop if os.path.isdir(desktop) else os.getcwd()
+        except Exception:
+            default_export = None
+        if not hasattr(self.master, "app_settings"):
+            self.master.app_settings = {"export_path": default_export}
+        else:
+            # Ensure key exists
+            self.master.app_settings.setdefault("export_path", default_export)
+
         # Make the frame fill the window
         self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
-        self.columnconfigure(0, weight=1)
 
     # Modern, readable style
     def _setup_style(self):
@@ -240,8 +250,65 @@ class MainWindow(ttk.Frame):
         messagebox.showinfo("Заказ Меридиан", "Раздел 'Заказ Меридиан' будет реализован позже.")
 
     def _on_settings(self):
-        messagebox.showinfo("Настройки", "Раздел 'Настройки' будет реализован позже.")
+        SettingsWindow(self.master)
 
+
+class SettingsWindow(tk.Toplevel):
+    """Настройки приложения: путь сохранения экспорта по умолчанию."""
+    def __init__(self, master: tk.Tk):
+        super().__init__(master)
+        self.title("Настройки")
+        self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=560, min_h=240, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.bind("<Escape>", lambda e: self.destroy())
+
+        # Read current settings from root
+        self.app_settings = getattr(master, "app_settings", {"export_path": None})
+        current_path = self.app_settings.get("export_path") or ""
+
+        card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        card.pack(fill="both", expand=True)
+        card.columnconfigure(1, weight=1)
+
+        ttk.Label(card, text="Путь сохранения экспорта (по умолчанию)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", columnspan=3)
+        self.path_var = tk.StringVar(value=current_path)
+        ttk.Label(card, text="Папка:", style="Subtitle.TLabel").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        entry = ttk.Entry(card, textvariable=self.path_var)
+        entry.grid(row=1, column=1, sticky="ew", pady=(8, 0))
+        ttk.Button(card, text="Обзор…", style="Menu.TButton", command=self._browse_dir).grid(row=1, column=2, sticky="w", padx=(8, 0), pady=(8, 0))
+
+        ttk.Separator(card).grid(row=2, column=0, columnspan=3, sticky="ew", pady=(12, 12))
+
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.grid(row=3, column=0, columnspan=3, sticky="e")
+        ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+    def _browse_dir(self):
+        from tkinter import filedialog
+        path = filedialog.askdirectory(title="Выберите папку для сохранения экспорта")
+        if path:
+            self.path_var.set(path)
+
+    def _save(self):
+        path = self.path_var.get().strip()
+        if not path:
+            messagebox.showinfo("Настройки", "Укажите папку для сохранения.")
+            return
+        try:
+            import os
+            if not os.path.isdir(path):
+                messagebox.showinfo("Настройки", "Указанный путь не существует.")
+                return
+            # Persist in root settings
+            self.master.app_settings["export_path"] = path
+            messagebox.showinfo("Настройки", "Сохранено.")
+            self.destroy()
+        except Exception as e:
+            messagebox.showerror("Настройки", f"Ошибка сохранения:\n{e}")
 
 class MKLOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ МКЛ' внутри главного окна."""
@@ -533,6 +600,33 @@ class MKLOrdersView(ttk.Frame):
 
         content = "\n".join(lines).strip() + "\n"
         # Filename like MKL_09.10.25.txt (DD.MM.YY)
+        date_str = datetime.now().strftime("%d.%m.%y")
+        filename = f"MKL_{date_str}.txt"
+        # Use settings' export path if configured; fallback to Desktop or CWD
+        export_path = getattr(self.master, "app_settings", {}).get("export_path", None)
+        if not export_path:
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            export_path = desktop if os.path.isdir(desktop) else os.getcwd()
+        filepath = os.path.join(export_path, filename)
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(content)
+            messagebox.showinfo("Экспорт", f"Экспорт выполнен:\n{filepath}")
+            # Try to open the file with default editor (Windows: Notepad)
+            try:
+                import platform, subprocess
+                if hasattr(os, "startfile"):
+                    os.startfile(filepath)  # Windows
+                else:
+                    sysname = platform.system()
+                    if sysname == "Darwin":
+                        subprocess.run(["open", filepath], check=False)
+                    else:
+                        subprocess.run(["xdg-open", filepath], check=False)
+            except Exception:
+                pass
+        except Exception as e:
+            messagebox.showerror("Экспорт", f"Ошибка записи файла:\n{e}")
         date_str = datetime.now().strftime("%d.%m.%y")
         filename = f"MKL_{date_str}.txt"
         # Prefer Desktop path
