@@ -39,7 +39,7 @@ class MainWindow(ttk.Frame):
         self.master.title("УссурОЧки.рф")
         # Adaptive size so всё сразу видно без разворачивания
         set_initial_geometry(self.master, min_w=800, min_h=520)
-        self.master.configure(bg="#0f172a")  # slate-900
+        self.master.configure(bg="#f8fafc")  # light background
 
         # Make the frame fill the window
         self.master.columnconfigure(0, weight=1)
@@ -57,15 +57,15 @@ class MainWindow(ttk.Frame):
         except tk.TclError:
             pass
 
-        # Base colors
-        bg = "#0f172a"        # deep slate
-        card_bg = "#111827"   # slightly lighter slate
-        accent = "#22c55e"    # emerald
-        text_primary = "#e5e7eb"  # light gray
-        text_muted = "#9ca3af"    # muted gray
-        button_bg = "#1f2937"     # dark gray
-        button_hover = "#374151"  # hover
-        border = "#334155"
+        # Base colors (light theme)
+        bg = "#f8fafc"            # light gray-50
+        card_bg = "#ffffff"       # white card
+        accent = "#3b82f6"        # blue accent
+        text_primary = "#111827"  # near-black
+        text_muted = "#6b7280"    # gray-500
+        button_bg = "#e5e7eb"     # gray-200
+        button_hover = "#d1d5db"  # gray-300
+        border = "#e5e7eb"        # gray-200
 
         # Global settings
         self.style.configure(".", background=bg)
@@ -120,7 +120,7 @@ class MainWindow(ttk.Frame):
         )
         self.style.configure(
             "Data.Treeview.Heading",
-            background=button_bg,
+            background="#f3f4f6",  # gray-100
             foreground=text_primary,
             font=("Segoe UI", 11, "bold"),
             bordercolor=border,
@@ -218,14 +218,14 @@ class MKLOrdersWindow(tk.Toplevel):
     def __init__(self, master: tk.Tk):
         super().__init__(master)
         self.title("Заказ МКЛ")
-        self.configure(bg="#0f172a")
+        self.configure(bg="#f8fafc")
         set_initial_geometry(self, min_w=1000, min_h=640, center_to=master)
 
         # Close behavior
         self.transient(master)
         self.grab_set()  # modal-like
         self.protocol("WM_DELETE_WINDOW", self.destroy)
-        # 快捷键 Esc закрывает окно заказов
+        # Esc закрывает окно заказов
         self.bind("<Escape>", lambda e: self.destroy())
 
         # In-memory datasets (to be replaced with SQLite later)
@@ -241,17 +241,18 @@ class MKLOrdersWindow(tk.Toplevel):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        btn_clients = ttk.Button(toolbar, text="Клиент", style="Menu.TButton", command=self._open_clients)
-        btn_products = ttk.Button(toolbar, text="Добавить Товар", style="Menu.TButton", command=self._open_products)
+        # Order: Новый заказ, Редактировать, Удалить, Клиент, Добавить Товар
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
         btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
+        btn_clients = ttk.Button(toolbar, text="Клиент", style="Menu.TButton", command=self._open_clients)
+        btn_products = ttk.Button(toolbar, text="Добавить Товар", style="Menu.TButton", command=self._open_products)
 
-        btn_clients.pack(side="left")
-        btn_products.pack(side="left", padx=(8, 0))
-        btn_new_order.pack(side="left", padx=(8, 0))
+        btn_new_order.pack(side="left")
         btn_edit_order.pack(side="left", padx=(8, 0))
         btn_delete_order.pack(side="left", padx=(8, 0))
+        btn_clients.pack(side="left", padx=(8, 0))
+        btn_products.pack(side="left", padx=(8, 0))
 
     def _build_table(self):
         container = ttk.Frame(self, style="Card.TFrame", padding=16)
@@ -334,15 +335,11 @@ class MKLOrdersWindow(tk.Toplevel):
         self.tree.bind("<Button-3>", self._show_context_menu)  # Right-click
 
     def _configure_status_tags(self):
-        # Row highlighting by status
-        # Not ordered: RED
-        self.tree.tag_configure("status_Не заказан", background="#3f1212", foreground="#fecaca")  # dark red bg, light red text
-        # Ordered: amber
-        self.tree.tag_configure("status_Заказан", background="#3a2e0b", foreground="#f5e0a1")
-        # Called: cyan/blue
-        self.tree.tag_configure("status_Прозвонен", background="#0b2f3a", foreground="#a1e3f5")
-        # Delivered: green
-        self.tree.tag_configure("status_Вручен", background="#0b3a2e", foreground="#a1f5bf")
+        # Row highlighting by status (light theme)
+        self.tree.tag_configure("status_Не заказан", background="#fee2e2", foreground="#7f1d1d")   # red-100 bg, red-900 text
+        self.tree.tag_configure("status_Заказан", background="#fef3c7", foreground="#7c2d12")       # amber-100 bg, amber-900 text
+        self.tree.tag_configure("status_Прозвонен", background="#dbeafe", foreground="#1e3a8a")     # blue-100 bg, blue-900 text
+        self.tree.tag_configure("status_Вручен", background="#dcfce7", foreground="#065f46")        # green-100 bg, green-900 text
 
     def _show_context_menu(self, event):
         try:
@@ -440,7 +437,7 @@ class ClientsWindow(tk.Toplevel):
     def __init__(self, master: tk.Toplevel, clients: list[dict]):
         super().__init__(master)
         self.title("Клиенты")
-        self.configure(bg="#0f172a")
+        self.configure(bg="#f8fafc")
         set_initial_geometry(self, min_w=840, min_h=600, center_to=master)
         self.transient(master)
         self.grab_set()
@@ -551,7 +548,7 @@ class ClientForm(tk.Toplevel):
     def __init__(self, master, initial: dict | None = None, on_save=None):
         super().__init__(master)
         self.title("Карточка клиента")
-        self.configure(bg="#0f172a")
+        self.configure(bg="#f8fafc")
         set_initial_geometry(self, min_w=480, min_h=280, center_to=master)
         self.transient(master)
         self.grab_set()
@@ -599,11 +596,13 @@ class ProductsWindow(tk.Toplevel):
     def __init__(self, master: tk.Toplevel, products: list[dict]):
         super().__init__(master)
         self.title("Товары")
-        self.configure(bg="#0f172a")
+        self.configure(bg="#f8fafc")
         set_initial_geometry(self, min_w=840, min_h=600, center_to=master)
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
+        # Esc closes window
+        self.bind("<Escape>", lambda e: self.destroy())
         self._dataset = products
         self._filtered = list(self._dataset)
 
@@ -686,7 +685,7 @@ class ProductForm(tk.Toplevel):
     def __init__(self, master, initial: dict | None = None, on_save=None):
         super().__init__(master)
         self.title("Карточка товара")
-        self.configure(bg="#0f172a")
+        self.configure(bg="#f8fafc")
         set_initial_geometry(self, min_w=480, min_h=240, center_to=master)
         self.transient(master)
         self.grab_set()
@@ -733,7 +732,7 @@ class OrderForm(tk.Toplevel):
     ):
         super().__init__(master)
         self.title("Редактирование заказа" if initial else "Новый заказ")
-        self.configure(bg="#0f172a")
+        self.configure(bg="#f8fafc")
         set_initial_geometry(self, min_w=820, min_h=680, center_to=master)
         self.transient(master)
         self.grab_set()
