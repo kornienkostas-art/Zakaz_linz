@@ -620,10 +620,8 @@ class MeridianOrderForm(tk.Toplevel):
             header = ttk.Frame(card, style="Card.TFrame")
             header.grid(row=0, column=0, sticky="ew")
             ttk.Label(header, text="Статус заказа", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-            ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid, sticky="w")
-        else:
             ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid(row=1, column=0, sticky="ew")
-        header.columnconfigure(0, weight=1)
+            header.columnconfigure(0, weight=1)
 
         ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(12, 12))
 
