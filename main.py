@@ -449,8 +449,7 @@ class MeridianOrdersView(ttk.Frame):
             title = f"Заказ Меридиан #{len(self.orders) + 1}"
             order["title"] = title
         self.orders.append(order)
-        self._refresh_orders_vi_codeewnew(</)
-iew()
+        self._refresh_orders_view()
 
     def _edit_order(self):
         idx = self._selected_index()
@@ -520,8 +519,7 @@ iew()
                 o.get("date", ""),
             )
             tag = f"status_{o.get('status','Не заказан')}"
-            self.tree.insert("", "end", iid=str(idx), values=values, tags=(ta_codeg,new)</)
-s=values)
+            self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
 
     def _export_txt(self):
         """Export items from orders with status 'Не заказан' to TXT. Grouped by product name."""
@@ -787,7 +785,7 @@ class MeridianItemForm(tk.Toplevel):
         # Relaxed validation: allow digits while typing; bounds/step applied on focus out
         d_vcmd = (self.register(self._vc_int_relaxed), "%P")
         self.d_entry.configure(validate="key", validatecommand=d_vcmd)
-        self.d_entry.bin("<dFocusOut>", lambda e: self._apply_snap_for("_coded"new)</)
+        self.d_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("d"))
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=6, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
@@ -832,6 +830,7 @@ class MeridianItemForm(tk.Toplevel):
         if v in {"+", "-"}:
             return True
         # allow digits only (no range)
+        return v.isdigit()
 
     def _apply_snap_for(self, field: str):
         if field == "sph":
