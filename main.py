@@ -1365,11 +1365,19 @@ class MeridianOrderEditorView(ttk.Frame):
 
         # Items toolbar
         items_toolbar = ttk.Frame(card, style="Card.TFrame")
-        items_toolbar.grid(row=3, column=
-    """Встроенное представление 'Заказ МКЛ' внутри главного окна."""
-    COLUMNS = (
-        "fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date"
-    )
+        items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
+        ttk.Button(items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
+        ttk.Button(items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
+
+        # Footer buttons
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.grid(row=4, column=0, sticky="e", pady=(12, 0))
+        ttk.Button(btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
+
+
+class MKLOrdersView(ttk.Frame):
     HEADERS = {
         "fio": "ФИО клиента",
         "phone": "Телефон",
