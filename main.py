@@ -250,7 +250,14 @@ class MainWindow(ttk.Frame):
         fade_transition(self.master, swap)
 
     def _on_order_meridian(self):
-        messagebox.showinfo("Заказ Меридиан", "Раздел 'Заказ Меридиан' будет реализован позже.")
+        # Плавный переход на заказы 'Меридиан'
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+        fade_transition(self.master, swap)
 
     def _on_settings(self):
         SettingsWindow(self.master)
@@ -312,6 +319,584 @@ class SettingsWindow(tk.Toplevel):
             self.destroy()
         except Exception as e:
             messagebox.showerror("Настройки", f"Ошибка сохранения:\n{e}")
+
+class MeridianOrdersView(ttk.Frame):
+    """Встроенное представление 'Заказ Меридиан' внутри главного окна."""
+    COLUMNS = ("title", "items_count", "status", "date")
+    HEADERS = {
+        "title": "Название заказа",
+        "items_count": "Позиций",
+        "status": "Статус",
+        "date": "Дата",
+    }
+    STATUSES = ["Не заказан", "Заказан"]
+
+    def __init__(self, master: tk.Tk, on_back):
+        super().__init__(master, style="Card.TFrame", padding=0)
+        self.master = master
+        self.on_back = on_back
+
+        # Fill window
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
+
+        # In-memory dataset
+        # Each order: {"title": str, "status": str, "date": str, "items": [item,...]}
+        # item: {"product": str, "sph": str, "cyl": str, "ax": str, "d": str, "qty": str}
+        self.orders: list[dict] = []
+
+        self._build_toolbar()
+        self._build_table()
+
+    def _build_toolbar(self):
+        toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
+        toolbar.pack(fill="x")
+
+        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back)
+
+        btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
+        btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
+        btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
+        btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
+        btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
+
+        btn_back.pack(side="left")
+        btn_new_order.pack(side="left", padx=(8, 0))
+        btn_edit_order.pack(side="left", padx=(8, 0))
+        btn_delete_order.pack(side="left", padx=(8, 0))
+        btn_change_status.pack(side="left", padx=(8, 0))
+        btn_export.pack(side="left", padx=(8, 0))
+
+    def _go_back(self):
+        try:
+            self.destroy()
+        finally:
+            cb = getattr(self, "on_back", None)
+            if callable(cb):
+                cb()
+
+    def _build_table(self):
+        container = ttk.Frame(self, style="Card.TFrame", padding=16)
+        container.pack(fill="both", expand=True)
+
+        header = ttk.Label(container, text="Заказ Меридиан • Список заказов", style="Title.TLabel")
+        sub = ttk.Label(container, text="Каждый заказ может содержать несколько позиций товара", style="Subtitle.TLabel")
+        header.pack(anchor="w")
+        sub.pack(anchor="w", pady=(4, 12))
+        ttk.Separator(container).pack(fill="x", pady=(8, 12))
+
+        table_frame = ttk.Frame(container, style="Card.TFrame")
+        table_frame.pack(fill="both", expand=True)
+
+        columns = self.COLUMNS
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", style="Data.Treeview")
+        for col in columns:
+            self.tree.heading(col, text=self.HEADERS[col], anchor="w")
+            width = {"title": 380, "items_count": 120, "status": 140, "date": 160}[col]
+            self.tree.column(col, width=width, anchor="w", stretch=True)
+
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscroll=y_scroll.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+
+        # Context menu
+        self.menu = tk.Menu(self, tearoff=0)
+        self.menu.add_command(label="Редактировать", command=self._edit_order)
+        self.menu.add_command(label="Удалить", command=self._delete_order)
+        self.menu.add_separator()
+        status_menu = tk.Menu(self.menu, tearoff=0)
+        for s in self.STATUSES:
+            status_menu.add_command(label=s, command=lambda st=s: self._set_status(st))
+        self.menu.add_cascade(label="Статус", menu=status_menu)
+        self.tree.bind("<Button-3>", self._show_context_menu)
+
+    def _show_context_menu(self, event):
+        try:
+            iid = self.tree.identify_row(event.y)
+            if iid:
+                self.tree.selection_set(iid)
+                self.menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.menu.grab_release()
+
+    def _selected_index(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Выбор", "Пожалуйста, выберите заказ.")
+            return None
+        try:
+            return int(sel[0])
+        except ValueError:
+            return None
+
+    def _new_order(self):
+        MeridianOrderForm(self, on_save=self._save_order)
+
+    def _save_order(self, order: dict):
+        self.orders.append(order)
+        self._refresh_orders_view()
+
+    def _edit_order(self):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        current = self.orders[idx].copy()
+
+        def on_save(updated: dict):
+            # Keep status/date logic: if title/items changed, status stays
+            self.orders[idx] = updated
+            self._refresh_orders_view()
+
+        MeridianOrderForm(self, on_save=on_save, initial=current)
+
+    def _delete_order(self):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        if messagebox.askyesno("Удалить", "Удалить выбранный заказ?"):
+            self.orders.pop(idx)
+            self._refresh_orders_view()
+
+    def _set_status(self, status: str):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        old_status = self.orders[idx].get("status", "Не заказан")
+        if status != old_status:
+            from datetime import datetime
+            self.orders[idx]["status"] = status
+            self.orders[idx]["date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            self._refresh_orders_view()
+
+    def _change_status(self):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        current = self.orders[idx].get("status", "Не заказан")
+
+        dialog = tk.Toplevel(self)
+        dialog.title("Сменить статус")
+        dialog.configure(bg="#f8fafc")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        ttk.Label(dialog, text="Выберите статус", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", padx=12, pady=(12, 4))
+        var = tk.StringVar(value=current)
+        combo = ttk.Combobox(dialog, textvariable=var, values=self.STATUSES, height=6)
+        combo.grid(row=1, column=0, sticky="ew", padx=12)
+        ttk.Separator(dialog).grid(row=2, column=0, sticky="ew", padx=12, pady=(12, 12))
+
+        btns = ttk.Frame(dialog, style="Card.TFrame")
+        btns.grid(row=3, column=0, sticky="e", padx=12, pady=(0, 12))
+        ttk.Button(btns, text="ОК", style="Menu.TButton", command=lambda: (self._set_status(var.get()), dialog.destroy())).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
+
+        dialog.columnconfigure(0, weight=1)
+
+    def _refresh_orders_view(self):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        for idx, o in enumerate(self.orders):
+            values = (
+                o.get("title", ""),
+                len(o.get("items", [])),
+                o.get("status", ""),
+                o.get("date", ""),
+            )
+            self.tree.insert("", "end", iid=str(idx), values=values)
+
+    def _export_txt(self):
+        """Export items from orders with status 'Не заказан' to TXT. Grouped by product name."""
+        import os
+        from datetime import datetime
+
+        groups: dict[str, list[dict]] = {}
+        for order in self.orders:
+            if (order.get("status", "") or "").strip() == "Не заказан":
+                for it in order.get("items", []):
+                    key = (it.get("product", "") or "").strip() or "(Без названия)"
+                    groups.setdefault(key, []).append(it)
+
+        if not groups:
+            messagebox.showinfo("Экспорт", "Нет позиций со статусом 'Не заказан' для экспорта.")
+            return
+
+        lines: list[str] = []
+        for product, items in groups.items():
+            lines.append(product)
+            for it in items:
+                parts = []
+                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax")):
+                    val = (it.get(key, "") or "").strip()
+                    if val != "":
+                        parts.append(f"{label}: {val}")
+                dval = (it.get("d", "") or "").strip()
+                if dval != "":
+                    parts.append(f"D:{dval}мм")
+                qty = (it.get("qty", "") or "").strip()
+                if qty != "":
+                    parts.append(f"Количество: {qty}")
+                if parts:
+                    lines.append(" ".join(parts))
+            lines.append("")
+
+        content = "\n".join(lines).strip() + "\n"
+        date_str = datetime.now().strftime("%d.%m.%y")
+        filename = f"MERIDIAN_{date_str}.txt"
+        export_path = getattr(self.master, "app_settings", {}).get("export_path", None)
+        if not export_path:
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            export_path = desktop if os.path.isdir(desktop) else os.getcwd()
+        filepath = os.path.join(export_path, filename)
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(content)
+            messagebox.showinfo("Экспорт", f"Экспорт выполнен:\n{filepath}")
+            try:
+                import platform, subprocess
+                if hasattr(os, "startfile"):
+                    os.startfile(filepath)
+                else:
+                    sysname = platform.system()
+                    if sysname == "Darwin":
+                        subprocess.run(["open", filepath], check=False)
+                    else:
+                        subprocess.run(["xdg-open", filepath], check=False)
+            except Exception:
+                pass
+        except Exception as e:
+            messagebox.showerror("Экспорт", f"Ошибка записи файла:\n{e}")
+
+
+class MeridianOrderForm(tk.Toplevel):
+    """Форма создания/редактирования заказа Меридиан (с несколькими позициями)."""
+    def __init__(self, master, on_save=None, initial: dict | None = None):
+        super().__init__(master)
+        self.title("Редактирование заказа" if initial else "Новый заказ")
+        self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=900, min_h=700, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.bind("<Escape>", lambda e: self.destroy())
+
+        self.on_save = on_save
+        # Order-level vars
+        self.title_var = tk.StringVar(value=(initial or {}).get("title", ""))
+        self.statuses = ["Не заказан", "Заказан"]
+        self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
+
+        # Items dataset
+        self.items: list[dict] = []
+        for it in (initial or {}).get("items", []):
+            self.items.append(it.copy())
+
+        self._build_ui()
+
+    def _build_ui(self):
+        card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        card.pack(fill="both", expand=True)
+        card.columnconfigure(0, weight=1)
+
+        # Order title and status
+        header = ttk.Frame(card, style="Card.TFrame")
+        header.grid(row=0, column=0, sticky="ew")
+        ttk.Label(header, text="Название заказа", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Entry(header, textvariable=self.title_var).grid(row=1, column=0, sticky="ew")
+        ttk.Label(header, text="Статус", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w", padx=(12, 0))
+        ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid(row=1, column=1, sticky="ew", padx=(12, 0))
+        header.columnconfigure(0, weight=1)
+        header.columnconfigure(1, weight=1)
+
+        ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(12, 12))
+
+        # Items table
+        items_frame = ttk.Frame(card, style="Card.TFrame")
+        items_frame.grid(row=2, column=0, sticky="nsew")
+        card.rowconfigure(2, weight=1)
+
+        cols = ("product", "sph", "cyl", "ax", "d", "qty")
+        self.items_tree = ttk.Treeview(items_frame, columns=cols, show="headings", style="Data.Treeview")
+        headers = {
+            "product": "Товар",
+            "sph": "SPH",
+            "cyl": "CYL",
+            "ax": "AX",
+            "d": "D (мм)",
+            "qty": "Количество",
+        }
+        widths = {"product": 240, "sph": 90, "cyl": 90, "ax": 90, "d": 90, "qty": 120}
+        for c in cols:
+            self.items_tree.heading(c, text=headers[c], anchor="w")
+            self.items_tree.column(c, width=widths[c], anchor="w", stretch=True)
+
+        y_scroll = ttk.Scrollbar(items_frame, orient="vertical", command=self.items_tree.yview)
+        self.items_tree.configure(yscroll=y_scroll.set)
+
+        self.items_tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        items_frame.columnconfigure(0, weight=1)
+        items_frame.rowconfigure(0, weight=1)
+
+        # Items toolbar
+        items_toolbar = ttk.Frame(card, style="Card.TFrame")
+        items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
+        ttk.Button(items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
+        ttk.Button(items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
+
+        # Footer buttons
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.grid(row=4, column=0, sticky="e", pady=(12, 0))
+        ttk.Button(btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+        # Fill items
+        self._refresh_items_view()
+
+    def _refresh_items_view(self):
+        for i in self.items_tree.get_children():
+            self.items_tree.delete(i)
+        for idx, it in enumerate(self.items):
+            values = (
+                it.get("product", ""),
+                it.get("sph", ""),
+                it.get("cyl", ""),
+                it.get("ax", ""),
+                it.get("d", ""),
+                it.get("qty", ""),
+            )
+            self.items_tree.insert("", "end", iid=str(idx), values=values)
+
+    def _selected_item_index(self):
+        sel = self.items_tree.selection()
+        if not sel:
+            messagebox.showinfo("Выбор", "Пожалуйста, выберите позицию.")
+            return None
+        try:
+            return int(sel[0])
+        except ValueError:
+            return None
+
+    def _add_item(self):
+        MeridianItemForm(self, on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
+
+    def _edit_item(self):
+        idx = self._selected_item_index()
+        if idx is None:
+            return
+        current = self.items[idx].copy()
+        MeridianItemForm(self, initial=current, on_save=lambda it: (self._apply_item_update(idx, it), self._refresh_items_view()))
+
+    def _apply_item_update(self, idx: int, it: dict):
+        self.items[idx] = it
+
+    def _delete_item(self):
+        idx = self._selected_item_index()
+        if idx is None:
+            return
+        if messagebox.askyesno("Удалить", "Удалить выбранную позицию?"):
+            self.items.pop(idx)
+            self._refresh_items_view()
+
+    def _save(self):
+        title = (self.title_var.get() or "").strip()
+        status = (self.status_var.get() or "Не заказан").strip()
+        if not title:
+            messagebox.showinfo("Проверка", "Введите название заказа.")
+            return
+        from datetime import datetime
+        order = {
+            "title": title,
+            "status": status,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "items": self.items.copy(),
+        }
+        if self.on_save:
+            self.on_save(order)
+        self.destroy()
+
+
+class MeridianItemForm(tk.Toplevel):
+    """Форма позиции товара для Меридиан."""
+    def __init__(self, master, on_save=None, initial: dict | None = None):
+        super().__init__(master)
+        self.title("Позиция товара")
+        self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=600, min_h=420, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.bind("<Escape>", lambda e: self.destroy())
+
+        self.on_save = on_save
+        # Vars
+        self.product_var = tk.StringVar(value=(initial or {}).get("product", ""))
+        self.sph_var = tk.StringVar(value=(initial or {}).get("sph", ""))
+        self.cyl_var = tk.StringVar(value=(initial or {}).get("cyl", ""))
+        self.ax_var = tk.StringVar(value=(initial or {}).get("ax", ""))
+        self.d_var = tk.StringVar(value=(initial or {}).get("d", ""))
+        self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
+
+        self._build_ui()
+
+    def _build_ui(self):
+        card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        card.pack(fill="both", expand=True)
+        card.columnconfigure(0, weight=1)
+        card.columnconfigure(1, weight=1)
+
+        ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Entry(card, textvariable=self.product_var).grid(row=1, column=0, sticky="ew")
+
+        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
+        self.sph_entry.grid(row=3, column=0, sticky="ew")
+        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
+        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
+        self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+
+        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=3, column=1, sticky="ew")
+        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
+        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
+        self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+
+        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
+        self.ax_entry.grid(row=5, column=0, sticky="ew")
+        ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
+        self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
+        self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
+
+        ttk.Label(card, text="D (40…90, шаг 5) — в экспорте добавляется 'мм'", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8, 0))
+        self.d_entry = ttk.Entry(card, textvariable=self.d_var)
+        self.d_entry.grid(row=5, column=1, sticky="ew")
+        d_vcmd = (self.register(lambda v: self._vc_int(v, 40, 90)), "%P")
+        self.d_entry.configure(validate="key", validatecommand=d_vcmd)
+        self.d_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("d"))
+
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=6, column=0, sticky="w", pady=(8, 0))
+        self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
+        self.qty_spin.grid(row=7, column=0, sticky="w")
+
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.grid(row=8, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        ttk.Button(btns, text="Сохранить позицию", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+    # Validation helpers (local to item form)
+    def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
+        v = (new_value or "").replace(",", ".")
+        if v == "":
+            return True
+        if v in {"+", "-", ".", "-.", "+.", ",", "-,", "+,"}:
+            return True
+        try:
+            num = float(v)
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _vc_int(self, new_value: str, min_v: int, max_v: int) -> bool:
+        v = (new_value or "").strip()
+        if v == "":
+            return True
+        if v in {"+", "-"}:
+            return True
+        try:
+            num = int(float(v.replace(",", ".")))
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _apply_snap_for(self, field: str):
+        if field == "sph":
+            self.sph_var.set(self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True))
+        elif field == "cyl":
+            self.cyl_var.set(self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True))
+        elif field == "ax":
+            self.ax_var.set(self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True))
+        elif field == "d":
+            # step 5
+            v = self._snap_int(self.d_var.get(), 40, 90, allow_empty=True)
+            # ensure multiples of 5
+            if v != "":
+                try:
+                    iv = int(v)
+                except Exception:
+                    iv = 40
+                iv = max(40, min(90, iv))
+                # round to nearest multiple of 5
+                iv = int(round(iv / 5.0) * 5)
+                self.d_var.set(str(iv))
+            else:
+                self.d_var.set("")
+
+    @staticmethod
+    def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
+        text = (value_str or "").replace(",", ".").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = float(text)
+        except ValueError:
+            v = 0.0 if min_v <= 0.0 <= max_v else min_v
+        v = max(min_v, min(max_v, v))
+        steps = round((v - min_v) / step)
+        snapped = min_v + steps * step
+        snapped = max(min_v, min(max_v, snapped))
+        return f"{snapped:.2f}"
+
+    @staticmethod
+    def _snap_int(value_str: str, min_v: int, max_v: int, allow_empty: bool = False) -> str:
+        text = (value_str or "").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = int(float(text.replace(",", ".")))
+        except ValueError:
+            v = min_v
+        v = max(min_v, min(max_v, v))
+        return str(v)
+
+    def _save(self):
+        product = (self.product_var.get() or "").strip()
+        sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)
+        cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
+        ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
+        # D already snapped to multiples of 5
+        d = self._snap_int(self.d_var.get(), 40, 90, allow_empty=True)
+        if d != "":
+            try:
+                iv = int(d)
+                iv = int(round(iv / 5.0) * 5)
+                d = str(iv)
+            except Exception:
+                pass
+        qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
+
+        if not product:
+            messagebox.showinfo("Проверка", "Введите название товара.")
+            return
+
+        item = {
+            "product": product,
+            "sph": sph,
+            "cyl": cyl,
+            "ax": ax,
+            "d": d,
+            "qty": qty,
+        }
+        if self.on_save:
+            self.on_save(item)
+        self.destroy()
+
 
 class MKLOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ МКЛ' внутри главного окна."""
