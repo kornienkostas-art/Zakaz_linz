@@ -774,18 +774,14 @@ class OrderForm(tk.Toplevel):
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
         self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
         self.client_combo.grid(row=1, column=0, sticky="ew")
+        # Только фильтрация списка, без принудительного открытия
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
-        # Open dropdown on focus or click
-        self.client_combo.bind("<FocusIn>", lambda e: self._open_combo(self.client_combo))
-        self.client_combo.bind("<Button-1>", lambda e: self._open_combo(self.client_combo))
 
         # Product selection with autocomplete
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
-        self.product_combo.bind("<FocusIn>", lambda e: self._open_combo(self.product_combo))
-        self.product_combo.bind("<Button-1>", lambda e: self._open_combo(self.product_combo))
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
