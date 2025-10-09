@@ -1232,12 +1232,12 @@ class MKLOrdersView(ttk.Frame):
         # Build UI
         self._build_toolbar()
         self._build_table()
-        self._load_orders()
-..}
+        # Initial load from DB into table
+        self._refresh_orders_view()
 
-        # Build UI
-        self._build_toolbar()
-        self._build_table()
+    def _load_orders(self):
+        """Compatibility: load orders from DB and render."""
+        self._refresh_orders_view()
 
     def _build_toolbar(self):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
