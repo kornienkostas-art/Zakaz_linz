@@ -868,6 +868,27 @@ class MeridianOrdersView(ttk.Frame):
             )
         fade_transition(self.master, swap)
 
+    def _save_order(self, order: dict):
+        """Сохранить новый заказ Меридиан (заголовок + позиции) в БД и обновить список."""
+        # Автоимя, если не задано вручную
+        title = (order.get("title", "") or "").strip()
+        db = getattr(self.master, "db", None)
+        if not title:
+            try:
+                existing = db.list_meridian_orders() if db else []
+                title = f"Заказ Меридиан #{len(existing) + 1}"
+            except Exception:
+                title = f"Заказ Меридиан #{len(self.orders) + 1}"
+            order["title"] = title
+
+        if db:
+            try:
+                db.add_meridian_order(order, order.get("items", []))
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
+
+        self._refresh_orders_view()
+
     def _edit_order(self):
         idx = self._selected_index()
         if idx is None:
