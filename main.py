@@ -225,6 +225,8 @@ class MKLOrdersWindow(tk.Toplevel):
         self.transient(master)
         self.grab_set()  # modal-like
         self.protocol("WM_DELETE_WINDOW", self.destroy)
+        # 快捷键 Esc закрывает окно заказов
+        self.bind("<Escape>", lambda e: self.destroy())
 
         # In-memory datasets (to be replaced with SQLite later)
         self.orders = []       # list of dicts
@@ -443,8 +445,8 @@ class ClientsWindow(tk.Toplevel):
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
-        self._dataset = clients  # reference to parent list
-        self._filtered = list(self._dataset)  # working copy
+        # Esc closes window
+        self.bin("< Escape>", lambda e: self._filtered = list(self._dataset)  # working copy
 
         self._build_ui()
 
@@ -552,6 +554,8 @@ class ClientForm(tk.Toplevel):
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
+        # Esc closes form
+        self.bind("<Escape>", lambda e: self.destroy())
 
         self.on_save = on_save
         self.vars = {
@@ -764,6 +768,9 @@ class OrderForm(tk.Toplevel):
         # UI
         self._build_ui()
 
+        # Hotkeys: Esc closes form
+        self.bind("<Escape>", lambda e: self.destroy())
+
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -813,6 +820,10 @@ class OrderForm(tk.Toplevel):
         ttk.Label(bc_frame, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").pack(anchor="w")
         self.bc_entry = ttk.Entry(bc_frame, textvariable=self.bc_var)
         self.bc_entry.pack(fill="x")
+
+        # Bind clear shortcuts (Delete) for inputs
+        for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
+            self._bind_clear_shortcuts(w)
 
         # QTY
         qty_frame = ttk.Frame(card, style="Card.TFrame")
@@ -866,6 +877,18 @@ class OrderForm(tk.Toplevel):
             combo.event_generate("<Down>")
         except Exception:
             pass
+
+    def _bind_clear_shortcuts(self, widget):
+        # Delete clears the whole field
+        def clear():
+            try:
+                widget.delete(0, "end")
+            except Exception:
+                try:
+                    widget.set("")
+                except Exception:
+                    pass
+        widget.bind("<Delete>", lambda e: clear())
 
     # Normalization and snapping (без подсказок)
     @staticmethod
