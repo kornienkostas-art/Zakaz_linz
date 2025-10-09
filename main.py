@@ -257,6 +257,15 @@ class MKLOrdersView(ttk.Frame):
         btn_clients.pack(side="left", padx=(8, 0))
         btn_products.pack(side="left", padx=(8, 0))
 
+    def _go_back(self):
+        # Destroy current view and call provided on_back to re-create main menu
+        try:
+            self.destroy()
+        finally:
+            cb = getattr(self, "on_back", None)
+            if callable(cb):
+                cb()
+
     def _build_table(self):
         container = ttk.Frame(self, style="Card.TFrame", padding=16)
         container.pack(fill="both", expand=True)
