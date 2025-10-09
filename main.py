@@ -681,6 +681,7 @@ class OrderForm(tk.Toplevel):
         self.sph_entry = ttk.Entry(sph_frame, textvariable=self.sph_var)
         self.sph_entry.pack(fill="x")
         self.sph_entry.bind("<KeyRelease>", lambda e: self._update_suggestions("sph"))
+        self.sph_entry.bind("<FocusOut>", lambda e: self._clear_suggestions("sph"))
         self.sph_sugg = ttk.Frame(sph_frame, style="Card.TFrame")
         self.sph_sugg.pack(fill="x", pady=(6, 0))
 
@@ -691,6 +692,7 @@ class OrderForm(tk.Toplevel):
         self.cyl_entry = ttk.Entry(cyl_frame, textvariable=self.cyl_var)
         self.cyl_entry.pack(fill="x")
         self.cyl_entry.bind("<KeyRelease>", lambda e: self._update_suggestions("cyl"))
+        self.cyl_entry.bind("<FocusOut>", lambda e: self._clear_suggestions("cyl"))
         self.cyl_sugg = ttk.Frame(cyl_frame, style="Card.TFrame")
         self.cyl_sugg.pack(fill="x", pady=(6, 0))
 
@@ -759,8 +761,20 @@ class OrderForm(tk.Toplevel):
     def _normalize_decimal(text: str) -> str:
         return (text or "").replace(",", ".").strip()
 
+    def _clear_suggestions(self, field: str):
+        frame = self.sph_sugg if field == "sph" else self.cyl_sugg if field == "cyl" else None
+        if frame:
+            for w in frame.winfo_children():
+                w.destroy()
+
+    def _set_value(self, entry: ttk.Entry, sugg_frame: ttk.Frame, value: float):
+        entry.delete(0, "end")
+        entry.insert(0, f"{value:.2f}")
+        for w in sugg_frame.winfo_children():
+            w.destroy()
+
     def _update_suggestions(self, field: str):
-        # Build suggestions based on current input (nearest steps)
+        # Build suggestions based on current input (monotonic sequence from the entered value)
         if field == "sph":
             entry = self.sph_entry
             sugg_frame = self.sph_sugg
@@ -773,33 +787,42 @@ class OrderForm(tk.Toplevel):
             return
 
         text = self._normalize_decimal(entry.get())
-        # Try parse partial number; if empty, clear suggestions
+
+        # Try parse number; if empty or just sign, clear suggestions
         try:
             base = float(text) if text not in {"", "-", "+"} else None
         except ValueError:
             base = None
 
+        # Clear old suggestions
         for w in sugg_frame.winfo_children():
             w.destroy()
 
-        suggestions = []
-        if base is not None:
-            # snap base to range
-            base = max(min_v, min(max_v, base))
-            # Generate around base: base ± step multiples
-            deltas = [0, -step, -2*step, -3*step, -4*step, step, 2*step, 3*step, 4*step]
-            for d in deltas:
-                v = base + d
-                if min_v <= v <= max_v:
-                    suggestions.append(round(v, 2))
-            # Unique keep order
-            seen = set()
-            suggestions = [x for x in suggestions if not (x in seen or seen.add(x))]
+        if base is None:
+            return
 
-        # Render suggestions as buttons
+        # Clamp base within bounds
+        base = max(min_v, min(max_v, base))
+
+        # Determine direction: if base >= 0 -> increasing; if base < 0 -> decreasing
+        suggestions = [base]
+        # Generate up to 8 further suggestions in the chosen direction
+        count = 8
+        for i in range(1, count + 1):
+            next_val = base + (step * i) if base >= 0 else base - (step * i)
+            if min_v <= next_val <= max_v:
+                suggestions.append(round(next_val, 2))
+            else:
+                break
+
+        # Render suggestions as buttons (hide after choose)
         for v in suggestions:
-            b = ttk.Button(sugg_frame, text=f"{v:.2f}", style="Menu.TButton",
-                           command=(lambda val=v: entry.delete(0, "end") or entry.insert(0, f"{val:.2f}")))
+            b = ttk.Button(
+                sugg_frame,
+                text=f"{float(v):.2f}",
+                style="Menu.TButton",
+                command=lambda val=v: self._set_value(entry, sugg_frame, float(val)),
+            )
             b.pack(side="left", padx=(0, 6))
 
     @staticmethod
