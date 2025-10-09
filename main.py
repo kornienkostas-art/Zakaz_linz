@@ -213,6 +213,7 @@ class MKLOrdersWindow(tk.Toplevel):
         "status": "Статус",
         "date": "Дата",
     }
+    STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
 
     def __init__(self, master: tk.Tk):
         super().__init__(master)
@@ -241,10 +242,14 @@ class MKLOrdersWindow(tk.Toplevel):
         btn_clients = ttk.Button(toolbar, text="Клиент", style="Menu.TButton", command=self._open_clients)
         btn_products = ttk.Button(toolbar, text="Добавить Товар", style="Menu.TButton", command=self._open_products)
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
+        btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
+        btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
 
         btn_clients.pack(side="left")
         btn_products.pack(side="left", padx=(8, 0))
         btn_new_order.pack(side="left", padx=(8, 0))
+        btn_edit_order.pack(side="left", padx=(8, 0))
+        btn_delete_order.pack(side="left", padx=(8, 0))
 
     def _build_table(self):
         container = ttk.Frame(self, style="Card.TFrame", padding=16)
@@ -303,6 +308,9 @@ class MKLOrdersWindow(tk.Toplevel):
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
 
+        # Tag styles for statuses (row highlighting)
+        self._configure_status_tags()
+
         # Hint footer
         hint = ttk.Label(
             container,
@@ -310,6 +318,38 @@ class MKLOrdersWindow(tk.Toplevel):
             style="Subtitle.TLabel",
         )
         hint.pack(anchor="w", pady=(12, 0))
+
+        # Context menu for status/edit/delete
+        self.menu = tk.Menu(self, tearoff=0)
+        self.menu.add_command(label="Редактировать", command=self._edit_order)
+        self.menu.add_command(label="Удалить", command=self._delete_order)
+        self.menu.add_separator()
+        status_menu = tk.Menu(self.menu, tearoff=0)
+        for s in self.STATUSES:
+            status_menu.add_command(label=s, command=lambda st=s: self._set_status(st))
+        self.menu.add_cascade(label="Статус", menu=status_menu)
+
+        self.tree.bind("<Button-3>", self._show_context_menu)  # Right-click
+
+    def _configure_status_tags(self):
+        # Colors for dark theme
+        # Not ordered: slate
+        self.tree.tag_configure("status_Не заказан", background="#0f172a", foreground="#e5e7eb")
+        # Ordered: amber
+        self.tree.tag_configure("status_Заказан", background="#3a2e0b", foreground="#f5e0a1")
+        # Called: cyan/blue
+        self.tree.tag_configure("status_Прозвонен", background="#0b2f3a", foreground="#a1e3f5")
+        # Delivered: green
+        self.tree.tag_configure("status_Вручен", background="#0b3a2e", foreground="#a1f5bf")
+
+    def _show_context_menu(self, event):
+        try:
+            iid = self.tree.identify_row(event.y)
+            if iid:
+                self.tree.selection_set(iid)
+                self.menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.menu.grab_release()
 
     def _open_clients(self):
         ClientsWindow(self, self.clients)
@@ -324,6 +364,53 @@ class MKLOrdersWindow(tk.Toplevel):
         # Добавляем заказ и обновляем таблицу
         self.orders.append(order)
         self._refresh_orders_view()
+
+    def _selected_index(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Выбор", "Пожалуйста, выберите заказ.")
+            return None
+        try:
+            return int(sel[0])
+        except ValueError:
+            return None
+
+    def _edit_order(self):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        current = self.orders[idx].copy()
+        old_status = current.get("status", "Не заказан")
+
+        def on_save(updated: dict):
+            # Если статус изменился — обновить дату
+            new_status = updated.get("status", old_status)
+            if new_status != old_status:
+                from datetime import datetime
+                updated["date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            self.orders[idx] = updated
+            self._refresh_orders_view()
+
+        OrderForm(self, clients=self.clients, products=self.products, on_save=on_save, initial=current, statuses=self.STATUSES)
+
+    def _delete_order(self):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        if messagebox.askyesno("Удалить", "Удалить выбранный заказ?"):
+            self.orders.pop(idx)
+            self._refresh_orders_view()
+
+    def _set_status(self, status: str):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        old_status = self.orders[idx].get("status", "Не заказан")
+        if status != old_status:
+            from datetime import datetime
+            self.orders[idx]["status"] = status
+            self.orders[idx]["date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            self._refresh_orders_view()
 
     def _refresh_orders_view(self):
         # Очистить и отрисовать из self.orders
@@ -342,7 +429,8 @@ class MKLOrdersWindow(tk.Toplevel):
                 item.get("status", ""),
                 item.get("date", ""),
             )
-            self.tree.insert("", "end", iid=str(idx), values=values)
+            tag = f"status_{item.get('status','Не заказан')}"
+            self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
 
 
 class ClientsWindow(tk.Toplevel):
@@ -627,12 +715,20 @@ class ProductForm(tk.Toplevel):
 
 
 class OrderForm(tk.Toplevel):
-    """Форма создания нового заказа."""
-    def __init__(self, master, clients: list[dict], products: list[dict], on_save=None):
+    """Форма создания/редактирования заказа."""
+    def __init__(
+        self,
+        master,
+        clients: list[dict],
+        products: list[dict],
+        on_save=None,
+        initial: dict | None = None,
+        statuses: list[str] | None = None,
+    ):
         super().__init__(master)
-        self.title("Новый заказ")
+        self.title("Редактирование заказа" if initial else "Новый заказ")
         self.configure(bg="#0f172a")
-        set_initial_geometry(self, min_w=820, min_h=640, center_to=master)
+        set_initial_geometry(self, min_w=820, min_h=680, center_to=master)
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -640,6 +736,7 @@ class OrderForm(tk.Toplevel):
         self.on_save = on_save
         self.clients = clients
         self.products = products
+        self.statuses = statuses or ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
 
         # Vars
         self.client_var = tk.StringVar()
@@ -649,6 +746,20 @@ class OrderForm(tk.Toplevel):
         self.ax_var = tk.StringVar(value="")
         self.bc_var = tk.StringVar(value="")
         self.qty_var = tk.IntVar(value=1)
+        self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
+
+        # Prefill from initial
+        if initial:
+            self.client_var.set(f'{initial.get("fio","")} — {initial.get("phone","")}'.strip(" —"))
+            self.product_var.set(initial.get("product", ""))
+            self.sph_var.set(initial.get("sph", "0"))
+            self.cyl_var.set(initial.get("cyl", ""))
+            self.ax_var.set(initial.get("ax", ""))
+            self.bc_var.set(initial.get("bc", ""))
+            try:
+                self.qty_var.set(int(initial.get("qty", 1)))
+            except Exception:
+                self.qty_var.set(1)
 
         # UI
         self._build_ui()
@@ -709,13 +820,20 @@ class OrderForm(tk.Toplevel):
         self.qty_spin = ttk.Spinbox(qty_frame, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.pack(anchor="w")
 
+        # Status
+        status_frame = ttk.Frame(card, style="Card.TFrame")
+        status_frame.grid(row=5, column=1, sticky="nsew", pady=(8, 0))
+        ttk.Label(status_frame, text="Статус", style="Subtitle.TLabel").pack(anchor="w")
+        self.status_combo = ttk.Combobox(status_frame, textvariable=self.status_var, values=self.statuses, height=6)
+        self.status_combo.pack(fill="x")
+
         # Footer and save
-        footer = ttk.Label(card, text="Статус по умолчанию: Не заказан • Дата устанавливается автоматически", style="Subtitle.TLabel")
+        footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=6, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
-        ttk.Button(btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
 
     # Helpers: values for combo and filtering
@@ -818,6 +936,7 @@ class OrderForm(tk.Toplevel):
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
         bc = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
         qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
+        status = (self.status_var.get() or "Не заказан").strip()
 
         if not fio:
             messagebox.showinfo("Проверка", "Выберите или введите клиента.")
@@ -836,7 +955,7 @@ class OrderForm(tk.Toplevel):
             "ax": ax,
             "bc": bc,
             "qty": qty,
-            "status": "Не заказан",
+            "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         }
 
