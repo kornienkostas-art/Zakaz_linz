@@ -799,7 +799,20 @@ class MeridianOrdersView(ttk.Frame):
         fade_transition(self.master, swap)
 
     def _new_order(self):
-        """Открыть форму нового заказа (Меридиан)."""
+        """Открыть встроенную форму нового заказа (Меридиан) как отдельный вид."""
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            MeridianOrderEditorView(
+                self.master,
+                db=getattr(self.master, "db", None),
+                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                on_save=self._save_order,
+                initial=None,
+            )
+        fade_transition(self.master, swap)
         MeridianOrderForm(self, ontle = (order.get("title", "") or "").strip()
         if not title:
             title = f"Заказ Меридиан #{len(self.orders) + 1}"
@@ -1273,7 +1286,86 @@ class MeridianItemForm(tk.Toplevel):
         self.destroy()
 
 
-class MKLOrdersView(ttk.Frame):
+# Встроенная форма создания/редактирования заказа Меридиан (как отдельный вид)
+class MeridianOrderEditorView(ttk.Frame):
+    """Встроенный редактор заказа 'Меридиан' внутри главного окна.
+    Использует модальные формы MeridianItemForm для добавления/редактирования позиций.
+    """
+    STATUSES = ["Не заказан", "Заказан"]
+
+    def __init__(self, master: tk.Tk, db: AppDB | None, on_back, on_save, initial: dict | None = None):
+        super().__init__(master, style="Card.TFrame", padding=0)
+        self.master = master
+        self.db = db
+        self.on_back = on_back
+        self.on_save = on_save
+        self.is_new = initial is None
+
+        # Fill window
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
+
+        # Vars
+        self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
+        self.items: list[dict] = []
+        for it in (initial or {}).get("items", []):
+            self.items.append(it.copy())
+
+        self._build_ui()
+
+    def _build_ui(self):
+        # Toolbar with back
+        toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
+        toolbar.pack(fill="x")
+        ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
+
+        # Card content
+        card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        card.pack(fill="both", expand=True)
+        card.columnconfigure(0, weight=1)
+
+        # Status block: показываем только при редактировании
+        if not self.is_new:
+            header = ttk.Frame(card, style="Card.TFrame")
+            header.grid(row=0, column=0, sticky="ew")
+            ttk.Label(header, text="Статус заказа", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+            ttk.Combobox(header, textvariable=self.status_var, values=self.STATUSES, height=4).grid(row=1, column=0, sticky="ew")
+            header.columnconfigure(0, weight=1)
+
+        ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(12, 12))
+
+        # Items table
+        items_frame = ttk.Frame(card, style="Card.TFrame")
+        items_frame.grid(row=2, column=0, sticky="nsew")
+        card.rowconfigure(2, weight=1)
+
+        cols = ("product", "sph", "cyl", "ax", "d", "qty")
+        self.items_tree = ttk.Treeview(items_frame, columns=cols, show="headings", style="Data.Treeview")
+        headers = {
+            "product": "Товар",
+            "sph": "SPH",
+            "cyl": "CYL",
+            "ax": "AX",
+            "d": "D (мм)",
+            "qty": "Количество",
+        }
+        widths = {"product": 240, "sph": 90, "cyl": 90, "ax": 90, "d": 90, "qty": 120}
+        for c in cols:
+            self.items_tree.heading(c, text=headers[c], anchor="w")
+            self.items_tree.column(c, width=widths[c], anchor="w", stretch=True)
+
+        y_scroll = ttk.Scrollbar(items_frame, orient="vertical", command=self.items_tree.yview)
+        self.items_tree.configure(yscroll=y_scroll.set)
+
+        self.items_tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        items_frame.columnconfigure(0, weight=1)
+        items_frame.rowconfigure(0, weight=1)
+
+        # Items toolbar
+        items_toolbar = ttk.Frame(card, style="Card.TFrame")
+        items_toolbar.grid(row=3, column=
     """Встроенное представление 'Заказ МКЛ' внутри главного окна."""
     COLUMNS = (
         "fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date"
