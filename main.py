@@ -5,6 +5,7 @@ from tkinter import ttk, messagebox
 import sqlite3
 import os
 from datetime import datetime
+import re
 
 
 class AppDB:
@@ -319,6 +320,20 @@ def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 120, steps: i
     except tk.TclError:
         # If alpha not supported, just swap
         swap_callback()
+
+
+def format_phone_mask(raw: str) -> str:
+    """Format phone to mask '*-***-***-**-**' for display, accepting various inputs."""
+    digits = re.sub(r"\D", "", raw or "")
+    # Use last 10 digits as tail; mask the leading (country/service) digit with '*'
+    if len(digits) >= 11:
+        tail = digits[-10:]
+    elif len(digits) == 10:
+        tail = digits
+    else:
+        # Not enough digits to format, return original trimmed
+        return (raw or "").strip()
+    return f"*-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
 
 
 class MainWindow(ttk.Frame):
@@ -1550,9 +1565,10 @@ class MKLOrdersView(ttk.Frame):
         for i in self.tree.get_children():
             self.tree.delete(i)
         for idx, item in enumerate(self.orders):
+            masked_phone = format_phone_mask(item.get("phone", ""))
             values = (
                 item.get("fio", ""),
-                item.get("phone", ""),
+                masked_phone,
                 item.get("product", ""),
                 item.get("sph", ""),
                 item.get("cyl", ""),
@@ -1650,7 +1666,8 @@ class ClientsWindow(tk.Toplevel):
         for i in self.tree.get_children():
             self.tree.delete(i)
         for idx, item in enumerate(self._filtered):
-            self.tree.insert("", "end", iid=str(idx), values=(item.get("fio", ""), item.get("phone", "")))
+            masked_phone = format_phone_mask(item.get("phone", ""))
+            self.tree.insert("", "end", iid=str(idx), values=(item.get("fio", ""), masked_phone))
 
     def _selected_index(self):
         sel = self.tree.selection()
@@ -1750,6 +1767,8 @@ class ClientForm(tk.Toplevel):
         if not data["phone"]:
             messagebox.showinfo("Проверка", "Введите телефон.")
             return
+        # Normalize phone to digits only for storage
+        data["phone"] = re.sub(r"\D", "", data["phone"])
         if self.on_save:
             self.on_save(data)
         self.destroy()
@@ -1766,74 +1785,13 @@ class ProductsWindow(tk.Toplevel):
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         # Esc closes window
-        self.bin("<eEscape>", lambda e: self.destroy())
+        self.bind("<Escape>", lambda e: self.destroy())
 
-       oducts
-        self._filtered = list(self._dataset)
+        self.db = db
+        self._dataset: list[dict] = []
+        self._filtered: list[dict] = []
 
         self._build_ui()
-
-    def _build_ui(self):
-        # Toolbar
-        bar = ttk.Frame(self, style="Card.TFrame", padding=16)
-        bar.pack(fill="x")
-        ttk.Button(bar, text="Добавить", style="Menu.TButton", command=self._add).pack(side="left")
-        ttk.Button(bar, text="Редактировать", style="Menu.TButton", command=self._edit).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Удалить", style="Menu.TButton", command=self._delete).pack(side="left", padx=(8, 0))
-
-        # Table
-        table_card = ttk.Frame(self, style="Card.TFrame", padding=16)
-        table_card.pack(fill="both", expand=True)
-
-        columns = ("name",)
-        self.tree = ttk.Treeview(table_card, columns=columns, show="headings", style="Data.Treeview")
-        self.tree.heading("name", text="Название товара", anchor="w")
-        self.tree.column("name", width=600, anchor="w")
-
-        y_scroll = ttk.Scrollbar(table_card, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscroll=y_scroll.set)
-
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        y_scroll.grid(row=0, column=1, sticky="ns")
-        table_card.columnconfigure(0, weight=1)
-        table_card.rowconfigure(0, weight=1)
-
-        self._refresh_view()
-
-    def _reload(self):
-        """Загрузить список товаров из БД."""
-        try:
-            self._dataset = self.db.list_products() if self.db else []
-        except Exception as e:
-            messagebox.showerror("База данных", f"Не удалось загрузить товары:\n{e}")
-            self._dataset = []
-        self._filtered = list(self._dataset)
-        self._refresh_view()
-
-    def _refresh_view(self):
-        for i in self.tree.get_children():
-            self.tree.delete(i)
-        for idx, item in enumerate(self._filtered):
-            self.tree.insert("", "end", iid=str(idx), values=(item.get("name", ""),))
-
-    def _selected_index(self):
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showinfo("Выбор", "Пожалуйста, выберите товар.")
-            return None
-        return int(sel[0])
-
-    def _add(self):
-        ProductForm(self, on_save=self._on_add_save)
-
-    def _on_add_save(self, data: dict):
-        try:
-            if self.db:
-                self.db.add_product(data.get("name", ""))
-            else:
-                self._dataset.append({"id": None, **data})
-        except Exception as e:
-            messagebox.showerror("База данных", f"Не удалось добавить товар:\n{e}")
         self._reload()
 
     def _edit(self):
@@ -1944,7 +1902,8 @@ class OrderForm(tk.Toplevel):
 
         # Prefill from initial
         if initial:
-            self.client_var.set(f'{initial.get("fio","")} — {initial.get("phone","")}'.strip(" —"))
+            masked_phone = format_phone_mask(initial.get("phone", ""))
+            self.client_var.set(f'{initial.get("fio","")} — {masked_phone}'.strip(" —"))
             self.product_var.set(initial.get("product", ""))
             self.sph_var.set(initial.get("sph", ""))
             self.cyl_var.set(initial.get("cyl", ""))
@@ -2035,7 +1994,12 @@ class OrderForm(tk.Toplevel):
 
     # Helpers: values for combo and filtering
     def _client_values(self):
-        return [f'{c.get("fio","")} — {c.get("phone","")}' for c in self.clients]
+        values = []
+        for c in self.clients:
+            fio = c.get("fio", "")
+            phone = format_phone_mask(c.get("phone", ""))
+            values.append(f"{fio} — {phone}".strip(" —"))
+        return values
 
     def _product_values(self):
         return [p.get("name", "") for p in self.products]
@@ -2149,17 +2113,20 @@ class OrderForm(tk.Toplevel):
         return str(v)
 
     def _parse_client(self, text: str) -> tuple[str, str]:
-        """Return (fio, phone) from 'FIO — phone' or direct input."""
+        """Return (fio, normalized phone digits) from 'FIO — phone' or direct input."""
         t = (text or "").strip()
         if "—" in t:
             parts = t.split("—", 1)
-            return parts[0].strip(), parts[1].strip()
+            fio = parts[0].strip()
+            phone_digits = re.sub(r"\D", "", parts[1])
+            return fio, phone_digits
         # Try find match from dataset
         term = t.lower()
         for c in self.clients:
             if term in c.get("fio", "").lower() or term in c.get("phone", "").lower():
                 return c.get("fio", ""), c.get("phone", "")
-        return t, ""
+        # If user typed a phone directly, normalize digits
+        return t, re.sub(r"\D", "", t)
 
     def _parse_product(self, text: str) -> str:
         t = (text or "").strip()
