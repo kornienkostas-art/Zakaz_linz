@@ -499,8 +499,10 @@ class MKLOrdersView(ttk.Frame):
         dialog.columnconfigure(0, weight=1)
 
     def _export_txt(self):
-        """Export only orders with status 'Не заказан' grouped by product to TXT."""
+        """Export only orders with status 'Не заказан' grouped by product to TXT, with header 'МКЛ' and current date."""
         import os
+        from datetime import datetime
+
         groups: dict[str, list[dict]] = {}
         for o in self.orders:
             if (o.get("status", "") or "").strip() == "Не заказан":
@@ -512,6 +514,11 @@ class MKLOrdersView(ttk.Frame):
             return
 
         lines: list[str] = []
+        # Header: МКЛ and current date/time
+        lines.append("МКЛ")
+        lines.append(datetime.now().strftime("%Y-%m-%d %H:%M"))
+        lines.append("")
+
         for product, items in groups.items():
             lines.append(product)
             for o in items:
