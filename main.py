@@ -1370,10 +1370,14 @@ class MKLOrdersView(ttk.Frame):
             self.menu.grab_release()
 
     def _open_clients(self):
-        ClientsWindow(self, getattr(self.master, "db", None))
+        # Передаём список клиентов, а не объект БД
+        clients = self.db.list_clients() if self.db else []
+        ClientsWindow(self, clients)
 
     def _open_products(self):
-        ProductsWindow(self, getattr(self.master, "db", None))
+        # Передаём список товаров, а не объект БД
+        products = self.db.list_products() if self.db else []
+        ProductsWindow(self, products)
 
     def _new_order(self):
         # Fetch latest clients/products from DB for suggestions
