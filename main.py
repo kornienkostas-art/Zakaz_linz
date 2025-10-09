@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 import re
 import threading
+import json
 
 # Optional dependencies for system tray (pystray + Pillow)
 try:
@@ -543,25 +544,39 @@ class MainWindow(ttk.Frame):
         set_initial_geometry(self.master, min_w=800, min_h=520)
         self.master.configure(bg="#f8fafc")  # light background
 
-        # Init app settings with defaults
+        # Init app settings with defaults and load from JSON if exists
         try:
             desktop = os.path.join(os.path.expanduser("~"), "Desktop")
             default_export = desktop if os.path.isdir(desktop) else os.getcwd()
         except Exception:
             default_export = None
-        if not hasattr(self.master, "app_settings"):
-            self.master.app_settings = {
-                "export_path": default_export,
-                "autostart_enabled": True,
-                "minimize_to_tray": True,
-                "tray_logo_path": "",
-            }
-        else:
-            s = self.master.app_settings
-            s.setdefault("export_path", default_export)
-            s.setdefault("autostart_enabled", True)
-            s.setdefault("minimize_to_tray", True)
-            s.setdefault("tray_logo_path", "")
+
+        defaults = {
+            "export_path": default_export,
+            "autostart_enabled": True,
+            "minimize_to_tray": True,
+            "tray_logo_path": "",
+        }
+
+        def _settings_path():
+            try:
+                return os.path.join(os.getcwd(), "settings.json")
+            except Exception:
+                return "settings.json"
+
+        data = {}
+        try:
+            sp = _settings_path()
+            if os.path.isfile(sp):
+                with open(sp, "r", encoding="utf-8") as f:
+                    data = json.load(f) or {}
+        except Exception:
+            data = {}
+        # Merge defaults
+        settings = {**defaults, **data}
+
+        # Attach to root
+        self.master.app_settings = settings
 
         # Apply autostart on Windows
         try:
@@ -890,6 +905,14 @@ class SettingsView(ttk.Frame):
             s["tray_logo_path"] = logo_path
             s["autostart_enabled"] = autostart_enabled
             s["minimize_to_tray"] = tray_enabled
+
+            # Save to JSON file for persistence
+            try:
+                sp = os.path.join(os.getcwd(), "settings.json")
+                with open(sp, "w", encoding="utf-8") as f:
+                    json.dump(s, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                messagebox.showwarning("Настройки", f"Не удалось сохранить настройки в файл:\n{e}")
 
             # Apply autostart on Windows
             if os.name == "nt":
