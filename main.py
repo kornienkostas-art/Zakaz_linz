@@ -1370,14 +1370,12 @@ class MKLOrdersView(ttk.Frame):
             self.menu.grab_release()
 
     def _open_clients(self):
-        # Передаём список клиентов, а не объект БД
-        clients = self.db.list_clients() if self.db else []
-        ClientsWindow(self, clients)
+        # Окно клиентов работает напрямую с БД
+        ClientsWindow(self, getattr(self.master, "db", None))
 
     def _open_products(self):
-        # Передаём список товаров, а не объект БД
-        products = self.db.list_products() if self.db else []
-        ProductsWindow(self, products)
+        # Окно товаров работает напрямую с БД
+        ProductsWindow(self, getattr(self.master, "db", None))
 
     def _new_order(self):
         # Fetch latest clients/products from DB for suggestions
@@ -1569,8 +1567,8 @@ class MKLOrdersView(ttk.Frame):
 
 
 class ClientsWindow(tk.Toplevel):
-    """Список клиентов с поиском и CRUD."""
-    def __init__(self, master: tk.Toplevel, clients: list[dict]):
+    """Список клиентов с поиском и CRUD (сохранение в SQLite)."""
+    def __init__(self, master: tk.Toplevel, db: AppDB | None):
         super().__init__(master)
         self.title("Клиенты")
         self.configure(bg="#f8fafc")
@@ -1580,10 +1578,13 @@ class ClientsWindow(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         # Esc closes window
         self.bind("<Escape>", lambda e: self.destroy())
-        self._dataset = clients  # reference to parent list
-        self._filtered = list(self._dataset)  # working copy
+
+        self.db = db
+        self._dataset: list[dict] = []   # [{'id', 'fio', 'phone'}, ...]
+        self._filtered: list[dict] = []
 
         self._build_ui()
+        self._reload()
 
     def _build_ui(self):
         # Search bar
@@ -1625,6 +1626,15 @@ class ClientsWindow(tk.Toplevel):
 
         self._refresh_view()
 
+    def _reload(self):
+        """Загрузить список клиентов из БД."""
+        try:
+            self._dataset = self.db.list_clients() if self.db else []
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось загрузить клиентов:\n{e}")
+            self._dataset = []
+        self._apply_filter()
+
     def _apply_filter(self):
         term = self.search_var.get().strip().lower()
         if not term:
@@ -1653,22 +1663,34 @@ class ClientsWindow(tk.Toplevel):
         ClientForm(self, on_save=self._on_add_save)
 
     def _on_add_save(self, data: dict):
-        self._dataset.append(data)
-        self._apply_filter()
+        # Сохранить в БД
+        try:
+            if self.db:
+                self.db.add_client(data.get("fio", ""), data.get("phone", ""))
+            else:
+                # если БД недоступна — добавим временно в список
+                self._dataset.append({"id": None, **data})
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось добавить клиента:\n{e}")
+        self._reload()
 
     def _edit(self):
         idx = self._selected_index()
         if idx is None:
             return
         item = self._filtered[idx]
-        ClientForm(self, initial=item.copy(), on_save=lambda d: self._on_edit_save(idx, d))
+        ClientForm(self, initial=item.copy(), on_save=lambda d: self._on_edit_save(item, d))
 
-    def _on_edit_save(self, filtered_idx: int, data: dict):
-        # Map filtered index back to original dataset
-        original_item = self._filtered[filtered_idx]
-        orig_idx = self._dataset.index(original_item)
-        self._dataset[orig_idx] = data
-        self._apply_filter()
+    def _on_edit_save(self, original_item: dict, data: dict):
+        try:
+            if self.db and original_item.get("id") is not None:
+                self.db.update_client(original_item["id"], data.get("fio", ""), data.get("phone", ""))
+            else:
+                # обновим локально
+                original_item.update(data)
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось обновить клиента:\n{e}")
+        self._reload()
 
     def _delete(self):
         idx = self._selected_index()
@@ -1676,8 +1698,14 @@ class ClientsWindow(tk.Toplevel):
             return
         item = self._filtered[idx]
         if messagebox.askyesno("Удалить", "Удалить выбранного клиента?"):
-            self._dataset.remove(item)
-            self._apply_filter()
+            try:
+                if self.db and item.get("id") is not None:
+                    self.db.delete_client(item["id"])
+                else:
+                    self._dataset.remove(item)
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось удалить клиента:\n{e}")
+            self._reload()
 
 
 class ClientForm(tk.Toplevel):
@@ -1728,8 +1756,8 @@ class ClientForm(tk.Toplevel):
 
 
 class ProductsWindow(tk.Toplevel):
-    """Список товаров с CRUD."""
-    def __init__(self, master: tk.Toplevel, products: list[dict]):
+    """Список товаров с CRUD (сохранение в SQLite)."""
+    def __init__(self, master: tk.Toplevel, db: AppDB | None):
         super().__init__(master)
         self.title("Товары")
         self.configure(bg="#f8fafc")
@@ -1738,8 +1766,9 @@ class ProductsWindow(tk.Toplevel):
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         # Esc closes window
-        self.bind("<Escape>", lambda e: self.destroy())
-        self._dataset = products
+        self.bin("<eEscape>", lambda e: self.destroy())
+
+       oducts
         self._filtered = list(self._dataset)
 
         self._build_ui()
@@ -1771,6 +1800,16 @@ class ProductsWindow(tk.Toplevel):
 
         self._refresh_view()
 
+    def _reload(self):
+        """Загрузить список товаров из БД."""
+        try:
+            self._dataset = self.db.list_products() if self.db else []
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось загрузить товары:\n{e}")
+            self._dataset = []
+        self._filtered = list(self._dataset)
+        self._refresh_view()
+
     def _refresh_view(self):
         for i in self.tree.get_children():
             self.tree.delete(i)
@@ -1788,23 +1827,31 @@ class ProductsWindow(tk.Toplevel):
         ProductForm(self, on_save=self._on_add_save)
 
     def _on_add_save(self, data: dict):
-        self._dataset.append(data)
-        self._filtered = list(self._dataset)
-        self._refresh_view()
+        try:
+            if self.db:
+                self.db.add_product(data.get("name", ""))
+            else:
+                self._dataset.append({"id": None, **data})
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось добавить товар:\n{e}")
+        self._reload()
 
     def _edit(self):
         idx = self._selected_index()
         if idx is None:
             return
         item = self._filtered[idx]
-        ProductForm(self, initial=item.copy(), on_save=lambda d: self._on_edit_save(idx, d))
+        ProductForm(self, initial=item.copy(), on_save=lambda d: self._on_edit_save(item, d))
 
-    def _on_edit_save(self, filtered_idx: int, data: dict):
-        original_item = self._filtered[filtered_idx]
-        orig_idx = self._dataset.index(original_item)
-        self._dataset[orig_idx] = data
-        self._filtered = list(self._dataset)
-        self._refresh_view()
+    def _on_edit_save(self, original_item: dict, data: dict):
+        try:
+            if self.db and original_item.get("id") is not None:
+                self.db.update_product(original_item["id"], data.get("name", ""))
+            else:
+                original_item.update(data)
+        except Exception as e:
+            messagebox.showerror("База данных", f"Не удалось обновить товар:\n{e}")
+        self._reload()
 
     def _delete(self):
         idx = self._selected_index()
@@ -1812,9 +1859,14 @@ class ProductsWindow(tk.Toplevel):
             return
         item = self._filtered[idx]
         if messagebox.askyesno("Удалить", "Удалить выбранный товар?"):
-            self._dataset.remove(item)
-            self._filtered = list(self._dataset)
-            self._refresh_view()
+            try:
+                if self.db and item.get("id") is not None:
+                    self.db.delete_product(item["id"])
+                else:
+                    self._dataset.remove(item)
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось удалить товар:\n{e}")
+            self._reload()
 
 
 class ProductForm(tk.Toplevel):
