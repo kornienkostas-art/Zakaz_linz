@@ -785,7 +785,18 @@ class MeridianOrdersView(ttk.Frame):
         fade_transition(self.master, swap)
 
     def _open_products(self):
-        # Открыть товары как встроенный вид; назад вернёт к текущему представлению Меридиer)
+        # Открыть товары как встроенный вид; назад вернёт к текущему представлению Меридиан
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            ProductsView(
+                self.master,
+                getattr(self.master, "db", None),
+                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+            )
+        fade_transition(self.master, swap)
 
     def _save_order(self, order: dict):
         # Автогенерация имени заказа по порядку, если не задано
