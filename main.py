@@ -486,10 +486,10 @@ def _start_tray(master: tk.Tk):
         except Exception:
             pass
 
-    # Build menu
+    # Build menu (double-click on icon triggers default item 'Открыть')
     autostart_label = "Автозапуск: " + ("Вкл" if _windows_autostart_get() else "Выкл")
     menu = pystray.Menu(
-        pystray.MenuItem("Открыть", on_open),
+        pystray.MenuItem("Открыть", on_open, default=True),
         pystray.MenuItem(autostart_label, on_toggle_autostart),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Выход", on_exit),
@@ -597,14 +597,14 @@ class MainWindow(ttk.Frame):
         # Handle close to minimize to tray
         def on_close():
             try:
-                if bool(self.master.app_settings.get("minimize_to_tray", True)):
-                    if pystray is not None and Image is not None:
-                        # Hide window and show tray icon
-                        self.master.withdraw()
-                        _start_tray(self.master)
-                        try:
-                            # Inform user that app is in tray
-                            messagebox.showinfo("Трей", "Приложение свернуто в системный трей.\nИспользуйте значок в трее, чтобы открыть или выйти.")
+                if bool(self.master.app_settings.get("minimize_to_tray", True)) and pystray is not None and Image is not None:
+                    # Hide window and show tray icon (no popup)
+                    self.master.withdraw()
+                    _start_tray(self.master)
+                else:
+                    self.master.destroy()
+            except Exception:
+                self.master.destr_code        messagebox.showinfo("Трей", "Приложение свернуто в системный трей.\nИспользуйте значок в трее, чтобы открыть или выйти.")
                         except Exception:
                             pass
                     else:
