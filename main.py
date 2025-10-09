@@ -601,6 +601,7 @@ class MeridianOrderForm(tk.Toplevel):
         self.title_var = tk.StringVar(value=(initial or {}).get("title", ""))
         self.statuses = ["Не заказан", "Заказан"]
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
+        self.is_new = initial is None
 
         # Items dataset
         self.items: list[dict] = []
@@ -614,11 +615,14 @@ class MeridianOrderForm(tk.Toplevel):
         card.pack(fill="both", expand=True)
         card.columnconfigure(0, weight=1)
 
-        # Order status only; имя генерируется автоматически при сохранении
+        # Order status: для новых заказов не показываем выбор, статус по умолчанию "Не заказан"
         header = ttk.Frame(card, style="Card.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         ttk.Label(header, text="Статус заказа", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid(row=1, column=0, sticky="ew")
+        if self.is_new:
+            ttk.Label(header, text="Не заказан", style="Subtitle.TLabel").grid(row=1, column=0, sticky="w")
+        else:
+            ttk.Combobox(header, textvariable=self.status_var, values=self.statuses, height=4).grid(row=1, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
 
         ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(12, 12))
@@ -1564,6 +1568,7 @@ class OrderForm(tk.Toplevel):
         self.clients = clients
         self.products = products
         self.statuses = statuses or ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
+        self.is_new = initial is None
 
         # Vars
         self.client_var = tk.StringVar()
@@ -1652,14 +1657,10 @@ class OrderForm(tk.Toplevel):
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
-        # Row 7: QTY and Status (ровно в одной строке)
+        # Row 7: QTY (без выбора статуса)
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=8, column=0, sticky="w")
-
-        ttk.Label(card, text="Статус", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
-        self.status_combo = ttk.Combobox(card, textvariable=self.status_var, values=self.statuses, height=6)
-        self.status_combo.grid(row=8, column=1, sticky="ew")
 
         # Footer and save
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
@@ -1820,7 +1821,8 @@ class OrderForm(tk.Toplevel):
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
         bc = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
         qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
-        status = (self.status_var.get() or "Не заказан").strip()
+        # Status: default to 'Не заказан' for new orders; keep existing for edits
+        status = "Не заказан" if self.is_new else (self.status_var.get() or "Не заказан").strip()
 
         if not fio:
             messagebox.showinfo("Проверка", "Выберите или введите клиента.")
