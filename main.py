@@ -573,42 +573,65 @@ class MainWindow(ttk.Frame):
         fade_transition(self.master, swap)
 
     def _on_settings(self):
-        SettingsWindow(self.master)
+        # Открыть настройки как встроенный вид с плавным переходом
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            SettingsView(self.master, on_back=lambda: MainWindow(self.master))
+        fade_transition(self.master, swap)
 
 
-class SettingsWindow(tk.Toplevel):
-    """Настройки приложения: путь сохранения экспорта по умолчанию."""
-    def __init__(self, master: tk.Tk):
-        super().__init__(master)
-        self.title("Настройки")
-        self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=560, min_h=240, center_to=master)
-        self.transient(master)
-        self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
-        self.bind("<Escape>", lambda e: self.destroy())
+class SettingsView(ttk.Frame):
+    """Настройки внутри главного окна с кнопкой 'Назад'."""
+    def __init__(self, master: tk.Tk, on_back):
+        super().__init__(master, style="Card.TFrame", padding=0)
+        self.master = master
+        self.on_back = on_back
+
+        # Make the frame fill the window
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
 
         # Read current settings from root
         self.app_settings = getattr(master, "app_settings", {"export_path": None})
         current_path = self.app_settings.get("export_path") or ""
 
+        # Toolbar with back
+        toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
+        toolbar.pack(fill="x")
+        ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back).pack(side="left")
+
+        # Card content
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
         card.columnconfigure(1, weight=1)
 
-        ttk.Label(card, text="Путь сохранения экспорта (по умолчанию)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", columnspan=3)
-        self.path_var = tk.StringVar(value=current_path)
-        ttk.Label(card, text="Папка:", style="Subtitle.TLabel").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        entry = ttk.Entry(card, textvariable=self.path_var)
-        entry.grid(row=1, column=1, sticky="ew", pady=(8, 0))
-        ttk.Button(card, text="Обзор…", style="Menu.TButton", command=self._browse_dir).grid(row=1, column=2, sticky="w", padx=(8, 0), pady=(8, 0))
+        header = ttk.Label(card, text="Настройки", style="Title.TLabel")
+        header.grid(row=0, column=0, sticky="w", columnspan=3)
+        ttk.Separator(card).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 12))
 
-        ttk.Separator(card).grid(row=2, column=0, columnspan=3, sticky="ew", pady=(12, 12))
+        ttk.Label(card, text="Путь сохранения экспорта (по умолчанию)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", columnspan=3)
+        self.path_var = tk.StringVar(value=current_path)
+        ttk.Label(card, text="Папка:", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        entry = ttk.Entry(card, textvariable=self.path_var)
+        entry.grid(row=3, column=1, sticky="ew", pady=(8, 0))
+        ttk.Button(card, text="Обзор…", style="Menu.TButton", command=self._browse_dir).grid(row=3, column=2, sticky="w", padx=(8, 0), pady=(8, 0))
+
+        ttk.Separator(card).grid(row=4, column=0, columnspan=3, sticky="ew", pady=(12, 12))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=3, column=0, columnspan=3, sticky="e")
+        btns.grid(row=5, column=0, columnspan=3, sticky="e")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+    def _go_back(self):
+        try:
+            self.destroy()
+        finally:
+            if callable(self.on_back):
+                self.on_back()
 
     def _browse_dir(self):
         from tkinter import filedialog
@@ -629,7 +652,7 @@ class SettingsWindow(tk.Toplevel):
             # Persist in root settings
             self.master.app_settings["export_path"] = path
             messagebox.showinfo("Настройки", "Сохранено.")
-            self.destroy()
+            self._go_back()
         except Exception as e:
             messagebox.showerror("Настройки", f"Ошибка сохранения:\n{e}")
 
@@ -1403,12 +1426,23 @@ class MKLOrdersView(ttk.Frame):
             self.menu.grab_release()
 
     def _open_clients(self):
-        # Окно клиентов работает напрямую с БД
-        ClientsWindow(self, getattr(self.master, "db", None))
+        # Открыть клиентов как встроенный вид с возвратом назад к МКЛ
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            ClientsView(self.master, getattr(self.master, "db", None), on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+        fade_transition(self.master, swap)
 
     def _open_products(self):
-        # Окно товаров работает напрямую с БД
-        ProductsWindow(self, getattr(self.master, "db", None))
+        # Открыть товары как встроенный вид с возвратом назад к МКЛ
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            ProductsView(self.master, getattr(self.master, "db", None), on_back=lambda: MKLOrdersView(self.master
 
     def _new_order(self):
         # Fetch latest clients/products from DB for suggestions
@@ -1600,20 +1634,19 @@ class MKLOrdersView(ttk.Frame):
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
 
 
-class ClientsWindow(tk.Toplevel):
-    """Список клиентов с поиском и CRUD (сохранение в SQLite)."""
-    def __init__(self, master: tk.Toplevel, db: AppDB | None):
-        super().__init__(master)
-        self.title("Клиенты")
-        self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=840, min_h=600, center_to=master)
-        self.transient(master)
-        self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
-        # Esc closes window
-        self.bind("<Escape>", lambda e: self.destroy())
-
+class ClientsView(ttk.Frame):
+    """Список клиентов как встроенный вид (CRUD с SQLite) с кнопкой 'Назад'."""
+    def __init__(self, master: tk.Tk, db: AppDB | None, on_back):
+        super().__init__(master, style="Card.TFrame", padding=0)
+        self.master = master
         self.db = db
+        self.on_back = on_back
+
+        # Fill window
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
+
         self._dataset: list[dict] = []   # [{'id', 'fio', 'phone'}, ...]
         self._filtered: list[dict] = []
 
@@ -1621,6 +1654,11 @@ class ClientsWindow(tk.Toplevel):
         self._reload()
 
     def _build_ui(self):
+        # Toolbar with back
+        toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
+        toolbar.pack(fill="x")
+        ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
+
         # Search bar
         search_card = ttk.Frame(self, style="Card.TFrame", padding=16)
         search_card.pack(fill="x")
@@ -1659,6 +1697,13 @@ class ClientsWindow(tk.Toplevel):
         table_card.rowconfigure(0, weight=1)
 
         self._refresh_view()
+
+    def _go_back(self):
+        try:
+            self.destroy()
+        finally:
+            if callable(self.on_back):
+                self.on_back()
 
     def _reload(self):
         """Загрузить список клиентов из БД."""
@@ -1792,20 +1837,19 @@ class ClientForm(tk.Toplevel):
         self.destroy()
 
 
-class ProductsWindow(tk.Toplevel):
-    """Список товаров с CRUD (сохранение в SQLite)."""
-    def __init__(self, master: tk.Toplevel, db: AppDB | None):
-        super().__init__(master)
-        self.title("Товары")
-        self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=840, min_h=600, center_to=master)
-        self.transient(master)
-        self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
-        # Esc closes window
-        self.bind("<Escape>", lambda e: self.destroy())
-
+class ProductsView(ttk.Frame):
+    """Список товаров как встроенный вид (CRUD с SQLite) с кнопкой 'Назад'."""
+    def __init__(self, master: tk.Tk, db: AppDB | None, on_back):
+        super().__init__(master, style="Card.TFrame", padding=0)
+        self.master = master
         self.db = db
+        self.on_back = on_back
+
+        # Fill window
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
+
         self._dataset: list[dict] = []
         self._filtered: list[dict] = []
 
@@ -1813,16 +1857,25 @@ class ProductsWindow(tk.Toplevel):
         self._reload()
 
     def _build_ui(self):
+        # Toolbar with back
+        toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
+        toolbar.pack(fill="x")
+        ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
+
+        # Card/table
+        table_card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        table_card.pack(fill="both", expand=True)
+
+        header = ttk.Label(table_card, text="Товары", style="Title.TLabel")
+        header.grid(row=0, column=0, sticky="w", columnspan=2)
+        ttk.Separator(table_card).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 12))
+
         # Toolbar
-        bar = ttk.Frame(self, style="Card.TFrame", padding=16)
-        bar.pack(fill="x")
+        bar = ttk.Frame(table_card, style="Card.TFrame")
+        bar.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 8))
         ttk.Button(bar, text="Добавить", style="Menu.TButton", command=self._add).pack(side="left")
         ttk.Button(bar, text="Редактировать", style="Menu.TButton", command=self._edit).pack(side="left", padx=(8, 0))
         ttk.Button(bar, text="Удалить", style="Menu.TButton", command=self._delete).pack(side="left", padx=(8, 0))
-
-        # Table
-        table_card = ttk.Frame(self, style="Card.TFrame", padding=16)
-        table_card.pack(fill="both", expand=True)
 
         columns = ("name",)
         self.tree = ttk.Treeview(table_card, columns=columns, show="headings", style="Data.Treeview")
@@ -1832,12 +1885,19 @@ class ProductsWindow(tk.Toplevel):
         y_scroll = ttk.Scrollbar(table_card, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=y_scroll.set)
 
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        y_scroll.grid(row=0, column=1, sticky="ns")
+        self.tree.grid(row=3, column=0, sticky="nsew")
+        y_scroll.grid(row=3, column=1, sticky="ns")
         table_card.columnconfigure(0, weight=1)
-        table_card.rowconfigure(0, weight=1)
+        table_card.rowconfigure(3, weight=1)
 
         self._refresh_view()
+
+    def _go_back(self):
+        try:
+            self.destroy()
+        finally:
+            if callable(self.on_back):
+                self.on_back()
 
     def _reload(self):
         """Загрузить список товаров из БД."""
