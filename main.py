@@ -187,7 +187,9 @@ class MainWindow(ttk.Frame):
 
     # Actions
     def _on_order_mkl(self):
-        MKLOrdersWindow(self.master)
+        # Переключаемся на представление заказов внутри главного окна
+        self.destroy()
+        MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
 
     def _on_order_meridian(self):
         messagebox.showinfo("Заказ Меридиан", "Раздел 'Заказ Меридиан' будет реализован позже.")
@@ -196,8 +198,8 @@ class MainWindow(ttk.Frame):
         messagebox.showinfo("Настройки", "Раздел 'Настройки' будет реализован позже.")
 
 
-class MKLOrdersWindow(tk.Toplevel):
-    """Окно 'Заказ МКЛ' с таблицей данных."""
+class MKLOrdersView(ttk.Frame):
+    """Встроенное представление 'Заказ МКЛ' внутри главного окна."""
     COLUMNS = (
         "fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date"
     )
@@ -215,18 +217,15 @@ class MKLOrdersWindow(tk.Toplevel):
     }
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
 
-    def __init__(self, master: tk.Tk):
-        super().__init__(master)
-        self.title("Заказ МКЛ")
-        self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=1000, min_h=640, center_to=master)
+    def __init__(self, master: tk.Tk, on_back):
+        super().__init__(master, style="Card.TFrame", padding=0)
+        self.master = master
+        self.on_back = on_back
 
-        # Close behavior
-        self.transient(master)
-        self.grab_set()  # modal-like
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
-        # Esc закрывает окно заказов
-        self.bind("<Escape>", lambda e: self.destroy())
+        # Make the frame fill the window
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
 
         # In-memory datasets (to be replaced with SQLite later)
         self.orders = []       # list of dicts
@@ -241,6 +240,9 @@ class MKLOrdersWindow(tk.Toplevel):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
+        # Back to main menu
+        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Menu.TButton", command=self._go_back)
+
         # Order: Новый заказ, Редактировать, Удалить, Клиент, Добавить Товар
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
@@ -248,7 +250,8 @@ class MKLOrdersWindow(tk.Toplevel):
         btn_clients = ttk.Button(toolbar, text="Клиент", style="Menu.TButton", command=self._open_clients)
         btn_products = ttk.Button(toolbar, text="Добавить Товар", style="Menu.TButton", command=self._open_products)
 
-        btn_new_order.pack(side="left")
+        btn_back.pack(side="left")
+        btn_new_order.pack(side="left", padx=(8, 0))
         btn_edit_order.pack(side="left", padx=(8, 0))
         btn_delete_order.pack(side="left", padx=(8, 0))
         btn_clients.pack(side="left", padx=(8, 0))
