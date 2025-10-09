@@ -859,7 +859,9 @@ class OrderForm(tk.Toplevel):
         self.sph_entry.pack(fill="x")
         # Validation: SPH −30..+30 (allow empty while typing)
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
-        self.sph
+        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
+        self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+
         # CYL
         cyl_frame = ttk.Frame(card, style="Card.TFrame")
         cyl_frame.grid(row=3, column=1, sticky="nsew", padx=(8, 0))
@@ -880,7 +882,7 @@ class OrderForm(tk.Toplevel):
         # Validation: AX 0..180 integer (allow empty while typing)
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
-        self.ax_entry.bin("<dFocusOut>", lambda e: self._apply_snap_for("a_codex"new)</)
+        self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
 
         # BC
         bc_frame = ttk.Frame(card, style="Card.TFrame")
@@ -891,7 +893,7 @@ class OrderForm(tk.Toplevel):
         # Validation: BC 8.0..9.0 (allow empty while typing)
         bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 8.0, 9.0)), "%P")
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
-        self.bc_entry.bin("<dFocusOut>", lambda e: self._apply_snap_for("b_codec"new)</)
+        self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
         # Bind clear shortcuts (Delete) for inputs
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
