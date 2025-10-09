@@ -777,9 +777,15 @@ class MeridianOrdersView(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            ClientsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master,
-    def _new_order(self):
-        MeridianOrderForm(self, on_save=self._save_order)
+            ClientsView(
+                self.master,
+                getattr(self.master, "db", None),
+                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+            )
+        fade_transition(self.master, swap)
+
+    def _open_products(self):
+        # Открыть товары как встроенный вид; назад вернёт к текущему представлению Меридиer)
 
     def _save_order(self, order: dict):
         # Автогенерация имени заказа по порядку, если не задано
