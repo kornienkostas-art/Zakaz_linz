@@ -323,17 +323,24 @@ def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 120, steps: i
 
 
 def format_phone_mask(raw: str) -> str:
-    """Format phone to mask '*-***-***-**-**' for display, accepting various inputs."""
+    """Format phone to '+7-XXX-XXX-XX-XX' or '8-XXX-XXX-XX-XX' for display, accepting various inputs."""
     digits = re.sub(r"\D", "", raw or "")
-    # Use last 10 digits as tail; mask the leading (country/service) digit with '*'
-    if len(digits) >= 11:
-        tail = digits[-10:]
-    elif len(digits) == 10:
-        tail = digits
-    else:
-        # Not enough digits to format, return original trimmed
+    if not digits:
         return (raw or "").strip()
-    return f"*-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
+
+    prefix = ""
+    tail = ""
+
+    if len(digits) >= 11:
+        # Take first digit as prefix if it's 7 or 8
+        if digits[0] == "7":
+            prefix = "+7"
+            tail = digits[1:11]
+        elif digits[0] == "8":
+            prefix = "8"
+            tail = digits[1:11]
+        else:
+            # Unknown leading, fallback to use last 10 with default '0]}"
 
 
 class MainWindow(ttk.Frame):
