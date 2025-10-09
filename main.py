@@ -1473,8 +1473,7 @@ class MeridianOrderEditorView(ttk.Frame):
         finally:
             cb = getattr(self, "on_back", None)
             if callable(cb):
-                _code(</)
-))
+                cb()
 
 
 class MKLOrdersView(ttk.Frame):
