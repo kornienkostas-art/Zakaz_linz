@@ -446,7 +446,9 @@ class ClientsWindow(tk.Toplevel):
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         # Esc closes window
-        self.bin("< Escape>", lambda e: self._filtered = list(self._dataset)  # working copy
+        self.bind("<Escape>", lambda e: self.destroy())
+        self._dataset = clients  # reference to parent list
+        self._filtered = list(self._dataset)  # working copy
 
         self._build_ui()
 
