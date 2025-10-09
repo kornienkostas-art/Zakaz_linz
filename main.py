@@ -1393,6 +1393,9 @@ class MeridianOrderEditorView(ttk.Frame):
 
 
 class MKLOrdersView(ttk.Frame):
+    COLUMNS = (
+        "fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date"
+    )
     HEADERS = {
         "fio": "ФИО клиента",
         "phone": "Телефон",
@@ -1405,7 +1408,7 @@ class MKLOrdersView(ttk.Frame):
         "status": "Статус",
         "date": "Дата",
     }
-    STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
+    STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вруч_codeенnew"</]
 
     def __init__(self, master: tk.Tk, on_back):
         super().__init__(master, style="Card.TFrame", padding=0)
