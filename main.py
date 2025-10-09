@@ -798,9 +798,9 @@ class MeridianOrdersView(ttk.Frame):
             )
         fade_transition(self.master, swap)
 
-    def _save_order(self, order: dict):
-        # Автогенерация имени заказа по порядку, если не задано
-        title = (order.get("title", "") or "").strip()
+    def _new_order(self):
+        """Открыть форму нового заказа (Меридиан)."""
+        MeridianOrderForm(self, ontle = (order.get("title", "") or "").strip()
         if not title:
             title = f"Заказ Меридиан #{len(self.orders) + 1}"
             order["title"] = title
