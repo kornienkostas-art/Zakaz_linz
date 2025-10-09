@@ -469,8 +469,19 @@ def _start_tray(master: tk.Tk):
             pass
 
     def on_exit(icon, item=None):
+        # Properly stop tray icon before application exit to avoid ghost icon
         try:
-            master.after(0, lambda: (_stop_tray(master), master.destroy()))
+            def _exit():
+                _stop_tray(master)
+                try:
+                    master.quit()
+                except Exception:
+                    pass
+                try:
+                    master.destroy()
+                except Exception:
+                    pass
+            master.after(0, _exit)
         except Exception:
             pass
 
@@ -506,7 +517,8 @@ def _start_tray(master: tk.Tk):
 
     t = threading.Thread(target=run_icon, daemon=True)
     master.tray_thread = t
-    t.start()
+    t.sta_codertnew(</)
+
 
 def _stop_tray(master: tk.Tk):
     try:
@@ -602,9 +614,19 @@ class MainWindow(ttk.Frame):
                     self.master.withdraw()
                     _start_tray(self.master)
                 else:
+                    # Ensure tray is stopped if running to avoid ghost icon
+                    try:
+                        _stop_tray(self.master)
+                    except Exception:
+                        pass
                     self.master.destroy()
             except Exception:
-                self.master.destroy()
+                try:
+                    _stop_tray(self.master)
+                except Exception:
+                    pass
+                self.master.destr_codeoynew(</)
+estroy()
 
         self.master.protocol("WM_DELETE_WINDOW", on_close)
 
