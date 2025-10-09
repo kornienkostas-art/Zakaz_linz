@@ -850,8 +850,7 @@ class MeridianOrdersView(ttk.Frame):
             except Exception as e:
                 messagebox.showerror("База данных", f"Не удалось обновить статус заказа:\n{e}")
                 return
-        self._refresh_orders_vi_codeewnew(</)
-)
+        self._refresh_orders_view()
 
     def _new_order(self):
         """Открыть встроенную форму нового заказа (Меридиан) как отдельный вид."""
