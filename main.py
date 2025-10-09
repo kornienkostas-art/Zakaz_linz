@@ -1462,7 +1462,12 @@ class MKLOrdersView(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            ProductsView(self.master, getattr(self.master, "db", None), on_back=lambda: MKLOrdersView(self.master
+            ProductsView(
+                self.master,
+                getattr(self.master, "db", None),
+                on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+            )
+        fade_transition(self.master, swap)
 
     def _new_order(self):
         # Fetch latest clients/products from DB for suggestions
