@@ -340,7 +340,18 @@ def format_phone_mask(raw: str) -> str:
             prefix = "8"
             tail = digits[1:11]
         else:
-            # Unknown leading, fallback to use last 10 with default '0]}"
+            # Unknown leading, fallback to use last 10 with default '8'
+            prefix = "8"
+            tail = digits[-10:]
+    elif len(digits) == 10:
+        # Local format, default to '8'
+        prefix = "8"
+        tail = digits
+    else:
+        # Not enough digits to format, return original trimmed
+        return (raw or "").strip()
+
+    return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
 
 
 class MainWindow(ttk.Frame):
