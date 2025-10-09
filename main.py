@@ -798,6 +798,61 @@ class MeridianOrdersView(ttk.Frame):
             )
         fade_transition(self.master, swap)
 
+    def _selected_index(self):
+        """Return selected row index in tree or None."""
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Выбор", "Пожалуйста, выберите заказ.")
+            return None
+        try:
+            return int(sel[0])
+        except ValueError:
+            return None
+
+    def _delete_order(self):
+        """Delete selected Meridian order from DB and refresh."""
+        idx = self._selected_index()
+        if idx is None:
+            return
+        order = self.orders[idx]
+        order_id = order.get("id")
+        if not order_id:
+            messagebox.showinfo("Удалить", "Не удалось определить идентификатор заказа.")
+            return
+        if not messagebox.askyesno("Удалить", "Удалить выбранный заказ?"):
+            return
+        db = getattr(self.master, "db", None)
+        if db:
+            try:
+                db.delete_meridian_order(order_id)
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось удалить заказ:\n{e}")
+                return
+        self._refresh_orders_view()
+
+    def _set_status(self, status: str):
+        """Update status of selected Meridian order in DB and refresh."""
+        idx = self._selected_index()
+        if idx is None:
+            return
+        order = self.orders[idx]
+        order_id = order.get("id")
+        old_status = order.get("status", "Не заказан")
+        if status == old_status:
+            return
+        db = getattr(self.master, "db", None)
+        if db and order_id:
+            try:
+                db.update_meridian_order(order_id, {
+                    "status": status,
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                })
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось обновить статус заказа:\n{e}")
+                return
+        self._refresh_orders_vi_codeewnew(</)
+)
+
     def _new_order(self):
         """Открыть встроенную форму нового заказа (Меридиан) как отдельный вид."""
         def swap():
