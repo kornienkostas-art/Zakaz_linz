@@ -1,6 +1,277 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+# --- SQLite persistence layer (simple repositories) ---
+import sqlite3
+import os
+from datetime import datetime
+
+
+class AppDB:
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self.conn = sqlite3.connect(self.db_path)
+        self.conn.row_factory = sqlite3.Row
+        # Enable foreign keys
+        try:
+            self.conn.execute("PRAGMA foreign_keys = ON;")
+        except Exception:
+            pass
+        self._init_schema()
+
+    def _init_schema(self):
+        cur = self.conn.cursor()
+        # Clients
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fio TEXT NOT NULL,
+                phone TEXT NOT NULL
+            );
+            """
+        )
+        # Products
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL
+            );
+            """
+        )
+        # MKL orders (flat structure for now)
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mkl_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fio TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                product TEXT NOT NULL,
+                sph TEXT,
+                cyl TEXT,
+                ax TEXT,
+                bc TEXT,
+                qty TEXT,
+                status TEXT NOT NULL,
+                date TEXT NOT NULL
+            );
+            """
+        )
+        # Meridian orders (header) + items
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS meridian_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                date TEXT NOT NULL
+            );
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS meridian_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER NOT NULL,
+                product TEXT NOT NULL,
+                sph TEXT,
+                cyl TEXT,
+                ax TEXT,
+                d TEXT,
+                qty TEXT,
+                FOREIGN KEY(order_id) REFERENCES meridian_orders(id) ON DELETE CASCADE
+            );
+            """
+        )
+        self.conn.commit()
+
+    # --- Clients ---
+    def list_clients(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, fio, phone FROM clients ORDER BY fio COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "fio": r["fio"], "phone": r["phone"]} for r in rows]
+
+    def add_client(self, fio: str, phone: str) -> int:
+        cur = self.conn.execute("INSERT INTO clients (fio, phone) VALUES (?, ?);", (fio, phone))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_client(self, client_id: int, fio: str, phone: str):
+        self.conn.execute("UPDATE clients SET fio=?, phone=? WHERE id=?;", (fio, phone, client_id))
+        self.conn.commit()
+
+    def delete_client(self, client_id: int):
+        self.conn.execute("DELETE FROM clients WHERE id=?;", (client_id,))
+        self.conn.commit()
+
+    # --- Products ---
+    def list_products(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name FROM products ORDER BY name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"]} for r in rows]
+
+    def add_product(self, name: str) -> int:
+        cur = self.conn.execute("INSERT INTO products (name) VALUES (?);", (name,))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_product(self, product_id: int, name: str):
+        self.conn.execute("UPDATE products SET name=? WHERE id=?;", (name, product_id))
+        self.conn.commit()
+
+    def delete_product(self, product_id: int):
+        self.conn.execute("DELETE FROM products WHERE id=?;", (product_id,))
+        self.conn.commit()
+
+    # --- MKL Orders ---
+    def list_mkl_orders(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, fio, phone, product, sph, cyl, ax, bc, qty, status, date FROM mkl_orders ORDER BY id DESC;"
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "fio": r["fio"],
+                "phone": r["phone"],
+                "product": r["product"],
+                "sph": r["sph"] or "",
+                "cyl": r["cyl"] or "",
+                "ax": r["ax"] or "",
+                "bc": r["bc"] or "",
+                "qty": r["qty"] or "",
+                "status": r["status"],
+                "date": r["date"],
+            }
+            for r in rows
+        ]
+
+    def add_mkl_order(self, order: dict) -> int:
+        cur = self.conn.execute(
+            """
+            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, bc, qty, status, date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                order.get("fio", ""),
+                order.get("phone", ""),
+                order.get("product", ""),
+                order.get("sph", ""),
+                order.get("cyl", ""),
+                order.get("ax", ""),
+                order.get("bc", ""),
+                order.get("qty", ""),
+                order.get("status", "Не заказан"),
+                order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
+            ),
+        )
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_mkl_order(self, order_id: int, fields: dict):
+        # Only update provided fields
+        cols = []
+        vals = []
+        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date"):
+            if k in fields:
+                cols.append(f"{k}=?")
+                vals.append(fields[k])
+        if cols:
+            vals.append(order_id)
+            self.conn.execute(f"UPDATE mkl_orders SET {', '.join(cols)} WHERE id=?;", tuple(vals))
+            self.conn.commit()
+
+    def delete_mkl_order(self, order_id: int):
+        self.conn.execute("DELETE FROM mkl_orders WHERE id=?;", (order_id,))
+        self.conn.commit()
+
+    # --- Meridian Orders + Items ---
+    def list_meridian_orders(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, title, status, date FROM meridian_orders ORDER BY id DESC;"
+        ).fetchall()
+        return [{"id": r["id"], "title": r["title"], "status": r["status"], "date": r["date"]} for r in rows]
+
+    def get_meridian_items(self, order_id: int) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, order_id, product, sph, cyl, ax, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
+            (order_id,),
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "order_id": r["order_id"],
+                "product": r["product"],
+                "sph": r["sph"] or "",
+                "cyl": r["cyl"] or "",
+                "ax": r["ax"] or "",
+                "d": r["d"] or "",
+                "qty": r["qty"] or "",
+            }
+            for r in rows
+        ]
+
+    def add_meridian_order(self, order: dict, items: list[dict]) -> int:
+        cur = self.conn.execute(
+            "INSERT INTO meridian_orders (title, status, date) VALUES (?, ?, ?);",
+            (order.get("title", ""), order.get("status", "Не заказан"), order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M"))),
+        )
+        order_id = cur.lastrowid
+        for it in items:
+            self.conn.execute(
+                """
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    order_id,
+                    it.get("product", ""),
+                    it.get("sph", ""),
+                    it.get("cyl", ""),
+                    it.get("ax", ""),
+                    it.get("d", ""),
+                    it.get("qty", ""),
+                ),
+            )
+        self.conn.commit()
+        return order_id
+
+    def update_meridian_order(self, order_id: int, fields: dict):
+        cols = []
+        vals = []
+        for k in ("title", "status", "date"):
+            if k in fields:
+                cols.append(f"{k}=?")
+                vals.append(fields[k])
+        if cols:
+            vals.append(order_id)
+            self.conn.execute(f"UPDATE meridian_orders SET {', '.join(cols)} WHERE id=?;", tuple(vals))
+            self.conn.commit()
+
+    def replace_meridian_items(self, order_id: int, items: list[dict]):
+        # Replace items for order
+        self.conn.execute("DELETE FROM meridian_items WHERE order_id=?;", (order_id,))
+        for it in items:
+            self.conn.execute(
+                """
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    order_id,
+                    it.get("product", ""),
+                    it.get("sph", ""),
+                    it.get("cyl", ""),
+                    it.get("ax", ""),
+                    it.get("d", ""),
+                    it.get("qty", ""),
+                ),
+            )
+        self.conn.commit()
+
+    def delete_meridian_order(self, order_id: int):
+        # Items will be cascaded
+        self.conn.execute("DELETE FROM meridian_orders WHERE id=?;", (order_id,))
+        self.conn.commit()
+
 
 def set_initial_geometry(win: tk.Tk | tk.Toplevel, min_w: int, min_h: int, center_to: tk.Tk | None = None):
     """Adaptive window sizing: ensure minimum size and center on screen or relative to parent."""
@@ -77,6 +348,15 @@ class MainWindow(ttk.Frame):
         else:
             # Ensure key exists
             self.master.app_settings.setdefault("export_path", default_export)
+
+        # Init SQLite DB once and attach to root
+        try:
+            db_file = os.path.join(os.getcwd(), "data.db")
+            self.master.db = AppDB(db_file)
+        except Exception as e:
+            messagebox.showerror("База данных", f"Ошибка инициализации БД:\n{e}")
+            # Fallback in-memory stub
+            self.master.db = None
 
         # Make the frame fill the window
         self.master.columnconfigure(0, weight=1)
@@ -940,16 +1220,20 @@ class MKLOrdersView(ttk.Frame):
         super().__init__(master, style="Card.TFrame", padding=0)
         self.master = master
         self.on_back = on_back
+        self.db: AppDB | None = getattr(self.master, "db", None)
 
         # Make the frame fill the window
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
         self.grid(sticky="nsew")
 
-        # In-memory datasets (to be replaced with SQLite later)
-        self.orders = []       # list of dicts
-        self.clients = []      # list of dicts: {"fio":..., "phone":...}
-        self.products = []     # list of dicts: {"name":...}
+        # Datasets synced from DB
+        self.orders: list[dict] = []
+        # Build UI
+        self._build_toolbar()
+        self._build_table()
+        self._load_orders()
+..}
 
         # Build UI
         self._build_toolbar()
@@ -1086,17 +1370,25 @@ class MKLOrdersView(ttk.Frame):
             self.menu.grab_release()
 
     def _open_clients(self):
-        ClientsWindow(self, self.clients)
+        ClientsWindow(self, getattr(self.master, "db", None))
 
     def _open_products(self):
-        ProductsWindow(self, self.products)
+        ProductsWindow(self, getattr(self.master, "db", None))
 
     def _new_order(self):
-        OrderForm(self, clients=self.clients, products=self.products, on_save=self._save_order)
+        # Fetch latest clients/products from DB for suggestions
+        clients = self.db.list_clients() if self.db else []
+        products = self.db.list_products() if self.db else []
+        OrderForm(self, clients=clients, products=products, on_save=self._save_order)
 
     def _save_order(self, order: dict):
-        # Добавляем заказ и обновляем таблицу
-        self.orders.append(order)
+        # Persist to DB
+        if self.db:
+            try:
+                self.db.add_mkl_order(order)
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
+        # Reload from DB
         self._refresh_orders_view()
 
     def _selected_index(self):
@@ -1115,17 +1407,27 @@ class MKLOrdersView(ttk.Frame):
             return
         current = self.orders[idx].copy()
         old_status = current.get("status", "Не заказан")
+        order_id = current.get("id")
+
+        # Suggestions from DB
+        clients = self.db.list_clients() if self.db else []
+        products = self.db.list_products() if self.db else []
 
         def on_save(updated: dict):
             # Если статус изменился — обновить дату
             new_status = updated.get("status", old_status)
             if new_status != old_status:
-                from datetime import datetime
                 updated["date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            self.orders[idx] = updated
+            # Persist changes
+            if self.db and order_id:
+                try:
+                    self.db.update_mkl_order(order_id, updated)
+                except Exception as e:
+                    messagebox.showerror("База данных", f"Не удалось обновить заказ МКЛ:\n{e}")
+            # Reload
             self._refresh_orders_view()
 
-        OrderForm(self, clients=self.clients, products=self.products, on_save=on_save, initial=current, statuses=self.STATUSES)
+        OrderForm(self, clients=clients, products=products, on_save=on_save, initial=current, statuses=self.STATUSES)
 
     def _delete_order(self):
         idx = self._selected_index()
@@ -1236,7 +1538,13 @@ class MKLOrdersView(ttk.Frame):
             messagebox.showerror("Экспорт", f"Ошибка записи файла:\n{e}")
 
     def _refresh_orders_view(self):
-        # Очистить и отрисовать из self.orders
+        # Reload list from DB if available
+        if self.db:
+            try:
+                self.orders = self.db.list_mkl_orders()
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось загрузить заказы МКЛ:\n{e}")
+        # Clear and render
         for i in self.tree.get_children():
             self.tree.delete(i)
         for idx, item in enumerate(self.orders):
