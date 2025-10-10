@@ -9,7 +9,7 @@ from app.db import AppDB  # type hint only
 
 class MKLOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ МКЛ' внутри главного окна (DB-backed)."""
-    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date")
+    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date", "comment_flag")
     HEADERS = {
         "fio": "ФИО",
         "phone": "Телефон",
@@ -21,6 +21,7 @@ class MKLOrdersView(ttk.Frame):
         "qty": "Количество",
         "status": "Статус",
         "date": "Дата",
+        "comment_flag": "Комментарий",
     }
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
 
@@ -81,7 +82,7 @@ class MKLOrdersView(ttk.Frame):
             self.tree.heading(col, text=self.HEADERS[col], anchor="w")
             width = {
                 "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
-                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160,
+                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 120,
             }[col]
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
@@ -100,6 +101,9 @@ class MKLOrdersView(ttk.Frame):
         self.tree.tag_configure("status_Заказан", background="#fef3c7", foreground="#7c2d12")
         self.tree.tag_configure("status_Прозвонен", background="#dbeafe", foreground="#1e3a8a")
         self.tree.tag_configure("status_Вручен", background="#dcfce7", foreground="#065f46")
+        # Comment presence highlighting (overrides background): ЕСТЬ -> red, НЕТ -> green
+        self.tree.tag_configure("comment_HAS", background="#fecaca", foreground="#7f1d1d")
+        self.tree.tag_configure("comment_NONE", background="#dcfce7", foreground="#065f46")
 
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Редактировать", command=self._edit_order)
@@ -324,6 +328,8 @@ class MKLOrdersView(ttk.Frame):
             self.tree.delete(i)
         for idx, item in enumerate(self.orders):
             masked_phone = format_phone_mask(item.get("phone", ""))
+            has_comment = bool((item.get("comment", "") or "").strip())
+            flag = "ЕСТЬ" if has_comment else "НЕТ"
             values = (
                 item.get("fio", ""),
                 masked_phone,
@@ -335,6 +341,9 @@ class MKLOrdersView(ttk.Frame):
                 item.get("qty", ""),
                 item.get("status", ""),
                 item.get("date", ""),
+                flag,
             )
-            tag = f"status_{item.get('status','Не заказан')}"
-            self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+            status_tag = f"status_{item.get('status','Не заказан')}"
+            comment_tag = "comment_HAS" if has_comment else "comment_NONE"
+            # Apply both tags; comment tag sets background color as requested
+            self.tree.insert("", "end", iid=str(idx), values=values, tags=(status_tag, comment_tag))

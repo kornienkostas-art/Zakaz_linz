@@ -53,6 +53,11 @@ class AppDB:
             );
             """
         )
+        # Add comment column if it doesn't exist (SQLite allows ADD COLUMN without IF NOT EXISTS)
+        try:
+            cur.execute("ALTER TABLE mkl_orders ADD COLUMN comment TEXT;")
+        except Exception:
+            pass
         # Meridian orders (header) + items
         cur.execute(
             """
@@ -122,7 +127,7 @@ class AppDB:
     # --- MKL Orders ---
     def list_mkl_orders(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, fio, phone, product, sph, cyl, ax, bc, qty, status, date FROM mkl_orders ORDER BY id DESC;"
+            "SELECT id, fio, phone, product, sph, cyl, ax, bc, qty, status, date, COALESCE(comment,'') AS comment FROM mkl_orders ORDER BY id DESC;"
         ).fetchall()
         return [
             {
@@ -137,6 +142,7 @@ class AppDB:
                 "qty": r["qty"] or "",
                 "status": r["status"],
                 "date": r["date"],
+                "comment": r["comment"] or "",
             }
             for r in rows
         ]
@@ -144,8 +150,8 @@ class AppDB:
     def add_mkl_order(self, order: dict) -> int:
         cur = self.conn.execute(
             """
-            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, bc, qty, status, date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, bc, qty, status, date, comment)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 order.get("fio", ""),
@@ -158,6 +164,7 @@ class AppDB:
                 order.get("qty", ""),
                 order.get("status", "Не заказан"),
                 order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                order.get("comment", "").strip(),
             ),
         )
         self.conn.commit()
@@ -167,7 +174,7 @@ class AppDB:
         # Only update provided fields
         cols = []
         vals = []
-        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date"):
+        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date", "comment"):
             if k in fields:
                 cols.append(f"{k}=?")
                 vals.append(fields[k])

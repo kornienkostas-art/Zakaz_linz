@@ -121,6 +121,22 @@ class OrderForm(tk.Toplevel):
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=8, column=0, sticky="w")
 
+        # Comment
+        ttk.Label(card, text="Комментарий к заказу", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        self.comment_text = tk.Text(card, height=4, wrap="word")
+        self.comment_text.grid(row=8, column=1, sticky="nsew")
+        try:
+            initial_text = (getattr(self, "comment_text_initial", None) or "")
+        except Exception:
+            initial_text = ""
+        # Prefill from initial if present
+        try:
+            from tkinter import END
+            self.comment_text.delete("1.0", "end")
+            self.comment_text.insert("1.0", (getattr(self, "_initial_comment", None) or ""))
+        except Exception:
+            pass
+
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
@@ -393,6 +409,16 @@ class MKLOrderEditorView(ttk.Frame):
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=8, column=0, sticky="w")
 
+        # Comment field
+        ttk.Label(card, text="Комментарий к заказу", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        self.comment_text2 = tk.Text(card, height=4, wrap="word")
+        self.comment_text2.grid(row=8, column=1, sticky="nsew")
+        try:
+            self.comment_text2.delete("1.0", "end")
+            self.comment_text2.insert("1.0", getattr(self, "_initial_comment2", ""))
+        except Exception:
+            pass
+
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
@@ -548,6 +574,10 @@ class MKLOrderEditorView(ttk.Frame):
             messagebox.showinfo("Проверка", "Выберите или введите товар.")
             return
 
+        try:
+            comment_val = self.comment_text2.get("1.0", "end").strip()
+        except Exception:
+            comment_val = ""
         order = {
             "fio": fio,
             "phone": phone,
@@ -559,6 +589,7 @@ class MKLOrderEditorView(ttk.Frame):
             "qty": qty,
             "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "comment": comment_val,
         }
         cb = getattr(self, "on_save", None)
         if callable(cb):
