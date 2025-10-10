@@ -425,9 +425,44 @@ class SettingsView(ttk.Frame):
             self.notify_day_vars.append(var)
             ttk.Checkbutton(days_frame, text=name, variable=var).grid(row=i // 3, column=i % 3, sticky="w", padx=(0, 12), pady=(2, 2))
 
-        self.notify_time_var = tk.StringVar(value=self.app_settings.get("notify_time", "09:00"))
-        ttk.Label(card, text="Время (HH:MM):", style="Subtitle.TLabel").grid(row=12, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        ttk.Entry(card, textvariable=self.notify_time_var, width=12).grid(row=12, column=1, sticky="w", pady=(8, 0))
+        # Time controls: hour/minute spinboxes with auto-correction
+        def _split_time(s: str) -> tuple[int, int]:
+            try:
+                hh, mm = (s or "09:00").split(":")
+                return max(0, min(23, int(hh))), max(0, min(59, int(mm)))
+            except Exception:
+                return 9, 0
+        init_h, init_m = _split_time(self.app_settings.get("notify_time", "09:00"))
+        self.notify_hour_var = tk.IntVar(value=init_h)
+        self.notify_min_var = tk.IntVar(value=init_m)
+
+        ttk.Label(card, text="Время:", style="Subtitle.TLabel").grid(row=12, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        hour_spin = ttk.Spinbox(card, from_=0, to=23, increment=1, width=5, textvariable=self.notify_hour_var)
+        min_spin = ttk.Spinbox(card, from_=0, to=59, increment=1, width=5, textvariable=self.notify_min_var)
+        hour_spin.grid(row=12, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text=":", style="Subtitle.TLabel").grid(row=12, column=2, sticky="w", padx=(4, 4), pady=(8, 0))
+        min_spin.grid(row=12, column=3, sticky="w", pady=(8, 0))
+
+        def _auto_parse(text: str):
+            digits = "".join(ch for ch in (text or "") if ch.isdigit())
+            if len(digits) in (3, 4):
+                try:
+                    if len(digits) == 3:
+                        h = int(digits[:1])
+                        m = int(digits[1:])
+                    else:
+                        h = int(digits[:2])
+                        m = int(digits[2:])
+                    h = max(0, min(23, h))
+                    m = max(0, min(59, m))
+                    self.notify_hour_var.set(h)
+                    self.notify_min_var.set(m)
+                except Exception:
+                    pass
+
+        # Auto-correct when user types 1053 etc. in either spinbox
+        hour_spin.bind("<FocusOut>", lambda e: _auto_parse(hour_spin.get()))
+        min_spin.bind("<FocusOut>", lambda e: _auto_parse(min_spin.get()))
 
         self.notify_snooze_var = tk.IntVar(value=int(self.app_settings.get("notify_snooze_minutes", 30) or 30))
         ttk.Label(card, text="Отложить на (минут):", style="Subtitle.TLabel").grid(row=13, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
