@@ -45,6 +45,7 @@ class OrderForm(tk.Toplevel):
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
 
         # Prefill from initial
+        self._initial_comment = ""
         if initial:
             masked_phone = format_phone_mask(initial.get("phone", ""))
             self.client_var.set(f'{initial.get("fio","")} — {masked_phone}'.strip(" —"))
@@ -57,6 +58,10 @@ class OrderForm(tk.Toplevel):
                 self.qty_var.set(int(initial.get("qty", 1)))
             except Exception:
                 self.qty_var.set(1)
+            try:
+                self._initial_comment = (initial.get("comment", "") or "")
+            except Exception:
+                self._initial_comment = ""
 
         # UI
         self._build_ui()
