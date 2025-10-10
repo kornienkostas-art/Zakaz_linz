@@ -6,6 +6,7 @@ from tkinter import ttk, messagebox
 from app.db import AppDB
 from app.utils import set_initial_geometry
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set
+from app.assets import load_logo
 
 
 class MainWindow(ttk.Frame):
@@ -181,19 +182,29 @@ class MainWindow(ttk.Frame):
         self.rowconfigure(0, weight=1)
         card.columnconfigure(0, weight=1)
 
-        title = ttk.Label(card, text="УссурОЧки.рф", style="Title.TLabel")
-        subtitle = ttk.Label(card, text="Главное меню • Выберите раздел", style="Subtitle.TLabel")
-        title.grid(row=0, column=0, sticky="w")
-        subtitle.grid(row=1, column=0, sticky="w", pady=(4, 12))
-        ttk.Separator(card).grid(row=2, column=0, sticky="ew", pady=(8, 16))
+        # Header with logo and titles
+        header = ttk.Frame(card, style="Card.TFrame")
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(1, weight=1)
+        # Logo
+        self._logo_img = load_logo(self.master)
+        if self._logo_img is not None:
+            ttk.Label(header, image=self._logo_img, style="Card.TFrame").grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
+        # Titles
+        title = ttk.Label(header, text="УссурОЧки.рф", style="Title.TLabel")
+        subtitle = ttk.Label(header, text="Главное меню • Выберите раздел", style="Subtitle.TLabel")
+        title.grid(row=0, column=1, sticky="w")
+        subtitle.grid(row=1, column=1, sticky="w", pady=(4, 12))
+
+        ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(8, 16))
 
         buttons = ttk.Frame(card, style="Card.TFrame")
-        buttons.grid(row=3, column=0, sticky="nsew")
+        buttons.grid(row=2, column=0, sticky="nsew")
         buttons.columnconfigure(0, weight=1)
 
-        btn_mkl = ttk.Button(buttons, text="Заказ МКЛ", style="Menu.TButton", command=self._on_order_mkl)
-        btn_meridian = ttk.Button(buttons, text="Заказ Меридиан", style="Menu.TButton", command=self._on_order_meridian)
-        btn_settings = ttk.Button(buttons, text="Настройки", style="Menu.TButton", command=self._on_settings)
+        btn_mkl = ttk.Button(buttons, text="📦 Заказ МКЛ", style="Menu.TButton", command=self._on_order_mkl)
+        btn_meridian = ttk.Button(buttons, text="📚 Заказ Меридиан", style="Menu.TButton", command=self._on_order_meridian)
+        btn_settings = ttk.Button(buttons, text="⚙ Настройки", style="Menu.TButton", command=self._on_settings)
 
         btn_mkl.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         btn_meridian.grid(row=1, column=0, sticky="ew", pady=(0, 12))

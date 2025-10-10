@@ -38,12 +38,12 @@ class MeridianOrdersView(ttk.Frame):
 
         btn_back = ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back)
 
-        btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
-        btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
-        btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
-        btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
-        btn_products = ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products)
-        btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
+        btn_new_order = ttk.Button(toolbar, text="＋ Новый заказ", style="Menu.TButton", command=self._new_order)
+        btn_edit_order = ttk.Button(toolbar, text="✎ Редактировать", style="Menu.TButton", command=self._edit_order)
+        btn_delete_order = ttk.Button(toolbar, text="🗑 Удалить", style="Menu.TButton", command=self._delete_order)
+        btn_change_status = ttk.Button(toolbar, text="🔄 Сменить статус", style="Menu.TButton", command=self._change_status)
+        btn_products = ttk.Button(toolbar, text="📦 Товары", style="Menu.TButton", command=self._open_products)
+        btn_export = ttk.Button(toolbar, text="📄 Экспорт TXT", style="Menu.TButton", command=self._export_txt)
 
         btn_back.pack(side="left")
         btn_new_order.pack(side="left", padx=(8, 0))
@@ -218,40 +218,7 @@ class MeridianOrdersView(ttk.Frame):
 
     
 
-    def _new_order(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.forms_meridian import MeridianOrderEditorView
-            from app.views.main import MainWindow
-
-            def on_save(order: dict):
-                # Save to DB only; view will be recreated by on_back of editor
-                db = getattr(self.master, "db", None)
-                title = (order.get("title", "") or "").strip()
-                if not title:
-                    try:
-                        existing = db.list_meridian_orders() if db else []
-                        title = f"Заказ Меридиан #{len(existing) + 1}"
-                    except Exception:
-                        title = "Заказ Меридиан"
-                    order["title"] = title
-                if db:
-                    try:
-                        db.add_meridian_order(order, order.get("items", []))
-                    except Exception as e:
-                        messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
-
-            MeridianOrderEditorView(
-                self.master,
-                db=getattr(self.master, "db", None),
-                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_save=on_save,
-                initial=None,
-            )
-        fade_transition(self.master, swap)
+    
 
     def _edit_order(self):
         idx = self._selected_index()
