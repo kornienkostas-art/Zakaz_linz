@@ -84,8 +84,8 @@
     <aside class="side">
       <div class="brand">
         <div class="logo">
-          <!-- Place your logo at ../assets/logo.png -->
-          <img src="../assets/logo.png" alt="Логотип" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Лого',style:'font-weight:800;color:#222'}));">
+          <!-- Tries PNG first, then Cyrillic JPEG fallback -->
+          <img id="brandLogoBiz" src="../assets/logo.png" alt="Логотип">
         </div>
         <div>
           <div class="title">УссурОЧки.рф</div>
@@ -209,6 +209,15 @@
       document.querySelectorAll(".nav .btn").forEach(b=>b.classList.remove("active"));
       if(el) el.classList.add("active");
     }
+    // Try Cyrillic JPEG fallback if PNG not found
+    (function(){
+      const img = document.getElementById('brandLogoBiz');
+      if(!img) return;
+      img.addEventListener('error', function handler(){
+        img.removeEventListener('error', handler);
+        img.src = "../assets/лого.jpeg";
+      });
+    })();
     show('main');
   </script>
 </body>
