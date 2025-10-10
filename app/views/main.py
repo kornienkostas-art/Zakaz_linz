@@ -39,6 +39,12 @@ class MainWindow(ttk.Frame):
             "notify_time": "09:00",    # HH:MM
             "notify_snooze_until": "", # epoch seconds as string
             "notify_last_ts": 0,       # epoch seconds (anti-spam window)
+            # Notifications (MKL)
+            "mkl_remind_days": 7,               # через сколько дней напоминать
+            "mkl_window_start": "12:00",        # окно показа
+            "mkl_window_end": "13:00",
+            "mkl_notify_snooze_until": "",      # epoch seconds
+            "mkl_notify_last_ts": 0,            # anti-spam
         }
 
         def _settings_path():
@@ -335,11 +341,162 @@ class MainWindow(ttk.Frame):
             except Exception:
                 pass
 
+        # MKL helpers
+        def parse_time2(s: str, default: str) -> tuple[int, int]:
+            try:
+                hh, mm = (s or default).split(":")
+                return max(0, min(23, int(hh))), max(0, min(59, int(mm)))
+            except Exception:
+                d_h, d_m = default.split(":")
+                return int(d_h), int(d_m)
+
+        def mkl_due_today(now: dt) -> list[dict]:
+            db = getattr(self.master, "db", None)
+            if not db:
+                return []
+            try:
+                orders = db.list_mkl_orders()
+            except Exception:
+                orders = []
+            remind_days = int(self.master.app_settings.get("mkl_remind_days", 7) or 7)
+            start_h, start_m = parse_time2(self.master.app_settings.get("mkl_window_start", "12:00"), "12:00")
+            end_h, end_m = parse_time2(self.master.app_settings.get("mkl_window_end", "13:00"), "13:00")
+
+            # Window check
+            now_minutes = now.hour * 60 + now.minute
+            start_minutes = start_h * 60 + start_m
+            end_minutes = end_h * 60 + end_m
+            if not (start_minutes <= now_minutes <= end_minutes):
+                return []
+
+            # Snooze
+            import time as _t
+            snooze_until = self.master.app_settings.get("mkl_notify_snooze_until") or ""
+            if snooze_until:
+                try:
+                    if _t.time() < float(snooze_until):
+                        return []
+                except Exception:
+                    self.master.app_settings["mkl_notify_snooze_until"] = ""
+
+            # Exclude Sunday -> shift to Monday
+            from datetime import timedelta
+            due = []
+            for o in orders:
+                if (o.get("status", "") or "").strip() != "Не заказан":
+                    continue
+                # Parse created/updated date
+                dstr = (o.get("date", "") or "").strip()
+                base = None
+                for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                    try:
+                        from datetime import datetime as _dt
+                        base = _dt.strptime(dstr, fmt)
+                        break
+                    except Exception:
+                        continue
+                if base is None:
+                    continue
+                target = (base + timedelta(days=remind_days)).date()
+                # If Sunday, move to Monday
+                if target.weekday() == 6:
+                    target = (base + timedelta(days=remind_days + 1)).date()
+                if now.date() >= target and now.weekday() != 6:
+                    due.append(o)
+            return due
+
+        def show_mkl_dialog(pending_mkl: list[dict]):
+            # Sound
+            try:
+                import os
+                if os.name == "nt":
+                    import winsound
+                    wav_path = (self.master.app_settings.get("notify_sound_path") or "").strip()
+                    if wav_path:
+                        winsound.PlaySound(wav_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                    else:
+                        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                        winsound.Beep(800, 180)
+                        winsound.Beep(920, 180)
+                else:
+                    self.master.bell()
+            except Exception:
+                try:
+                    self.master.bell()
+                except Exception:
+                    pass
+
+            dialog = tk.Toplevel(self.master)
+            dialog.title("Напоминание: Заказы МКЛ")
+            dialog.configure(bg="#f8fafc")
+            dialog.transient(self.master)
+            dialog.grab_set()
+
+            frame = ttk.Frame(dialog, style="Card.TFrame", padding=16)
+            frame.pack(fill="both", expand=True)
+            ttk.Label(frame, text="Есть заказы МКЛ со статусом 'Не заказан'", style="Title.TLabel").pack(anchor="w")
+            ttk.Label(frame, text="Выберите действие.", style="Subtitle.TLabel").pack(anchor="w", pady=(4, 8))
+
+            # List
+            tree = ttk.Treeview(frame, columns=("fio", "product", "date"), show="headings", style="Data.Treeview")
+            tree.heading("fio", text="ФИО", anchor="w")
+            tree.heading("product", text="Товар", anchor="w")
+            tree.heading("date", text="Дата", anchor="w")
+            tree.column("fio", width=220, anchor="w")
+            tree.column("product", width=220, anchor="w")
+            tree.column("date", width=160, anchor="w")
+            for o in pending_mkl:
+                tree.insert("", "end", values=(o.get("fio", ""), o.get("product", ""), o.get("date", "")))
+            tree.pack(fill="both", expand=True)
+
+            btns = ttk.Frame(frame, style="Card.TFrame")
+            btns.pack(fill="x", pady=(12, 0))
+
+            def open_mkl():
+                dialog.destroy()
+                from app.views.orders_mkl import MKLOrdersView
+                from app.views.main import MainWindow
+                MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+
+            import time as _t
+            def snooze_days(days: int):
+                until = _t.time() + days * 86400
+                self.master.app_settings["mkl_notify_snooze_until"] = str(until)
+                try:
+                    sp = os.path.join(os.getcwd(), "settings.json")
+                    with open(sp, "w", encoding="utf-8") as f:
+                        json.dump(self.master.app_settings, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+                dialog.destroy()
+
+            ttk.Button(btns, text="Открыть 'Заказ МКЛ'", style="Menu.TButton", command=open_mkl).pack(side="right")
+            ttk.Button(btns, text="Напомнить через 3 дня", style="Menu.TButton", command=lambda: snooze_days(3)).pack(side="right", padx=(8, 0))
+            ttk.Button(btns, text="Напомнить через 2 дня", style="Menu.TButton", command=lambda: snooze_days(2)).pack(side="right", padx=(8, 0))
+            ttk.Button(btns, text="Напомнить через 1 день", style="Menu.TButton", command=lambda: snooze_days(1)).pack(side="right", padx=(8, 0))
+            ttk.Button(btns, text="Закрыть", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
+
+            # Anti-spam mark
+            self.master.app_settings["mkl_notify_last_ts"] = _t.time()
+            try:
+                sp = os.path.join(os.getcwd(), "settings.json")
+                with open(sp, "w", encoding="utf-8") as f:
+                    json.dump(self.master.app_settings, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
         def tick():
             try:
                 now = dt.now()
+                # Meridian
                 if should_notify(now):
                     show_dialog()
+                # MKL
+                pending_mkl = mkl_due_today(now)
+                last_ts_mkl = float(self.master.app_settings.get("mkl_notify_last_ts") or 0)
+                import time as _t
+                if pending_mkl and (not last_ts_mkl or (_t.time() - last_ts_mkl) >= 600):
+                    show_mkl_dialog(pending_mkl)
             finally:
                 try:
                     self.master.after(60000, tick)
@@ -504,8 +661,38 @@ class SettingsView(ttk.Frame):
 
         ttk.Separator(card).grid(row=15, column=0, columnspan=3, sticky="ew", pady=(12, 12))
 
+        # MKL reminder settings
+        ttk.Label(card, text="Напоминания для 'Заказ МКЛ'", style="Subtitle.TLabel").grid(row=16, column=0, sticky="w", columnspan=3)
+        ttk.Label(card, text="Через сколько дней напоминать:", style="Subtitle.TLabel").grid(row=17, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        self.mkl_days_var = tk.IntVar(value=int(self.app_settings.get("mkl_remind_days", 7) or 7))
+        ttk.Spinbox(card, from_=1, to=60, increment=1, textvariable=self.mkl_days_var, width=6).grid(row=17, column=1, sticky="w", pady=(8, 0))
+
+        ttk.Label(card, text="Окно времени:", style="Subtitle.TLabel").grid(row=18, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        # start/end time spinners
+        def _split_time2(s: str) -> tuple[int, int]:
+            try:
+                hh, mm = (s or "12:00").split(":")
+                return max(0, min(23, int(hh))), max(0, min(59, int(mm)))
+            except Exception:
+                return 12, 0
+        s_h, s_m = _split_time2(self.app_settings.get("mkl_window_start", "12:00"))
+        e_h, e_m = _split_time2(self.app_settings.get("mkl_window_end", "13:00"))
+        self.mkl_start_h = tk.IntVar(value=s_h); self.mkl_start_m = tk.IntVar(value=s_m)
+        self.mkl_end_h = tk.IntVar(value=e_h); self.mkl_end_m = tk.IntVar(value=e_m)
+        win_frame = ttk.Frame(card, style="Card.TFrame")
+        win_frame.grid(row=18, column=1, sticky="w", pady=(8, 0))
+        ttk.Spinbox(win_frame, from_=0, to=23, increment=1, width=5, textvariable=self.mkl_start_h).pack(side="left")
+        ttk.Label(win_frame, text=":", style="Subtitle.TLabel").pack(side="left", padx=(4, 4))
+        ttk.Spinbox(win_frame, from_=0, to=59, increment=1, width=5, textvariable=self.mkl_start_m).pack(side="left")
+        ttk.Label(win_frame, text=" — ", style="Subtitle.TLabel").pack(side="left", padx=(8, 8))
+        ttk.Spinbox(win_frame, from_=0, to=23, increment=1, width=5, textvariable=self.mkl_end_h).pack(side="left")
+        ttk.Label(win_frame, text=":", style="Subtitle.TLabel").pack(side="left", padx=(4, 4))
+        ttk.Spinbox(win_frame, from_=0, to=59, increment=1, width=5, textvariable=self.mkl_end_m).pack(side="left")
+
+        ttk.Separator(card).grid(row=19, column=0, columnspan=3, sticky="ew", pady=(12, 12))
+
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=16, column=0, columnspan=3, sticky="e")
+        btns.grid(row=20, column=0, columnspan=3, sticky="e")
         ttk.Button(btns, text="Проверить уведомление сейчас", style="Menu.TButton", command=self._test_notify_now).pack(side="left")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
 
@@ -574,6 +761,10 @@ class SettingsView(ttk.Frame):
             s["notify_days"] = selected_days
             s["notify_time"] = f"{hh_i:02d}:{mm_i:02d}"
             s["notify_sound_path"] = sound_path
+            # MKL settings
+            s["mkl_remind_days"] = int(self.mkl_days_var.get() or 7)
+            s["mkl_window_start"] = f"{int(self.mkl_start_h.get()):02d}:{int(self.mkl_start_m.get()):02d}"
+            s["mkl_window_end"] = f"{int(self.mkl_end_h.get()):02d}:{int(self.mkl_end_m.get()):02d}"
 
             try:
                 sp = os.path.join(os.getcwd(), "settings.json")
