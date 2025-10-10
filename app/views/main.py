@@ -602,3 +602,98 @@ class SettingsView(ttk.Frame):
             self._go_back()
         except Exception as e:
             messagebox.showerror("Настройки", f"Ошибка сохранения:\n{e}")
+
+    def _test_notify_now(self):
+        """Показать уведомление прямо сейчас, если есть заказы 'Меридиан' со статусом 'Не заказан'."""
+        try:
+            db = getattr(self.master, "db", None)
+            if not db:
+                messagebox.showinfo("Напоминание", "База данных не инициализирована.")
+                return
+            try:
+                orders = db.list_meridian_orders()
+            except Exception:
+                orders = []
+            pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
+            if not pending:
+                messagebox.showinfo("Напоминание", "Нет заказов со статусом 'Не заказан'.")
+                return
+
+            # Звук (Windows: WAV или Beep; иные — bell)
+            try:
+                import os
+                if os.name == "nt":
+                    import winsound
+                    wav_path = (self.master.app_settings.get("notify_sound_path") or "").strip()
+                    if wav_path:
+                        winsound.PlaySound(wav_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                    else:
+                        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                        winsound.Beep(800, 180)
+                        winsound.Beep(920, 180)
+                else:
+                    self.master.bell()
+            except Exception:
+                try:
+                    self.master.bell()
+                except Exception:
+                    pass
+
+            # Диалог
+            dialog = tk.Toplevel(self.master)
+            dialog.title("Напоминание (проверка): Меридиан")
+            dialog.configure(bg="#f8fafc")
+            dialog.transient(self.master)
+            dialog.grab_set()
+
+            frame = ttk.Frame(dialog, style="Card.TFrame", padding=16)
+            frame.pack(fill="both", expand=True)
+            ttk.Label(frame, text="Нужно заказать: заказы 'Меридиан'", style="Title.TLabel").pack(anchor="w")
+            ttk.Label(frame, text="Есть заказы со статусом 'Не заказан'. Выберите действие.", style="Subtitle.TLabel").pack(anchor="w", pady=(4, 8))
+
+            btns = ttk.Frame(frame, style="Card.TFrame")
+            btns.pack(fill="x", pady=(12, 0))
+
+            def open_meridian():
+                dialog.destroy()
+                from app.views.orders_meridian import MeridianOrdersView
+                from app.views.main import MainWindow
+                MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+
+            def mark_all_ordered():
+                db2 = getattr(self.master, "db", None)
+                if not db2:
+                    return
+                from datetime import datetime as _dt
+                now_str = _dt.now().strftime("%Y-%m-%d %H:%M")
+                try:
+                    for o in pending:
+                        oid = o.get("id")
+                        if oid:
+                            db2.update_meridian_order(oid, {"status": "Заказан", "date": now_str})
+                    messagebox.showinfo("Статус", "Статус всех 'Не заказан' изменён на 'Заказан'.")
+                except Exception as e:
+                    messagebox.showerror("Статус", f"Ошибка изменения статуса:\n{e}")
+                finally:
+                    dialog.destroy()
+
+            import time as _t
+            def snooze(mins: int):
+                until = _t.time() + mins * 60
+                self.master.app_settings["notify_snooze_until"] = str(until)
+                try:
+                    sp = os.path.join(os.getcwd(), "settings.json")
+                    with open(sp, "w", encoding="utf-8") as f:
+                        json.dump(self.master.app_settings, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+                dialog.destroy()
+
+            ttk.Button(btns, text="Открыть 'Заказ Меридиан'", style="Menu.TButton", command=open_meridian).pack(side="right")
+            ttk.Button(btns, text="Заказано", style="Menu.TButton", command=mark_all_ordered).pack(side="right", padx=(8, 0))
+            ttk.Button(btns, text="Отложить на 30 мин", style="Menu.TButton", command=lambda: snooze(30)).pack(side="right", padx=(8, 0))
+            ttk.Button(btns, text="Отложить на 15 мин", style="Menu.TButton", command=lambda: snooze(15)).pack(side="right", padx=(8, 0))
+            ttk.Button(btns, text="Закрыть", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
+
+        except Exception as e:
+            messagebox.showerror("Напоминание", f"Ошибка проверки уведомления:\n{e}")
