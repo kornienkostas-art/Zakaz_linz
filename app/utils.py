@@ -100,57 +100,50 @@ def format_phone_mask(raw: str) -> str:
 
 def enable_ru_shortcuts(root: tk.Tk):
     """
-    Enable common Ctrl-based shortcuts to work under Russian keyboard layout:
-    - Copy: Ctrl+C and Ctrl+С (Cyrillic es)
-    - Paste: Ctrl+V and Ctrl+М (Cyrillic em)
-    - Cut: Ctrl+X and Ctrl+Ч (Cyrillic che)
-    - Select All: Ctrl+A and Ctrl+Ф (Cyrillic ef)
+    Make Ctrl-based editing shortcuts work under Russian keyboard layout.
 
-    Applies to common editable widgets via class bindings (Entry, Text).
+    Logic:
+    - Bind a single handler to <Control-KeyPress> for editable widgets.
+    - If keysym corresponds to Cyrillic letters that map to C/V/X/A, generate the proper virtual event.
+    - Do nothing for Latin keys (so default Tk behavior remains and we avoid double actions).
+
+    Cyrillic mapping:
+    - Cyrillic_es  -> Copy   (С)
+    - Cyrillic_em  -> Paste  (М)
+    - Cyrillic_che -> Cut    (Ч)
+    - Cyrillic_ef  -> SelectAll (Ф)
+
+    Applies to: Entry, Text, TCombobox.
     """
     try:
-        # Map of keysym strings to virtual events
-        bindings = {
-            # Latin
-            "<Control-c>": "<<Copy>>",
-            "<Control-v>": "<<Paste>>",
-            "<Control-x>": "<<Cut>>",
-            "<Control-a>": "<<SelectAll>>",
-            # Cyrillic (lowercase symbols on RU layout)
-            "<Control-с>": "<<Copy>>",   # U+0441 small es
-            "<Control-м>": "<<Paste>>",  # U+043C small em
-            "<Control-ч>": "<<Cut>>",    # U+0447 small che
-            "<Control-ф>": "<<SelectAll>>",  # U+0444 small ef
+        cyr_map = {
+            "cyrillic_es": "<<Copy>>",
+            "cyrillic_em": "<<Paste>>",
+            "cyrillic_che": "<<Cut>>",
+            "cyrillic_ef": "<<SelectAll>>",
         }
 
-        def bind_class_events(classname: str):
-            for seq, vev in bindings.items():
-                try:
-                    root.bind_class(classname, seq, lambda e, v=vev: (e.widget.event_generate(v)))
-                except Exception:
-                    pass
+        def _ctrl_handler(e):
+            try:
+                ks = (e.keysym or "").lower()
+                if ks in cyr_map:
+                    try:
+                        e.widget.event_generate(cyr_map[ks])
+                    except Exception:
+                        pass
+                    return "break"  # prevent any default handling to avoid duplicates
+            except Exception:
+                pass
+            # For Latin shortcuts, let default Tk bindings work
+            return None
 
-        for cls in ("Entry", "Text"):
-            bind_class_events(cls)
-
-        # Also handle uppercase keysyms just in case
-        bindings_up = {
-            "<Control-С>": "<<Copy>>",   # U+0421 capital ES
-            "<Control-М>": "<<Paste>>",  # U+041C capital EM
-            "<Control-Ч>": "<<Cut>>",    # U+0427 capital CHE
-            "<Control-Ф>": "<<SelectAll>>",  # U+0424 capital EF
-        }
-        def bind_class_events_up(classname: str):
-            for seq, vev in bindings_up.items():
-                try:
-                    root.bind_class(classname, seq, lambda e, v=vev: (e.widget.event_generate(v)))
-                except Exception:
-                    pass
-
-        for cls in ("Entry", "Text"):
-            bind_class_events_up(cls)
+        for cls in ("Entry", "Text", "TCombobox"):
+            try:
+                root.bind_class(cls, "<Control-KeyPress>", _ctrl_handler, add=True)
+            except Exception:
+                pass
     except Exception:
-        # Non-fatal: UI will still work with Latin layout defaults
+        # Non-fatal
         pass
 
 
