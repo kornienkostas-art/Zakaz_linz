@@ -2,22 +2,34 @@
 setlocal ENABLEDELAYEDEXPANSION
 
 REM Build Windows .exe with PyInstaller
-REM You can double-click this file. It will:
-REM  - cd to the project root (parent of scripts)
-REM  - create .venv if missing, install deps and PyInstaller
-REM  - build dist\UssurochkiRF.exe
+REM You can double-click this file from either:
+REM  - scripts\build_exe.bat
+REM  - or project root if you copy/move it there
+REM It will detect project root (folder that contains main.py).
 
-REM --- Go to repo root (parent of this script) ---
+REM --- Resolve project root ---
 set "SCRIPT_DIR=%~dp0"
-cd /d "%SCRIPT_DIR%\.."
+set "CANDIDATE1=%SCRIPT_DIR%\.."               REM parent of scripts (expected root)
+set "CANDIDATE2=%SCRIPT_DIR%"                  REM current script folder (in case script is placed in root)
+set "ROOT="
 
-echo Current directory: %CD%
-if not exist "main.py" (
-  echo ERROR: main.py not found in %CD%
-  echo Please run this script from the project root or keep folder structure.
+if exist "%CANDIDATE1%\main.py" set "ROOT=%CANDIDATE1%"
+if not defined ROOT if exist "%CANDIDATE2%\main.py" set "ROOT=%CANDIDATE2%"
+if not defined ROOT if exist "%CD%\main.py" set "ROOT=%CD%"
+
+if not defined ROOT (
+  echo ERROR: Could not locate project root (folder containing main.py).
+  echo Checked:
+  echo  - %CANDIDATE1%
+  echo  - %CANDIDATE2%
+  echo  - %CD%
+  echo Please keep scripts\build_exe.bat in the repository structure and run it again.
   pause
   exit /b 1
 )
+
+cd /d "%ROOT%"
+echo Project root: %CD%
 
 REM --- Find Python (prefer py launcher) ---
 set "PYCMD="
