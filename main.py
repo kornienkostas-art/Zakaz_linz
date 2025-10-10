@@ -2,6 +2,7 @@ import atexit
 import tkinter as tk
 
 from app.views.main import MainWindow
+from app.utils import enable_layout_independent_shortcuts
 
 def main():
     # High-DPI scaling for readability (Windows)
@@ -12,6 +13,12 @@ def main():
         pass
 
     root = tk.Tk()
+
+    # Enable Ctrl shortcuts independent of keyboard layout
+    try:
+        enable_layout_independent_shortcuts(root)
+    except Exception:
+        pass
 
     # Tk scaling improves text/UI size on HiDPI
     try:

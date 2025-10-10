@@ -1,5 +1,6 @@
 import re
 import tkinter as tk
+import os
 
 def set_initial_geometry(win: tk.Tk | tk.Toplevel, min_w: int, min_h: int, center_to: tk.Tk | None = None):
     """Adaptive window sizing: ensure minimum size and center on screen or relative to parent."""
@@ -97,6 +98,39 @@ def format_phone_mask(raw: str) -> str:
         return (raw or "").strip()
 
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
+
+def enable_layout_independent_shortcuts(root: tk.Tk):
+    """
+    Enable Ctrl+C/V/X/A across keyboard layouts by using physical keycodes on Windows
+    and keysym/char fallbacks on other OS. Applies to Entry, TEntry, Text, TCombobox.
+    """
+    WIN_KEYCODES = {65: "<<SelectAll>>", 67: "<<Copy>>", 86: "<<Paste>>", 88: "<<Cut>>"}
+    LATIN = {"a": "<<SelectAll>>", "c": "<<Copy>>", "v": "<<Paste>>", "x": "<<Cut>>"}
+    CYRILLIC = {"ф": "<<SelectAll>>", "с": "<<Copy>>", "м": "<<Paste>>", "ч": "<<Cut>>"}
+
+    def handler(e):
+        if os.name == "nt":
+            act = WIN_KEYCODES.get(e.keycode)
+            if act:
+                e.widget.event_generate(act)
+                return "break"
+        k = (e.keysym or "").lower()
+        c = (e.char or "").lower()
+        act = LATIN.get(k) or LATIN.get(c) or CYRILLIC.get(k) or CYRILLIC.get(c)
+        if act:
+            e.widget.event_generate(act)
+            return "break"
+        return None
+
+    for cls in ("Entry", "TEntry", "Text", "TCombobox"):
+        try:
+            root.bind_class(cls, "<Control-KeyPress>", handler, add=True)
+        except Exception:
+            pass
+    try:
+        root.bind_all("<Control-KeyPress>", handler, add=True)
+    except Exception:
+        pass
 
 
 
