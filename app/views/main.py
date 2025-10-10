@@ -35,10 +35,10 @@ class MainWindow(ttk.Frame):
             "minimize_to_tray": True,
             "tray_logo_path": "",
             # Notifications (Meridian)
-            "notify_day": 0,            # 0=Понедельник ... 6=Воскресенье
+            "notify_days": [0],         # [0=Понедельник ... 6=Воскресенье]
             "notify_time": "09:00",     # HH:MM
             "notify_snooze_minutes": 30,
-            "notify_snooze_until": "",  # ISO timestamp string, empty if none
+            "notify_snooze_until": "",  # epoch seconds as string, empty if none
             "notify_last_date": "",     # YYYY-MM-DD when notified last
         }
 
@@ -215,10 +215,20 @@ class MainWindow(ttk.Frame):
                 except Exception:
                     s["notify_snooze_until"] = ""
             # Day/time check
-            target_day = int(s.get("notify_day", 0))
+            days = s.get("notify_days")
+            if not days:
+                legacy_day = s.get("notify_day")
+                try:
+                    days = [int(legacy_day)] if legacy_day is not None else [0]
+                except Exception:
+                    days = [0]
+            try:
+                days = [int(d) for d in days]
+            except Exception:
+                days = [0]
             hh, mm = parse_time_str(s.get("notify_time", "09:00"))
             # In Python, Monday=0..Sunday=6
-            if now.weekday() != target_day:
+            if now.weekday() not in days:
                 return False
             if now.hour < hh or (now.hour == hh and now.minute < mm):
                 return False
@@ -396,9 +406,24 @@ class SettingsView(ttk.Frame):
         # Notifications settings (Meridian)
         ttk.Label(card, text="Напоминания для заказов 'Меридиан' со статусом 'Не заказан'", style="Subtitle.TLabel").grid(row=10, column=0, sticky="w", columnspan=3)
         days = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
-        self.notify_day_var = tk.StringVar(value=days[int(self.app_settings.get("notify_day", 0)) % 7])
-        ttk.Label(card, text="День недели:", style="Subtitle.TLabel").grid(row=11, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        ttk.Combobox(card, textvariable=self.notify_day_var, values=days, height=7).grid(row=11, column=1, sticky="w", pady=(8, 0))
+        selected_days = self.app_settings.get("notify_days")
+        if not selected_days:
+            legacy_day = self.app_settings.get("notify_day")
+            if legacy_day is not None:
+                try:
+                    selected_days = [int(legacy_day)]
+                except Exception:
+                    selected_days = [0]
+            else:
+                selected_days = [0]
+        self.notify_day_vars = []
+        ttk.Label(card, text="Дни недели:", style="Subtitle.TLabel").grid(row=11, column=0, sticky="nw", padx=(0, 8), pady=(8, 0))
+        days_frame = ttk.Frame(card, style="Card.TFrame")
+        days_frame.grid(row=11, column=1, sticky="w", pady=(8, 0))
+        for i, name in enumerate(days):
+            var = tk.BooleanVar(value=(i in selected_days))
+            self.notify_day_vars.append(var)
+            ttk.Checkbutton(days_frame, text=name, variable=var).grid(row=i // 3, column=i % 3, sticky="w", padx=(0, 12), pady=(2, 2))
 
         self.notify_time_var = tk.StringVar(value=self.app_settings.get("notify_time", "09:00"))
         ttk.Label(card, text="Время (HH:MM):", style="Subtitle.TLabel").grid(row=12, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
