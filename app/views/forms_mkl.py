@@ -352,6 +352,11 @@ class MKLOrderEditorView(ttk.Frame):
         self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
+        # Автофокус на первое поле ввода
+        try:
+            self.after(50, lambda: self.client_combo.focus_set())
+        except Exception:
+            pass
 
         # Product selection
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")

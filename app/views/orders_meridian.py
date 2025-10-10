@@ -271,6 +271,11 @@ class MeridianOrdersView(ttk.Frame):
         var = tk.StringVar(value=current)
         combo = ttk.Combobox(dialog, textvariable=var, values=self.STATUSES, height=6)
         combo.grid(row=1, column=0, sticky="ew", padx=12)
+        # Автофокус на первое поле ввода
+        try:
+            dialog.after(50, lambda: combo.focus_set())
+        except Exception:
+            pass
         ttk.Separator(dialog).grid(row=2, column=0, sticky="ew", padx=12, pady=(12, 12))
 
         btns = ttk.Frame(dialog, style="Card.TFrame")

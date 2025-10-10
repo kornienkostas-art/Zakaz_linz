@@ -170,7 +170,13 @@ class ClientForm(tk.Toplevel):
         card.pack(fill="both", expand=True)
 
         ttk.Label(card, text="ФИО", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(card, textvariable=self.vars["fio"]).grid(row=1, column=0, sticky="ew")
+        fio_entry = ttk.Entry(card, textvariable=self.vars["fio"])
+        fio_entry.grid(row=1, column=0, sticky="ew")
+        # Автофокус на первое поле ввода
+        try:
+            self.after(50, lambda: fio_entry.focus_set())
+        except Exception:
+            pass
 
         ttk.Label(card, text="Телефон", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(card, textvariable=self.vars["phone"]).grid(row=3, column=0, sticky="ew")

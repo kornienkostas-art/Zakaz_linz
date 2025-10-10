@@ -153,7 +153,13 @@ class ProductForm(tk.Toplevel):
         card.pack(fill="both", expand=True)
 
         ttk.Label(card, text="Название товара", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(card, textvariable=self.vars["name"]).grid(row=1, column=0, sticky="ew")
+        name_entry = ttk.Entry(card, textvariable=self.vars["name"])
+        name_entry.grid(row=1, column=0, sticky="ew")
+        # Автофокус на первое поле ввода
+        try:
+            self.after(50, lambda: name_entry.focus_set())
+        except Exception:
+            pass
 
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=2, column=0, sticky="e", pady=(12, 0))
