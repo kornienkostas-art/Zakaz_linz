@@ -55,6 +55,7 @@
       border:1px solid var(--border); color:var(--text); background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.02)), var(--panel);
       cursor:pointer; transition:.18s ease; text-decoration:none; user-select:none;
     }
+    .btn svg{width:18px; height:18px; color: var(--muted)}
     .btn:hover{transform: translateY(-1px); border-color: color-mix(in oklab, var(--border) 70%, var(--text) 30%); box-shadow:0 6px 16px var(--shadow)}
     .btn.primary{ background: linear-gradient(180deg, color-mix(in oklab, var(--primary) 35%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--primary) 60%, var(--border) 40%)}
     .btn.accent{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 28%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--accent) 50%, var(--border) 50%)}
@@ -73,7 +74,8 @@
     .hgroup .h1{font-size:22px; font-weight:800; letter-spacing:.2px}
     .hgroup .sub{color:var(--muted); margin-top:4px}
     .actions{display:flex; gap:10px}
-    .act{padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer}
+    .act{display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer}
+    .act svg{width:18px; height:18px; color: var(--primary-2)}
     .act.primary{background: linear-gradient(180deg, color-mix(in oklab, var(--primary) 22%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--primary) 55%, var(--border) 45%)}
     .act.outline{background:transparent}
 
@@ -100,12 +102,15 @@
     .b-blue{background: color-mix(in oklab, var(--primary) 16%, transparent); color: color-mix(in oklab, var(--primary) 85%, white 15%); border:1px solid color-mix(in oklab, var(--primary) 45%, transparent)}
 
     .toolbar{display:flex; gap:8px; margin-bottom:10px}
-    .tool{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background: var(--panel); color:var(--text); cursor:pointer}
+    .tool{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background: var(--panel); color:var(--text); cursor:pointer}
+    .tool svg{width:18px; height:18px}
     .tool.danger{background: linear-gradient(180deg, color-mix(in oklab, var(--danger) 18%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--danger) 50%, var(--border) 50%)}
     .tool.warn{background: linear-gradient(180deg, color-mix(in oklab, var(--warning) 18%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--warning) 50%, var(--border) 50%)}
 
     .footer-note{margin-top:12px; color:var(--muted)}
     .hidden{display:none !important}
+
+    .i{display:inline-flex; align-items:center; justify-content:center}
   </style>
 </head>
 <body class="light">
@@ -119,15 +124,31 @@
         </div>
       </div>
       <div class="nav">
-        <div class="btn primary" onclick="showView('main')">Главное меню</div>
-        <div class="btn" onclick="showView('mkl')">Заказ МКЛ</div>
-        <div class="btn" onclick="showView('meridian')">Заказ Меридиан</div>
-        <div class="btn" onclick="showView('settings')">Настройки</div>
+        <div class="btn primary" onclick="showView('main')"><span class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12l9-9 9 9" /><path d="M9 21V9h6v12" />
+          </svg></span>Главное меню</div>
+        <div class="btn" onclick="showView('mkl')"><span class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/>
+          </svg></span>Заказ МКЛ</div>
+        <div class="btn" onclick="showView('meridian')"><span class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 14l9 5 9-5"/>
+          </svg></span>Заказ Меридиан</div>
+        <div class="btn" onclick="showView('settings')"><span class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"/>
+          </svg></span>Настройки</div>
       </div>
       <div class="spacer"></div>
       <div class="switcher">
-        <div class="btn accent" onclick="setTheme('light')">Светлая</div>
-        <div class="btn" onclick="setTheme('dark')">Тёмная</div>
+        <div class="btn accent" onclick="setTheme('light')"><span class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+        </span>Светлая</div>
+        <div class="btn" onclick="setTheme('dark')"><span class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3"/></svg>
+        </span>Тёмная</div>
       </div>
       <div class="chip">Дизайн-превью (HTML)</div>
     </aside>
@@ -139,28 +160,61 @@
           <div class="sub" id="hdr-sub">Быстрый доступ к разделам</div>
         </div>
         <div class="actions">
-          <div class="act outline" onclick="showView('main')">В меню</div>
-          <div class="act primary" onclick="showView('mkl')">Открыть МКЛ</div>
+          <div class="act outline" onclick="showView('main')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            В меню
+          </div>
+          <div class="act primary" onclick="showView('mkl')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Открыть МКЛ
+          </div>
         </div>
       </section>
 
       <section class="panel" id="view-main">
         <div class="toolbar">
-          <div class="tool" onclick="showView('mkl')">Заказ МКЛ</div>
-          <div class="tool" onclick="showView('meridian')">Заказ Меридиан</div>
-          <div class="tool" onclick="showView('settings')">Настройки</div>
+          <div class="tool" onclick="showView('mkl')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>
+            Заказ МКЛ
+          </div>
+          <div class="tool" onclick="showView('meridian')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 14l9 5 9-5"/></svg>
+            Заказ Меридиан
+          </div>
+          <div class="tool" onclick="showView('settings')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82"/></svg>
+            Настройки
+          </div>
         </div>
         <p class="footer-note">Демо-страница. Слева навигация, сверху заголовок. Ниже — примеры таблиц и стилей.</p>
       </section>
 
       <section class="panel hidden" id="view-mkl">
         <div class="toolbar">
-          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
-          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
-          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
-          <div class="tool" onclick="alert('Клиенты')">Клиенты</div>
-          <div class="tool" onclick="alert('Товары')">Товары</div>
-          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+          <div class="tool" onclick="alert('Новый заказ')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Новый заказ
+          </div>
+          <div class="tool" onclick="alert('Редактировать')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-4a2 2 0 0 1 2-2h4"/><path d="M18.7 2.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4L11 16l-4 1 1-4 12.7-12.7z"/></svg>
+            Редактировать
+          </div>
+          <div class="tool danger" onclick="alert('Удалить')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Удалить
+          </div>
+          <div class="tool" onclick="alert('Клиенты')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 14a4 4 0 1 0-8 0"/><circle cx="12" cy="8" r="4"/><path d="M6 18v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2"/></svg>
+            Клиенты
+          </div>
+          <div class="tool" onclick="alert('Товары')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Товары
+          </div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M14 2v6h6"/><path d="M16 13v6"/><path d="M13 16h6"/></svg>
+            Экспорт TXT
+          </div>
         </div>
         <table>
           <thead>
@@ -188,10 +242,22 @@
 
       <section class="panel hidden" id="view-meridian">
         <div class="toolbar">
-          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
-          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
-          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
-          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+          <div class="tool" onclick="alert('Новый заказ')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Новый заказ
+          </div>
+          <div class="tool" onclick="alert('Редактировать')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-4a2 2 0 0 1 2-2h4"/><path d="M18.7 2.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4L11 16l-4 1 1-4 12.7-12.7z"/></svg>
+            Редактировать
+          </div>
+          <div class="tool danger" onclick="alert('Удалить')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Удалить
+          </div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M14 2v6h6"/><path d="M16 13v6"/><path d="M13 16h6"/></svg>
+            Экспорт TXT
+          </div>
         </div>
         <table>
           <thead>
@@ -207,8 +273,14 @@
 
       <section class="panel hidden" id="view-settings">
         <div class="toolbar">
-          <div class="tool">Обзор папки экспорта</div>
-          <div class="tool">Логотип трея</div>
+          <div class="tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            Обзор папки экспорта
+          </div>
+          <div class="tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+            Логотип трея
+          </div>
         </div>
         <table>
           <thead><tr><th>Опция</th><th>Значение</th><th>Комментарий</th></tr></thead>
