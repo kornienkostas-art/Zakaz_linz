@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>УссурОЧки.рф — Business (Light) Preview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      /* Business light palette */
+      --bg:#F6F8FB; --panel:#FFFFFF; --muted:#64748B; --text:#0F172A;
+      --primary:#2F6BFF; --primary-2:#2557CC; --accent:#00A3A3;
+      --success:#16A34A; --warning:#F59E0B; --danger:#DC2626;
+      --border:#E5E7EB; --head:#F3F4F6; --hover:#F1F5FF;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:
+        radial-gradient(900px 600px at 100% -10%, rgba(47,107,255,.10), transparent 60%),
+        radial-gradient(700px 500px at 0% 110%, rgba(0,163,163,.10), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      font: 14px/1.5 "Segoe UI", "Inter", system-ui, -apple-system, Arial, sans-serif;
+      display:flex;
+    }
+    .grid{display:grid; grid-template-columns: 260px 1fr; gap:16px; width:100%; padding:18px}
+    .side{
+      background: var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px;
+      display:flex; flex-direction:column; gap:12px; box-shadow: 0 10px 24px rgba(15,23,42,.08);
+    }
+    .brand{display:flex; align-items:center; gap:12px}
+    .logo{
+      width:42px; height:42px; border-radius:10px; display:grid; place-items:center; overflow:hidden;
+      background: #fff; border:1px solid var(--border);
+    }
+    .logo img{max-width:100%; max-height:100%; object-fit:contain}
+    .title{font-weight:800}
+    .muted{color:var(--muted); font-size:12px}
+    .nav{display:flex; flex-direction:column; gap:8px; margin-top:8px}
+    .btn{
+      display:flex; align-items:center; gap:10px; padding:10px 12px;
+      border-radius:10px; border:1px solid var(--border); background: var(--panel);
+      cursor:pointer; user-select:none; transition:.15s ease;
+    }
+    .btn:hover{transform: translateY(-1px); border-color:#d7dbe2; box-shadow:0 6px 14px rgba(15,23,42,.07)}
+    .btn.primary{background: linear-gradient(180deg, rgba(47,107,255,.10), transparent), var(--panel); border-color:#c9d5ff}
+    .active{outline:2px solid rgba(47,107,255,.25)}
+    .spacer{flex:1}
+    .chip{font-size:12px; padding:6px 10px; border:1px dashed var(--border); border-radius:999px; color:var(--muted); align-self:flex-start}
+
+    .content{display:grid; grid-template-rows:auto 1fr; gap:16px}
+    .header{
+      background: var(--panel); border:1px solid var(--border); border-radius:16px; padding:14px 18px;
+      display:flex; align-items:center; justify-content:space-between; box-shadow:0 10px 24px rgba(15,23,42,.08)
+    }
+    .h1{font-size:22px; font-weight:800}
+    .sub{color:var(--muted); margin-top:4px}
+    .actions{display:flex; gap:10px}
+    .act{padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--panel); cursor:pointer}
+    .act.primary{background: linear-gradient(180deg, rgba(47,107,255,.12), transparent), var(--panel); border-color:#c9d5ff}
+
+    .panel{background: var(--panel); border:1px solid var(--border); border-radius:16px; padding:14px; overflow:auto; box-shadow:0 10px 24px rgba(15,23,42,.06)}
+    .toolbar{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap}
+    .tool{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background: var(--panel); cursor:pointer}
+    .tool.warn{background: linear-gradient(180deg, rgba(245,158,11,.10), transparent), var(--panel); border-color:#fde7c2}
+    .tool.danger{background: linear-gradient(180deg, rgba(220,38,38,.10), transparent), var(--panel); border-color:#f6c9c9}
+
+    table{width:100%; border-collapse:separate; border-spacing:0; min-width:960px; background: var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden}
+    thead th{background: var(--head); padding:12px 14px; text-align:left; color:#374151; font-weight:700; border-bottom:1px solid var(--border)}
+    tbody td{padding:12px 14px; border-bottom:1px solid var(--border); white-space:nowrap}
+    tbody tr:hover{background: var(--hover)}
+    .badge{display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-weight:700; font-size:12px; border:1px solid transparent}
+    .b-amber{color:#92400E; background:#FEF3C7; border-color:#FDE68A}
+    .b-blue{color:#1E40AF; background:#DBEAFE; border-color:#BFDBFE}
+    .b-green{color:#065F46; background:#D1FAE5; border-color:#A7F3D0}
+    .b-red{color:#7F1D1D; background:#FEE2E2; border-color:#FECACA}
+
+    .note{color:var(--muted); margin-top:10px}
+    .hidden{display:none !important}
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <aside class="side">
+      <div class="brand">
+        <div class="logo">
+          <!-- Place your logo at ../assets/logo.png -->
+          <img src="../assets/logo.png" alt="Логотип" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Лого',style:'font-weight:800;color:#222'}));">
+        </div>
+        <div>
+          <div class="title">УссурОЧки.рф</div>
+          <div class="muted">Деловой интерфейс (Light)</div>
+        </div>
+      </div>
+      <div class="nav">
+        <div class="btn active" onclick="show('main', this)">Главное меню</div>
+        <div class="btn" onclick="show('mkl', this)">Заказ МКЛ</div>
+        <div class="btn" onclick="show('meridian', this)">Заказ Меридиан</div>
+        <div class="btn" onclick="show('settings', this)">Настройки</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="chip">Business • Light Theme</div>
+    </aside>
+
+    <main class="content">
+      <section class="header">
+        <div>
+          <div class="h1" id="ttl">Главное меню</div>
+          <div class="sub" id="sub">Быстрый доступ к разделам</div>
+        </div>
+        <div class="actions">
+          <div class="act" onclick="show('main')">В меню</div>
+          <div class="act primary" onclick="show('mkl')">Открыть МКЛ</div>
+        </div>
+      </section>
+
+      <section class="panel" id="v-main">
+        <div class="toolbar">
+          <div class="tool" onclick="show('mkl')">Заказ МКЛ</div>
+          <div class="tool" onclick="show('meridian')">Заказ Меридиан</div>
+          <div class="tool" onclick="show('settings')">Настройки</div>
+        </div>
+        <p class="note">Светлая деловая тема: свежие панели, строгая типографика, лаконичные таблицы и бэйджи статусов.</p>
+      </section>
+
+      <section class="panel hidden" id="v-mkl">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
+          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
+          <div class="tool" onclick="alert('Клиенты')">Клиенты</div>
+          <div class="tool" onclick="alert('Товары')">Товары</div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ФИО</th><th>Телефон</th><th>Товар</th><th>Sph</th><th>Cyl</th><th>Ax</th><th>BC</th>
+              <th>Кол-во</th><th>Статус</th><th>Дата</th><th>Комментарий</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Иванов Иван</td><td>8-999-123-45-67</td><td>Acuvue Oasys</td><td>-1.25</td><td>-0.75</td><td>90</td><td>8.5</td><td>2</td>
+              <td><span class="badge b-amber">Не заказан</span></td><td>2025-02-11 16:40</td><td><span class="badge b-red">ЕСТЬ</span></td>
+            </tr>
+            <tr>
+              <td>Петров Пётр</td><td>+7-921-222-33-44</td><td>Air Optix</td><td>-2.00</td><td></td><td></td><td>8.6</td><td>1</td>
+              <td><span class="badge b-blue">Прозвонен</span></td><td>2025-02-10 12:10</td><td><span class="badge b-green">НЕТ</span></td>
+            </tr>
+            <tr>
+              <td>Сидорова Анна</td><td>8-905-555-55-55</td><td>Biofinity</td><td>-0.75</td><td>-0.25</td><td>80</td><td>8.7</td><td>4</td>
+              <td><span class="badge b-green">Вручен</span></td><td>2025-02-08 10:05</td><td><span class="badge b-red">ЕСТЬ</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">МКЛ: деловая таблица, чёткие статусы, индикатор комментария “ЕСТЬ/НЕТ”.</p>
+      </section>
+
+      <section class="panel hidden" id="v-meridian">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
+          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
+        </div>
+        <table>
+          <thead><tr><th>Название</th><th>Позиций</th><th>Статус</th><th>Дата</th></tr></thead>
+          <tbody>
+            <tr><td>Заказ Меридиан #12</td><td>5</td><td><span class="badge b-amber">Не заказан</span></td><td>2025-02-09 09:10</td></tr>
+            <tr><td>Заказ Меридиан #11</td><td>2</td><td><span class="badge b-green">Заказан</span></td><td>2025-02-05 17:22</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Меридиан: тот же стиль, единая визуальная система.</p>
+      </section>
+
+      <section class="panel hidden" id="v-settings">
+        <div class="toolbar">
+          <div class="tool">Папка экспорта</div>
+          <div class="tool">Логотип трея</div>
+          <div class="tool">Автозапуск</div>
+        </div>
+        <table>
+          <thead><tr><th>Опция</th><th>Значение</th><th>Комментарий</th></tr></thead>
+          <tbody>
+            <tr><td>Тема</td><td>Светлая</td><td>По умолчанию</td></tr>
+            <tr><td>Трей</td><td>Вкл</td><td>Сворачивать при закрытии</td></tr>
+            <tr><td>Уведомления</td><td>Пн–Пт 09:00</td><td>Настраивается</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Настройки: в живом приложении будут тумблеры, инпуты, селекты.</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const meta = {
+      main:["Главное меню","Быстрый доступ к разделам"],
+      mkl:["Заказ МКЛ","Таблица заказов в деловом стиле"],
+      meridian:["Заказ Меридиан","Список заказов и статусы"],
+      settings:["Настройки","Параметры приложения"]
+    };
+    function show(id, el){
+      Object.keys(meta).forEach(k=>{
+        document.getElementById("v-"+k).classList.toggle("hidden", k!==id);
+      });
+      document.getElementById("ttl").textContent = meta[id][0];
+      document.getElementById("sub").textContent = meta[id][1];
+      document.querySelectorAll(".nav .btn").forEach(b=>b.classList.remove("active"));
+      if(el) el.classList.add("active");
+    }
+    show('main');
+  </script>
+</body>
+</html>
