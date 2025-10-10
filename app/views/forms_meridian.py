@@ -145,6 +145,15 @@ class MeridianItemForm(tk.Toplevel):
         self.d_var = tk.StringVar(value=(initial or {}).get("d", ""))
         self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
 
+        # Загрузим список товаров из БД (если доступен)
+        self.products = []
+        try:
+            db = getattr(self.master.master, "db", None)  # master = MeridianOrderForm(Toplevel), master.master = root
+            if db:
+                self.products = db.list_products()
+        except Exception:
+            self.products = []
+
         self._build_ui()
 
     def _build_ui(self):
@@ -154,7 +163,15 @@ class MeridianItemForm(tk.Toplevel):
         card.columnconfigure(1, weight=1)
 
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(card, textvariable=self.product_var).grid(row=1, column=0, sticky="ew")
+        # Используем Combobox с автоподбором из БД
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+        self.product_combo.grid(row=1, column=0, sticky="ew")
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        # Автофокус на поле товара
+        try:
+            self.after(50, lambda: self.product_combo.focus_set())
+        except Exception:
+            pass
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
         self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
@@ -192,6 +209,20 @@ class MeridianItemForm(tk.Toplevel):
         btns.grid(row=8, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить позицию", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+    # Список/фильтр товаров
+    def _product_values(self):
+        return [p.get("name", "") for p in (self.products or [])]
+
+    def _filter_products(self):
+        term = (self.product_var.get() or "").strip().lower()
+        values = self._product_values()
+        if term:
+            values = [v for v in values if term in v.lower()]
+        try:
+            self.product_combo["values"] = values
+        except Exception:
+            pass
 
     # Validation helpers
     def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
@@ -273,8 +304,18 @@ class MeridianItemForm(tk.Toplevel):
         v = max(min_v, min(max_v, v))
         return str(v)
 
+    def _parse_product(self, text: str) -> str:
+        t = (text or "").strip()
+        for p in (self.products or []):
+            if t.lower() == (p.get("name", "")).lower():
+                return p.get("name", "")
+        for p in (self.products or []):
+            if t.lower() in (p.get("name", "")).lower():
+                return p.get("name", "")
+        return t
+
     def _save(self):
-        product = (self.product_var.get() or "").strip()
+        product = self._parse_product(self.product_var.get())
         sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)
         cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
@@ -288,8 +329,8 @@ class MeridianItemForm(tk.Toplevel):
                 pass
         qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
 
-        if not product:
-            messagebox.showinfo("Проверка", "Введите название товара.")
+        if not (product or "").strip():
+            messagebox.showinfo("Проверка", "Введите или выберите товар.")
             return
 
         item = {"product": product, "sph": sph, "cyl": cyl, "ax": ax, "d": d, "qty": qty}
