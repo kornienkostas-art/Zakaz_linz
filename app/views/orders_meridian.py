@@ -9,13 +9,12 @@ from app.db import AppDB  # type hint only
 
 class MeridianOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ Меридиан' внутри главного окна."""
-    COLUMNS = ("title", "items_count", "status", "date", "notify")
+    COLUMNS = ("title", "items_count", "status", "date")
     HEADERS = {
         "title": "Название заказа",
         "items_count": "Позиций",
         "status": "Статус",
         "date": "Дата",
-        "notify": "Напоминание",
     }
     STATUSES = ["Не заказан", "Заказан"]
 
@@ -78,9 +77,8 @@ class MeridianOrdersView(ttk.Frame):
         columns = self.COLUMNS
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", style="Data.Treeview")
         for col in columns:
-            self.tree.heading(col, text=self.HEADERS.get(col, col), anchor="w")
-            widths = {"title": 360, "items_count": 100, "status": 140, "date": 160, "notify": 120}
-            width = widths.get(col, 120)
+            self.tree.heading(col, text=self.HEADERS[col], anchor="w")
+            width = {"title": 360, "items_count": 100, "status": 140, "date": 160}[col]
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
@@ -101,8 +99,7 @@ class MeridianOrdersView(ttk.Frame):
         for s in self.STATUSES:
             status_menu.add_command(label=s, command=lambda st=s: self._set_status(st))
         self.menu.add_cascade(label="Статус", menu=status_menu)
-        self.menu.add_separator()
-        self.menu.add_command(label="Переключить напоминание", command=self._toggle_notify)
+        self.tree.bin("<pButton-3>", self self.menu.add_command(label="Переключить напоминание", command=self._toggle_notify)
         self.tree.bind("<Button-3>", self._show_context_menu)
         self.tree.bind("<Double-1>", lambda e: self._edit_order())
 
@@ -187,24 +184,7 @@ class MeridianOrdersView(ttk.Frame):
                 return
         self._refresh_orders_view()
 
-    def _toggle_notify(self):
-        idx = self._selected_index()
-        if idx is None:
-            return
-        order = self.orders[idx]
-        order_id = order.get("id")
-        if not order_id:
-            return
-        cur = int(order.get("notify_enabled", 1) or 1)
-        new_val = 0 if cur == 1 else 1
-        db = getattr(self.master, "db", None)
-        if db:
-            try:
-                db.set_meridian_notify(order_id, bool(new_val))
-            except Exception as e:
-                messagebox.showerror("База данных", f"Не удалось переключить напоминание:\n{e}")
-                return
-        self._refresh_orders_view()
+    
 
     def _new_order(self):
         def swap():
@@ -316,8 +296,7 @@ class MeridianOrdersView(ttk.Frame):
                     items_count = len(db.get_meridian_items(o["id"]))
                 except Exception:
                     items_count = 0
-            notify_label = "Вкл" if int(o.get("notify_enabled", 1) or 1) == 1 else "Выкл"
-            values = (o.get("title", ""), items_count, o.get("status", ""), o.get("date", ""), notify_label)
+            values = (o.get("title", ""), items_count, o.get("status", ""), o.get("date", ""))
             tag = f"status_{o.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
 

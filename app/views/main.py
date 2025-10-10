@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from app.db import AppDB
-from app.utils import set_initial_geometry, fade_transition, play_notification_sound
+from app.utils import set_initial_geometry, fade_transition
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set
 
 
@@ -34,13 +34,7 @@ class MainWindow(ttk.Frame):
             "autostart_enabled": True,
             "minimize_to_tray": True,
             "tray_logo_path": "",
-            # Notifications (Meridian)
-            "notify_days": [0],         # [0=Понедельник ... 6=Воскресенье]
-            "notify_time": "09:00",     # HH:MM
-            "notify_snooze_minutes": 30,
-            "notify_snooze_until": "",  # epoch seconds as string, empty if none
-            "notify_last_date": "",     # YYYY-MM-DD when notified last
-            "notify_last_ts        }
+        }
 
         def _settings_path():
             try:
@@ -191,160 +185,7 @@ class MainWindow(ttk.Frame):
         footer = ttk.Label(card, text="Локальная база данных будет добавлена позже. Начинаем с меню.", style="Subtitle.TLabel")
         footer.grid(row=4, column=0, sticky="w", pady=(20, 0))
 
-    def _setup_notifications(self):
-        """Periodic check for Meridian 'Не заказан' orders and show a notification based on schedule."""
-        import time
-        from datetime import datetime as dt
-
-        def parse_time_str(s: str) -> tuple[int, int]:
-            try:
-                parts = (s or "09:00").split(":")
-                return int(parts[0]), int(parts[1])
-            except Exception:
-                return 9, 0
-
-        def should_notify(now: dt) -> bool:
-            s = self.master.app_settings
-            # Snooze check (local time)
-            snooze_until = s.get("notify_snooze_until") or ""
-            if snooze_until:
-                try:
-                    ts = float(snooze_until)
-                    if time.time() < ts:
-                        return False
-                except Exception:
-                    s["notify_snooze_until"] = ""
-            # Day/time check (local time via dt.now())
-            days = s.get("notify_days")
-            if not days:
-                legacy_day = s.get("notify_day")
-                try:
-                    days = [int(legacy_day)] if legacy_day is not None else [0]
-                except Exception:
-                    days = [0]
-            try:
-                days = [int(d) for d in days]
-            except Exception:
-                days = [0]
-            hh, mm = parse_time_str(s.get("notify_time", "09:00"))
-            if now.weekday() not in days:
-                return False
-            # scheduled timestamp for today
-            import time as _t
-            import datetime as _dt
-            scheduled = _dt.datetime(now.year, now.month, now.day, hh, mm)
-            scheduled_ts = scheduled.timestamp()
-            now_ts = _t.time()
-            # Only fire when current time is past scheduled (allow grace window 5 minutes)
-            if now_ts + 1 < scheduled_ts:
-                return False
-            # Anti-spam: do not fire more than once per 10 minutes
-            last_ts = float(s.get("notify_last_ts") or 0)
-            if last_ts and (now_ts - last_ts) < 600:  # 10 minutes
-                return False
-            return True
-
-        def show_notification():
-            db = getattr(self.master, "db", None)
-            if not db:
-                return
-            try:
-                orders = db.list_meridian_orders()
-            except Exception:
-                orders = []
-            pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан" and int(o.get("notify_enabled", 1) or 1) == 1]
-            if not pending:
-                return
-
-            # Play prominent sound
-            try:
-                import os
-                if os.name == "nt":
-                    import winsound
-                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
-                    winsound.Beep(750, 200)
-                    winsound.Beep(880, 200)
-                else:
-                    self.master.bell()
-            except Exception:
-                try:
-                    self.master.bell()
-                except Exception:
-                    pass
-
-            # Build dialog
-            dialog = tk.Toplevel(self.master)
-            dialog.title("Напоминание: заказы Меридиан")
-            dialog.configure(bg="#f8fafc")
-            dialog.transient(self.master)
-            dialog.grab_set()
-
-            frame = ttk.Frame(dialog, style="Card.TFrame", padding=16)
-            frame.pack(fill="both", expand=True)
-            ttk.Label(frame, text="Есть заказы Меридиан со статусом 'Не заказан'", style="Title.TLabel").pack(anchor="w")
-            ttk.Label(frame, text="Откройте список заказов или отложите напоминание.", style="Subtitle.TLabel").pack(anchor="w", pady=(4, 8))
-
-            # List
-            tree = ttk.Treeview(frame, columns=("title", "date"), show="headings", style="Data.Treeview")
-            tree.heading("title", text="Название", anchor="w")
-            tree.heading("date", text="Дата", anchor="w")
-            tree.column("title", width=380, anchor="w")
-            tree.column("date", width=160, anchor="w")
-            for o in pending:
-                tree.insert("", "end", values=(o.get("title", ""), o.get("date", "")))
-            tree.pack(fill="both", expand=True)
-
-            btns = ttk.Frame(frame, style="Card.TFrame")
-            btns.pack(fill="x", pady=(12, 0))
-            def open_meridian():
-                dialog.destroy()
-                from app.views.orders_meridian import MeridianOrdersView
-                from app.views.main import MainWindow
-                MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
-            ttk.Button(btns, text="Открыть 'Заказ Меридиан'", style="Menu.TButton", command=open_meridian).pack(side="right")
-
-            def snooze():
-                minutes = int(self.master.app_settings.get("notify_snooze_minutes", 30) or 30)
-                until = time.time() + minutes * 60
-                self.master.app_settings["notify_snooze_until"] = str(until)
-                # Allow future notification same day after snooze expires
-                try:
-                    sp = os.path.join(os.getcwd(), "settings.json")
-                    with open(sp, "w", encoding="utf-8") as f:
-                        json.dump(self.master.app_settings, f, ensure_ascii=False, indent=2)
-                except Exception:
-                    pass
-                dialog.destroy()
-            ttk.Button(btns, text="Отложить", style="Menu.TButton", command=snooze).pack(side="right", padx=(8, 0))
-
-            ttk.Button(btns, text="Закрыть", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
-
-            # Mark notified timestamp (anti-spam) and clear snooze flag
-            import time as _t
-            self.master.app_settings["notify_last_ts"] = _t.time()
-            self.master.app_settings["notify_snooze_until"] = ""
-            try:
-                sp = os.path.join(os.getcwd(), "settings.json")
-                with open(sp, "w", encoding="utf-8") as f:
-                    json.dump(self.master.app_settings, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
-
-        def tick():
-            try:
-                now = dt.now()
-                if should_notify(now):
-                    show_notification()
-            except Exception:
-                pass
-            finally:
-                try:
-                    self.master.after(60000, tick)  # check each minute
-                except Exception:
-                    pass
-
-        # Start ticking
-        self.master.after(1000, tick)
+    
 
     # Actions
     def _on_order_mkl(self):
@@ -427,98 +268,8 @@ class SettingsView(ttk.Frame):
 
         ttk.Separator(card).grid(row=9, column=0, columnspan=3, sticky="ew", pady=(12, 12))
 
-        # Notifications settings (Meridian)
-        ttk.Label(card, text="Напоминания для заказов 'Меридиан' со статусом 'Не заказан'", style="Subtitle.TLabel").grid(row=10, column=0, sticky="w", columnspan=3)
-        days = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
-        selected_days = self.app_settings.get("notify_days")
-        if not selected_days:
-            legacy_day = self.app_settings.get("notify_day")
-            if legacy_day is not None:
-                try:
-                    selected_days = [int(legacy_day)]
-                except Exception:
-                    selected_days = [0]
-            else:
-                selected_days = [0]
-        self.notify_day_vars = []
-        ttk.Label(card, text="Дни недели:", style="Subtitle.TLabel").grid(row=11, column=0, sticky="nw", padx=(0, 8), pady=(8, 0))
-        days_frame = ttk.Frame(card, style="Card.TFrame")
-        days_frame.grid(row=11, column=1, sticky="w", pady=(8, 0))
-        for i, name in enumerate(days):
-            var = tk.BooleanVar(value=(i in selected_days))
-            self.notify_day_vars.append(var)
-            ttk.Checkbutton(days_frame, text=name, variable=var).grid(row=i // 3, column=i % 3, sticky="w", padx=(0, 12), pady=(2, 2))
-
-        # Time controls: hour/minute spinboxes with auto-correction
-        def _split_time(s: str) -> tuple[int, int]:
-            try:
-                hh, mm = (s or "09:00").split(":")
-                return max(0, min(23, int(hh))), max(0, min(59, int(mm)))
-            except Exception:
-                return 9, 0
-        init_h, init_m = _split_time(self.app_settings.get("notify_time", "09:00"))
-        self.notify_hour_var = tk.IntVar(value=init_h)
-        self.notify_min_var = tk.IntVar(value=init_m)
-
-        ttk.Label(card, text="Время:", style="Subtitle.TLabel").grid(row=12, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        time_frame = ttk.Frame(card, style="Card.TFrame")
-        time_frame.grid(row=12, column=1, sticky="w", pady=(8, 0))
-        hour_spin = ttk.Spinbox(time_frame, from_=0, to=23, increment=1, width=5, textvariable=self.notify_hour_var)
-        sep_label = ttk.Label(time_frame, text=":", style="Subtitle.TLabel")
-        min_spin = ttk.Spinbox(time_frame, from_=0, to=59, increment=1, width=5, textvariable=self.notify_min_var)
-        preview = ttk.Label(time_frame, text=f"(Текущее: {init_h:02d}:{init_m:02d})", style="Subtitle.TLabel")
-        hour_spin.pack(side="left")
-        sep_label.pack(side="left", padx=(4, 4))
-        min_spin.pack(side="left")
-        preview.pack(side="left", padx=(12, 0))
-
-        def _update_preview():
-            try:
-                h = int(self.notify_hour_var.get())
-            except Exception:
-                h = init_h
-            try:
-                m = int(self.notify_min_var.get())
-            except Exception:
-                m = init_m
-            h = max(0, min(23, h))
-            m = max(0, min(59, m))
-            preview.configure(text=f"(Текущее: {h:02d}:{m:02d})")
-
-        def _auto_parse(text: str):
-            digits = "".join(ch for ch in (text or "") if ch.isdigit())
-            if len(digits) in (3, 4):
-                try:
-                    if len(digits) == 3:
-                        h = int(digits[:1])
-                        m = int(digits[1:])
-                    else:
-                        h = int(digits[:2])
-                        m = int(digits[2:])
-                    h = max(0, min(23, h))
-                    m = max(0, min(59, m))
-                    self.notify_hour_var.set(h)
-                    self.notify_min_var.set(m)
-                except Exception:
-                    pass
-            _update_preview()
-
-        # Auto-correct when user types 1053 etc. in either spinbox
-        for w in (hour_spin, min_spin):
-            w.bind("<FocusOut>", lambda e, wid=w: (_auto_parse(wid.get())))
-            w.bind("<KeyRelease>", lambda e, wid=w: (_auto_parse(wid.get())))
-
-        self.notify_snooze_var = tk.IntVar(value=int(self.app_settings.get("notify_snooze_minutes", 30) or 30))
-        ttk.Label(card, text="Отложить на (минут):", style="Subtitle.TLabel").grid(row=13, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        ttk.Spinbox(card, from_=5, to=180, increment=5, textvariable=self.notify_snooze_var, width=8).grid(row=13, column=1, sticky="w", pady=(8, 0))
-
-        # Hint on per-order notify
-        ttk.Label(card, text="В списке 'Меридиан' для каждого заказа есть колонка 'Напоминание' и переключатель в контекстном меню.", style="Subtitle.TLabel").grid(row=14, column=0, columnspan=3, sticky="w", pady=(8, 0))
-
-        ttk.Separator(card).grid(row=15, column=0, columnspan=3, sticky="ew", pady=(12, 12))
-
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=16, column=0, columnspan=3, sticky="e")
+        btns.grid(row=10, column=0, columnspan=3, sticky="e")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
 
     def _go_back(self):
@@ -554,40 +305,11 @@ class SettingsView(ttk.Frame):
                 messagebox.showinfo("Настройки", "Указанный путь не существует.")
                 return
 
-            # Validate time from spinboxes
-            try:
-                hh_i = int(self.notify_hour_var.get())
-                mm_i = int(self.notify_min_var.get())
-            except Exception:
-                hh_i, mm_i = 9, 0
-            hh_i = max(0, min(23, hh_i))
-            mm_i = max(0, min(59, mm_i))
-
-            # Collect selected days (multiple)
-            selected_days = []
-            for i, var in enumerate(getattr(self, "notify_day_vars", [])):
-                try:
-                    if bool(var.get()):
-                        selected_days.append(i)
-                except Exception:
-                    pass
-            if not selected_days:
-                selected_days = [0]
-
-            snooze_minutes = int(self.notify_snooze_var.get() or 30)
-            if snooze_minutes < 5:
-                snooze_minutes = 5
-
             s = self.master.app_settings
             s["export_path"] = path
             s["tray_logo_path"] = logo_path
             s["autostart_enabled"] = autostart_enabled
             s["minimize_to_tray"] = tray_enabled
-
-            # Notification settings
-            s["notify_days"] = selected_days
-            s["notify_time"] = f"{hh_i:02d}:{mm_i:02d}"
-            s["notify_snooze_minutes"] = snooze_minutes
 
             try:
                 sp = os.path.join(os.getcwd(), "settings.json")
@@ -616,82 +338,3 @@ class SettingsView(ttk.Frame):
             self._go_back()
         except Exception as e:
             messagebox.showerror("Настройки", f"Ошибка сохранения:\n{e}")
-
-    def _test_notify_now(self):
-        """Force a notification check and show dialog if there are pending 'Не заказан' orders."""
-        try:
-            # Temporarily override schedule: treat as immediate
-            from datetime import datetime as dt
-            # Directly call the same internal functions used by scheduler
-            # Recompute and show
-            # Minimal duplication: reuse show_notification via local closure
-            db = getattr(self.master, "db", None)
-            if not db:
-                messagebox.showinfo("Напоминание", "База данных не инициализирована.")
-                return
-            try:
-                orders = db.list_meridian_orders()
-            except Exception:
-                orders = []
-            pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан" and int(o.get("notify_enabled", 1) or 1) == 1]
-            if not pending:
-                messagebox.showinfo("Напоминание", "Нет заказов со статусом 'Не заказан'.")
-                return
-
-            # Play sound
-            try:
-                import os
-                if os.name == "nt":
-                    import winsound
-                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
-                    winsound.Beep(750, 200)
-                    winsound.Beep(880, 200)
-                else:
-                    self.master.bell()
-            except Exception:
-                try:
-                    self.master.bell()
-                except Exception:
-                    pass
-
-            # Build dialog similar to scheduled
-            dialog = tk.Toplevel(self.master)
-            dialog.title("Напоминание (проверка): заказы Меридиан")
-            dialog.configure(bg="#f8fafc")
-            dialog.transient(self.master)
-            dialog.grab_set()
-
-            frame = ttk.Frame(dialog, style="Card.TFrame", padding=16)
-            frame.pack(fill="both", expand=True)
-            ttk.Label(frame, text="Есть заказы Меридиан со статусом 'Не заказан'", style="Title.TLabel").pack(anchor="w")
-            ttk.Label(frame, text="Откройте список заказов или отложите напоминание.", style="Subtitle.TLabel").pack(anchor="w", pady=(4, 8))
-
-            tree = ttk.Treeview(frame, columns=("title", "date"), show="headings", style="Data.Treeview")
-            tree.heading("title", text="Название", anchor="w")
-            tree.heading("date", text="Дата", anchor="w")
-            tree.column("title", width=380, anchor="w")
-            tree.column("date", width=160, anchor="w")
-            for o in pending:
-                tree.insert("", "end", values=(o.get("title", ""), o.get("date", "")))
-            tree.pack(fill="both", expand=True)
-
-            btns = ttk.Frame(frame, style="Card.TFrame")
-            btns.pack(fill="x", pady=(12, 0))
-            def open_meridian():
-                dialog.destroy()
-                from app.views.orders_meridian import MeridianOrdersView
-                from app.views.main import MainWindow
-                MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
-            ttk.Button(btns, text="Открыть 'Заказ Меридиан'", style="Menu.TButton", command=open_meridian).pack(side="right")
-
-            def snooze():
-                minutes = int(self.master.app_settings.get("notify_snooze_minutes", 30) or 30)
-                import time as _t
-                until = _t.time() + minutes * 60
-                self.master.app_settings["notify_snooze_until"] = str(until)
-                dialog.destroy()
-            ttk.Button(btns, text="Отложить", style="Menu.TButton", command=snooze).pack(side="right", padx=(8, 0))
-
-            ttk.Button(btns, text="Закрыть", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
-        except Exception as e:
-            messagebox.showerror("Напоминание", f"Ошибка проверки уведомления:\n{e}")
