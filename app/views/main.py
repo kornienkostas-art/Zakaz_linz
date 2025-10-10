@@ -576,19 +576,8 @@ class MainWindow(ttk.Frame):
         fade_transition(self.master, swap)
 
     def _test_mkl_now(self):
-        """Проверка напоминаний МКЛ из главного меню: показывает диалог, если есть просроченные заказы в текущем окне времени."""
+        """Проверка МКЛ сейчас: показывает ВСЕ заказы со статусом 'Не заказан' без учета окна и дней."""
         try:
-            from datetime import datetime as dt, timedelta
-            now = dt.now()
-
-            def parse_time2(s: str, default: str) -> tuple[int, int]:
-                try:
-                    hh, mm = (s or default).split(":")
-                    return max(0, min(23, int(hh))), max(0, min(59, int(mm)))
-                except Exception:
-                    d_h, d_m = default.split(":")
-                    return int(d_h), int(d_m)
-
             db = getattr(self.master, "db", None)
             if not db:
                 messagebox.showinfo("Напоминание МКЛ", "База данных не инициализирована.")
@@ -598,37 +587,9 @@ class MainWindow(ttk.Frame):
             except Exception:
                 orders = []
 
-            remind_days = int(self.master.app_settings.get("mkl_remind_days", 7) or 7)
-            start_h, start_m = parse_time2(self.master.app_settings.get("mkl_window_start", "12:00"), "12:00")
-            end_h, end_m = parse_time2(self.master.app_settings.get("mkl_window_end", "13:00"), "13:00")
-            now_minutes = now.hour * 60 + now.minute
-            if not (start_h * 60 + start_m <= now_minutes <= end_h * 60 + end_m):
-                messagebox.showinfo("Напоминание МКЛ", "Сейчас вне окна времени для напоминаний МКЛ.")
-                return
-
-            pending = []
-            for o in orders:
-                if (o.get("status", "") or "").strip() != "Не заказан":
-                    continue
-                dstr = (o.get("date", "") or "").strip()
-                base = None
-                for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
-                    try:
-                        from datetime import datetime as _dt
-                        base = _dt.strptime(dstr, fmt)
-                        break
-                    except Exception:
-                        continue
-                if base is None:
-                    continue
-                target = (base + timedelta(days=remind_days)).date()
-                if target.weekday() == 6:  # Sunday -> Monday
-                    target = (base + timedelta(days=remind_days + 1)).date()
-                if now.date() >= target and now.weekday() != 6:
-                    pending.append(o)
-
+            pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
             if not pending:
-                messagebox.showinfo("Напоминание МКЛ", "Нет заказов МКЛ, требующих напоминания.")
+                messagebox.showinfo("Напоминание МКЛ", "Нет заказов МКЛ со статусом 'Не заказан'.")
                 return
 
             # Restore from tray and focus
