@@ -20,6 +20,20 @@ def main():
     except tk.TclError:
         pass
 
+    # Start maximized on all platforms
+    try:
+        root.state("zoomed")  # Windows
+    except tk.TclError:
+        try:
+            root.attributes("-zoomed", True)  # Some X11/WM
+        except tk.TclError:
+            try:
+                sw = root.winfo_screenwidth()
+                sh = root.winfo_screenheight()
+                root.geometry(f"{sw}x{sh}+0+0")
+            except Exception:
+                pass
+
     # Ensure DB connection closes on exit
     def _close_db():
         db = getattr(root, "db", None)
