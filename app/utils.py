@@ -80,3 +80,25 @@ def format_phone_mask(raw: str) -> str:
         return (raw or "").strip()
 
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
+
+
+def play_notification_sound(root: tk.Misc | None = None):
+    """Play a short notification sound; uses winsound on Windows or Tk bell cross-platform."""
+    try:
+        import os
+        if os.name == "nt":
+            import winsound
+            winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+        else:
+            # Fallback to Tk bell
+            try:
+                if root is not None:
+                    root.bell()
+            except Exception:
+                pass
+    except Exception:
+        try:
+            if root is not None:
+                root.bell()
+        except Exception:
+            pass

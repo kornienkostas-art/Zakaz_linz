@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from app.db import AppDB
-from app.utils import set_initial_geometry, fade_transition
+from app.utils import set_initial_geometry, fade_transition, play_notification_sound
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set
 
 
@@ -34,6 +34,12 @@ class MainWindow(ttk.Frame):
             "autostart_enabled": True,
             "minimize_to_tray": True,
             "tray_logo_path": "",
+            # Notifications (Meridian)
+            "notify_day": 0,            # 0=Понедельник ... 6=Воскресенье
+            "notify_time": "09:00",     # HH:MM
+            "notify_snooze_minutes": 30,
+            "notify_snooze_until": "",  # ISO timestamp string, empty if none
+            "notify_last_date": "",     # YYYY-MM-DD when notified last
         }
 
         def _settings_path():
@@ -185,6 +191,127 @@ class MainWindow(ttk.Frame):
         footer = ttk.Label(card, text="Локальная база данных будет добавлена позже. Начинаем с меню.", style="Subtitle.TLabel")
         footer.grid(row=4, column=0, sticky="w", pady=(20, 0))
 
+    def _setup_notifications(self):
+        """Periodic check for Meridian 'Не заказан' orders and show a notification based on schedule."""
+        import time
+        from datetime import datetime as dt
+
+        def parse_time_str(s: str) -> tuple[int, int]:
+            try:
+                parts = (s or "09:00").split(":")
+                return int(parts[0]), int(parts[1])
+            except Exception:
+                return 9, 0
+
+        def should_notify(now: dt) -> bool:
+            s = self.master.app_settings
+            # Snooze check
+            snooze_until = s.get("notify_snooze_until") or ""
+            if snooze_until:
+                try:
+                    ts = float(snooze_until)
+                    if time.time() < ts:
+                        return False
+                except Exception:
+                    s["notify_snooze_until"] = ""
+            # Day/time check
+            target_day = int(s.get("notify_day", 0))
+            hh, mm = parse_time_str(s.get("notify_time", "09:00"))
+            # In Python, Monday=0..Sunday=6
+            if now.weekday() != target_day:
+                return False
+            if now.hour < hh or (now.hour == hh and now.minute < mm):
+                return False
+            # Avoid multiple notifications same day
+            last_date = (s.get("notify_last_date") or "").strip()
+            today = now.strftime("%Y-%m-%d")
+            if last_date == today:
+                return False
+            return True
+
+        def show_notification():
+            db = getattr(self.master, "db", None)
+            if not db:
+                return
+            try:
+                orders = db.list_meridian_orders()
+            except Exception:
+                orders = []
+            pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан" and int(o.get("notify_enabled", 1) or 1) == 1]
+            if not pending:
+                return
+
+            # Play sound
+            try:
+                play_notification_sound(self.master)
+            except Exception:
+                pass
+
+            # Build dialog
+            dialog = tk.Toplevel(self.master)
+            dialog.title("Напоминание: заказы Меридиан")
+            dialog.configure(bg="#f8fafc")
+            dialog.transient(self.master)
+            dialog.grab_set()
+
+            frame = ttk.Frame(dialog, style="Card.TFrame", padding=16)
+            frame.pack(fill="both", expand=True)
+            ttk.Label(frame, text="Есть заказы Меридиан со статусом 'Не заказан'", style="Title.TLabel").pack(anchor="w")
+            ttk.Label(frame, text="Откройте список заказов или отложите напоминание.", style="Subtitle.TLabel").pack(anchor="w", pady=(4, 8))
+
+            # List
+            tree = ttk.Treeview(frame, columns=("title", "date"), show="headings", style="Data.Treeview")
+            tree.heading("title", text="Название", anchor="w")
+            tree.heading("date", text="Дата", anchor="w")
+            tree.column("title", width=380, anchor="w")
+            tree.column("date", width=160, anchor="w")
+            for o in pending:
+                tree.insert("", "end", values=(o.get("title", ""), o.get("date", "")))
+            tree.pack(fill="both", expand=True)
+
+            btns = ttk.Frame(frame, style="Card.TFrame")
+            btns.pack(fill="x", pady=(12, 0))
+            def open_meridian():
+                dialog.destroy()
+                from app.views.orders_meridian import MeridianOrdersView
+                from app.views.main import MainWindow
+                MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+            ttk.Button(btns, text="Открыть 'Заказ Меридиан'", style="Menu.TButton", command=open_meridian).pack(side="right")
+
+            def snooze():
+                minutes = int(self.master.app_settings.get("notify_snooze_minutes", 30) or 30)
+                until = time.time() + minutes * 60
+                self.master.app_settings["notify_snooze_until"] = str(until)
+                dialog.destroy()
+            ttk.Button(btns, text="Отложить", style="Menu.TButton", command=snooze).pack(side="right", padx=(8, 0))
+
+            ttk.Button(btns, text="Закрыть", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
+
+            # Mark notified for today
+            self.master.app_settings["notify_last_date"] = dt.now().strftime("%Y-%m-%d")
+            try:
+                sp = os.path.join(os.getcwd(), "settings.json")
+                with open(sp, "w", encoding="utf-8") as f:
+                    json.dump(self.master.app_settings, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
+        def tick():
+            try:
+                now = dt.now()
+                if should_notify(now):
+                    show_notification()
+            except Exception:
+                pass
+            finally:
+                try:
+                    self.master.after(60000, tick)  # check each minute
+                except Exception:
+                    pass
+
+        # Start ticking
+        self.master.after(1000, tick)
+
     # Actions
     def _on_order_mkl(self):
         def swap():
@@ -266,8 +393,28 @@ class SettingsView(ttk.Frame):
 
         ttk.Separator(card).grid(row=9, column=0, columnspan=3, sticky="ew", pady=(12, 12))
 
+        # Notifications settings (Meridian)
+        ttk.Label(card, text="Напоминания для заказов 'Меридиан' со статусом 'Не заказан'", style="Subtitle.TLabel").grid(row=10, column=0, sticky="w", columnspan=3)
+        days = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
+        self.notify_day_var = tk.StringVar(value=days[int(self.app_settings.get("notify_day", 0)) % 7])
+        ttk.Label(card, text="День недели:", style="Subtitle.TLabel").grid(row=11, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Combobox(card, textvariable=self.notify_day_var, values=days, height=7).grid(row=11, column=1, sticky="w", pady=(8, 0))
+
+        self.notify_time_var = tk.StringVar(value=self.app_settings.get("notify_time", "09:00"))
+        ttk.Label(card, text="Время (HH:MM):", style="Subtitle.TLabel").grid(row=12, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Entry(card, textvariable=self.notify_time_var, width=12).grid(row=12, column=1, sticky="w", pady=(8, 0))
+
+        self.notify_snooze_var = tk.IntVar(value=int(self.app_settings.get("notify_snooze_minutes", 30) or 30))
+        ttk.Label(card, text="Отложить на (минут):", style="Subtitle.TLabel").grid(row=13, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Spinbox(card, from_=5, to=180, increment=5, textvariable=self.notify_snooze_var, width=8).grid(row=13, column=1, sticky="w", pady=(8, 0))
+
+        # Hint on per-order notify
+        ttk.Label(card, text="В списке 'Меридиан' для каждого заказа есть колонка 'Напоминание' и переключатель в контекстном меню.", style="Subtitle.TLabel").grid(row=14, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
+        ttk.Separator(card).grid(row=15, column=0, columnspan=3, sticky="ew", pady=(12, 12))
+
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=10, column=0, columnspan=3, sticky="e")
+        btns.grid(row=16, column=0, columnspan=3, sticky="e")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
 
     def _go_back(self):
@@ -303,11 +450,38 @@ class SettingsView(ttk.Frame):
                 messagebox.showinfo("Настройки", "Указанный путь не существует.")
                 return
 
+            # Validate time
+            tval = (self.notify_time_var.get() or "09:00").strip()
+            try:
+                hh, mm = tval.split(":")
+                hh_i = int(hh); mm_i = int(mm)
+                if not (0 <= hh_i <= 23 and 0 <= mm_i <= 59):
+                    raise ValueError
+            except Exception:
+                messagebox.showinfo("Настройки", "Время должно быть в формате HH:MM (00–23:00–59).")
+                return
+
+            days = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
+            day_name = self.notify_day_var.get()
+            try:
+                day_idx = days.index(day_name)
+            except ValueError:
+                day_idx = 0
+
+            snooze_minutes = int(self.notify_snooze_var.get() or 30)
+            if snooze_minutes < 5:
+                snooze_minutes = 5
+
             s = self.master.app_settings
             s["export_path"] = path
             s["tray_logo_path"] = logo_path
             s["autostart_enabled"] = autostart_enabled
             s["minimize_to_tray"] = tray_enabled
+
+            # Notification settings
+            s["notify_day"] = day_idx
+            s["notify_time"] = f"{hh_i:02d}:{mm_i:02d}"
+            s["notify_snooze_minutes"] = snooze_minutes
 
             try:
                 sp = os.path.join(os.getcwd(), "settings.json")

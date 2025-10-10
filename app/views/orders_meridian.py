@@ -9,12 +9,13 @@ from app.db import AppDB  # type hint only
 
 class MeridianOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ Меридиан' внутри главного окна."""
-    COLUMNS = ("title", "items_count", "status", "date")
+    COLUMNS = ("title", "items_count", "status", "date", "notify")
     HEADERS = {
         "title": "Название заказа",
         "items_count": "Позиций",
         "status": "Статус",
         "date": "Дата",
+        "notify": "Напоминание",
     }
     STATUSES = ["Не заказан", "Заказан"]
 
@@ -99,6 +100,8 @@ class MeridianOrdersView(ttk.Frame):
         for s in self.STATUSES:
             status_menu.add_command(label=s, command=lambda st=s: self._set_status(st))
         self.menu.add_cascade(label="Статус", menu=status_menu)
+        self.menu.add_separator()
+        self.menu.add_command(label="Переключить напоминание", command=self._toggle_notify)
         self.tree.bind("<Button-3>", self._show_context_menu)
         self.tree.bind("<Double-1>", lambda e: self._edit_order())
 
@@ -180,6 +183,25 @@ class MeridianOrdersView(ttk.Frame):
                 db.update_meridian_order(order_id, {"status": status, "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
             except Exception as e:
                 messagebox.showerror("База данных", f"Не удалось обновить статус заказа:\n{e}")
+                return
+        self._refresh_orders_view()
+
+    def _toggle_notify(self):
+        idx = self._selected_index()
+        if idx is None:
+            return
+        order = self.orders[idx]
+        order_id = order.get("id")
+        if not order_id:
+            return
+        cur = int(order.get("notify_enabled", 1) or 1)
+        new_val = 0 if cur == 1 else 1
+        db = getattr(self.master, "db", None)
+        if db:
+            try:
+                db.set_meridian_notify(order_id, bool(new_val))
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось переключить напоминание:\n{e}")
                 return
         self._refresh_orders_view()
 
@@ -294,7 +316,8 @@ class MeridianOrdersView(ttk.Frame):
                     items_count = len(db.get_meridian_items(o["id"]))
                 except Exception:
                     items_count = 0
-            values = (o.get("title", ""), items_count, o.get("status", ""), o.get("date", ""))
+            notify_label = "Вкл" if int(o.get("notify_enabled", 1) or 1) == 1 else "Выкл"
+            values = (o.get("title", ""), items_count, o.get("status", ""), o.get("date", ""), notify_label)
             tag = f"status_{o.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
 

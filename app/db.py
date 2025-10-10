@@ -64,6 +64,14 @@ class AppDB:
             );
             """
         )
+        # Ensure notify_enabled column exists (default 1)
+        try:
+            cols = {r[1] for r in cur.execute("PRAGMA table_info(meridian_orders);").fetchall()}
+            if "notify_enabled" not in cols:
+                cur.execute("ALTER TABLE meridian_orders ADD COLUMN notify_enabled INTEGER NOT NULL DEFAULT 1;")
+        except Exception:
+            pass
+
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS meridian_items (
@@ -181,9 +189,9 @@ class AppDB:
     # --- Meridian Orders + Items ---
     def list_meridian_orders(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, title, status, date FROM meridian_orders ORDER BY id DESC;"
+            "SELECT id, title, status, date, COALESCE(notify_enabled, 1) AS notify_enabled FROM meridian_orders ORDER BY id DESC;"
         ).fetchall()
-        return [{"id": r["id"], "title": r["title"], "status": r["status"], "date": r["date"]} for r in rows]
+        return [{"id": r["id"], "title": r["title"], "status": r["status"], "date": r["date"], "notify_enabled": r["notify_enabled"]} for r in rows]
 
     def get_meridian_items(self, order_id: int) -> list[dict]:
         rows = self.conn.execute(
@@ -232,7 +240,7 @@ class AppDB:
     def update_meridian_order(self, order_id: int, fields: dict):
         cols = []
         vals = []
-        for k in ("title", "status", "date"):
+        for k in ("title", "status", "date", "notify_enabled"):
             if k in fields:
                 cols.append(f"{k}=?")
                 vals.append(fields[k])
@@ -240,6 +248,10 @@ class AppDB:
             vals.append(order_id)
             self.conn.execute(f"UPDATE meridian_orders SET {', '.join(cols)} WHERE id=?;", tuple(vals))
             self.conn.commit()
+
+    def set_meridian_notify(self, order_id: int, enabled: bool):
+        self.conn.execute("UPDATE meridian_orders SET notify_enabled=? WHERE id=?;", (1 if enabled else 0, order_id))
+        self.conn.commit()
 
     def replace_meridian_items(self, order_id: int, items: list[dict]):
         # Replace items for order
