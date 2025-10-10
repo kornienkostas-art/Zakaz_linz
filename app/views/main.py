@@ -11,7 +11,7 @@ from app.assets import load_logo
 
 class MainWindow(ttk.Frame):
     def __init__(self, master: tk.Tk):
-        super().__init__(master, padding=24)
+        super().__init__(master, padding=0)
         self.master = master
         self._configure_root()
         self._setup_style()
@@ -177,38 +177,16 @@ class MainWindow(ttk.Frame):
         self.style.configure("Data.Treeview.Heading", background="#f3f4f6", foreground=text_primary, font=("Segoe UI", 11, "bold"), bordercolor=border, borderwidth=1)
 
     def _build_layout(self):
-        card = ttk.Frame(self, style="Card.TFrame", padding=24)
-        card.grid(row=0, column=0, sticky="nsew")
-        self.rowconfigure(0, weight=1)
-        card.columnconfigure(0, weight=1)
-
-        # Header with logo and titles
-        header = ttk.Frame(card, style="Card.TFrame")
-        header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(1, weight=1)
-        # Logo
-        self._logo_img = load_logo(self.master)
-        if self._logo_img is not None:
-            ttk.Label(header, image=self._logo_img, style="Card.TFrame").grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
-        # Titles
-        title = ttk.Label(header, text="УссурОЧки.рф", style="Title.TLabel")
-        subtitle = ttk.Label(header, text="Главное меню • Выберите раздел", style="Subtitle.TLabel")
-        title.grid(row=0, column=1, sticky="w")
-        subtitle.grid(row=1, column=1, sticky="w", pady=(4, 12))
-
-        ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(8, 16))
-
-        buttons = ttk.Frame(card, style="Card.TFrame")
-        buttons.grid(row=2, column=0, sticky="nsew")
-        buttons.columnconfigure(0, weight=1)
-
-        btn_mkl = ttk.Button(buttons, text="📦 Заказ МКЛ", style="Menu.TButton", command=self._on_order_mkl)
-        btn_meridian = ttk.Button(buttons, text="📚 Заказ Меридиан", style="Menu.TButton", command=self._on_order_meridian)
-        btn_settings = ttk.Button(buttons, text="⚙ Настройки", style="Menu.TButton", command=self._on_settings)
-
-        btn_mkl.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        btn_meridian.grid(row=1, column=0, sticky="ew", pady=(0, 12))
-        btn_settings.grid(row=2, column=0, sticky="ew")
+        # Use Shell layout (sidebar + header + content)
+        from app.views.shell import Shell
+        self.shell = Shell(self.master)
+        self.shell.set_nav_callbacks(
+            on_home=self._show_home,
+            on_mkl=self._on_order_mkl,
+            on_meridian=self._on_order_meridian,
+            on_settings=self._on_settings,
+        )
+        self._show_home()
 
         
 
@@ -553,28 +531,29 @@ class MainWindow(ttk.Frame):
         self.master.after(1000, tick)
 
     # Actions
+    def _mount_in_shell(self, builder, title: str, subtitle: str):
+        self.shell.set_header(title, subtitle)
+        return self.shell.mount(builder)
+
+    def _show_home(self):
+        def build(parent):
+            frame = ttk.Frame(parent, style="Card.TFrame", padding=16)
+            frame.pack(fill="both", expand=True)
+            ttk.Label(frame, text="Главное меню", style="Title.TLabel").pack(anchor="w")
+            ttk.Label(frame, text="Выберите раздел слева", style="Subtitle.TLabel").pack(anchor="w", pady=(4, 8))
+            return frame
+        self._mount_in_shell(build, "Главное меню", "Быстрый доступ к разделам")
+
     def _on_order_mkl(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
         from app.views.orders_mkl import MKLOrdersView
-        MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+        self._mount_in_shell(lambda parent: MKLOrdersView(parent, on_back=self._show_home), "Заказ МКЛ", "Таблица данных и действия")
 
     def _on_order_meridian(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
         from app.views.orders_meridian import MeridianOrdersView
-        MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+        self._mount_in_shell(lambda parent: MeridianOrdersView(parent, on_back=self._show_home), "Заказ Меридиан", "Список заказов и действия")
 
     def _on_settings(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
-        SettingsView(self.master, on_back=lambda: MainWindow(self.master))
+        self._mount_in_shell(lambda parent: SettingsView(parent, on_back=self._show_home), "Настройки", "Параметры приложения")
 
     
 
