@@ -24,9 +24,24 @@ class MKLOrdersView(ttk.Frame):
         "comment_flag": "Комментарий",
     }
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
-    
 
-        def _build_table(self):
+    def __init__(self, master: tk.Tk, on_back):
+        super().__init__(master, style="Card.TFrame", padding=0)
+        self.master = master
+        self.on_back = on_back
+        self.db: AppDB | None = getattr(self.master, "db", None)
+
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        self.grid(sticky="nsew")
+
+        self.orders: list[dict] = []
+
+        self._build_toolbar()
+        self._build_table()
+        self._refresh_orders_view()
+
+    def _build_table(self):
         container = ttk.Frame(self, style="Card.TFrame", padding=16)
         container.pack(fill="both", expand=True)
 
