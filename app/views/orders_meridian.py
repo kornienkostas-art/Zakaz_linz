@@ -78,8 +78,9 @@ class MeridianOrdersView(ttk.Frame):
         columns = self.COLUMNS
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", style="Data.Treeview")
         for col in columns:
-            self.tree.heading(col, text=self.HEADERS[col], anchor="w")
-            width = {"title": 380, "items_count": 120, "status": 140, "date": 160}[col]
+            self.tree.heading(col, text=self.HEADERS.get(col, col), anchor="w")
+            widths = {"title": 360, "items_count": 100, "status": 140, "date": 160, "notify": 120}
+            width = widths.get(col, 120)
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
