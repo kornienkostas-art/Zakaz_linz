@@ -6,11 +6,12 @@ from app.db import AppDB  # type hint only
 
 class ProductsView(ttk.Frame):
     """Список товаров как встроенный вид (CRUD с SQLite) с кнопкой 'Назад'."""
-    def __init__(self, master: tk.Tk, db: AppDB | None, on_back):
+    def __init__(self, master: tk.Tk, db: AppDB | None, on_back, kind: str = "mkl"):
         super().__init__(master, style="Card.TFrame", padding=0)
         self.master = master
         self.db = db
         self.on_back = on_back
+        self.kind = kind if kind in {"mkl", "meridian"} else "mkl"
 
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
@@ -30,7 +31,8 @@ class ProductsView(ttk.Frame):
         table_card = ttk.Frame(self, style="Card.TFrame", padding=16)
         table_card.pack(fill="both", expand=True)
 
-        header = ttk.Label(table_card, text="Товары", style="Title.TLabel")
+        title = "Товары МКЛ" if self.kind == "mkl" else "Товары Меридиан"
+        header = ttk.Label(table_card, text=title, style="Title.TLabel")
         header.grid(row=0, column=0, sticky="w", columnspan=2)
         ttk.Separator(table_card).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 12))
 
@@ -64,7 +66,12 @@ class ProductsView(ttk.Frame):
 
     def _reload(self):
         try:
-            self._dataset = self.db.list_products() if self.db else []
+            if not self.db:
+                self._dataset = []
+            elif self.kind == "mkl":
+                self._dataset = self.db.list_mkl_products() if hasattr(self.db, "list_mkl_products") else []
+            else:
+                self._dataset = self.db.list_meridian_products() if hasattr(self.db, "list_meridian_products") else []
         except Exception as e:
             messagebox.showerror("База данных", f"Не удалось загрузить товары:\n{e}")
             self._dataset = []
@@ -93,7 +100,10 @@ class ProductsView(ttk.Frame):
     def _on_add_save(self, data: dict):
         try:
             if self.db:
-                self.db.add_product(data.get("name", ""))
+                if self.kind == "mkl":
+                    self.db.add_mkl_product(data.get("name", ""))
+                else:
+                    self.db.add_meridian_product(data.get("name", ""))
             else:
                 self._dataset.append({"id": None, **data})
         except Exception as e:
@@ -110,7 +120,10 @@ class ProductsView(ttk.Frame):
     def _on_edit_save(self, original_item: dict, data: dict):
         try:
             if self.db and original_item.get("id") is not None:
-                self.db.update_product(original_item["id"], data.get("name", ""))
+                if self.kind == "mkl":
+                    self.db.update_mkl_product(original_item["id"], data.get("name", ""))
+                else:
+                    self.db.update_meridian_product(original_item["id"], data.get("name", ""))
             else:
                 original_item.update(data)
         except Exception as e:
@@ -125,7 +138,10 @@ class ProductsView(ttk.Frame):
         if messagebox.askyesno("Удалить", "Удалить выбранный товар?"):
             try:
                 if self.db and item.get("id") is not None:
-                    self.db.delete_product(item["id"])
+                    if self.kind == "mkl":
+                        self.db.delete_mkl_product(item["id"])
+                    else:
+                        self.db.delete_meridian_product(item["id"])
                 else:
                     self._dataset.remove(item)
             except Exception as e:

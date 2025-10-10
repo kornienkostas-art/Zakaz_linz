@@ -145,12 +145,12 @@ class MeridianItemForm(tk.Toplevel):
         self.d_var = tk.StringVar(value=(initial or {}).get("d", ""))
         self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
 
-        # Загрузим список товаров из БД (если доступен)
+        # Загрузим список товаров 'Меридиан' из БД (если доступен)
         self.products = []
         try:
             db = getattr(self.master.master, "db", None)  # master = MeridianOrderForm(Toplevel), master.master = root
-            if db:
-                self.products = db.list_products()
+            if db and hasattr(db, "list_meridian_products"):
+                self.products = db.list_meridian_products()
         except Exception:
             self.products = []
 

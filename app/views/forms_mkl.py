@@ -81,7 +81,7 @@ class OrderForm(tk.Toplevel):
         except Exception:
             pass
 
-        # Product selection with autocomplete
+        # Product selection with autocomplete (MKL catalog)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")

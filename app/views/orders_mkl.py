@@ -140,7 +140,7 @@ class MKLOrdersView(ttk.Frame):
                 pass
             from app.views.products import ProductsView
             from app.views.main import MainWindow
-            ProductsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+            ProductsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)), kind="mkl")
         fade_transition(self.master, swap)
 
     def _selected_index(self):

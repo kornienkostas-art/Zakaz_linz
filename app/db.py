@@ -26,10 +26,18 @@ class AppDB:
             );
             """
         )
-        # Products
+        # Products catalogs: separate for MKL and Meridian
         cur.execute(
             """
-            CREATE TABLE IF NOT EXISTS products (
+            CREATE TABLE IF NOT EXISTS mkl_products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL
+            );
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS meridian_products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL
             );
@@ -101,22 +109,41 @@ class AppDB:
         self.conn.execute("DELETE FROM clients WHERE id=?;", (client_id,))
         self.conn.commit()
 
-    # --- Products ---
-    def list_products(self) -> list[dict]:
-        rows = self.conn.execute("SELECT id, name FROM products ORDER BY name COLLATE NOCASE;").fetchall()
+    # --- Products (separate catalogs) ---
+    # MKL
+    def list_mkl_products(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name FROM mkl_products ORDER BY name COLLATE NOCASE;").fetchall()
         return [{"id": r["id"], "name": r["name"]} for r in rows]
 
-    def add_product(self, name: str) -> int:
-        cur = self.conn.execute("INSERT INTO products (name) VALUES (?);", (name,))
+    def add_mkl_product(self, name: str) -> int:
+        cur = self.conn.execute("INSERT INTO mkl_products (name) VALUES (?);", (name,))
         self.conn.commit()
         return cur.lastrowid
 
-    def update_product(self, product_id: int, name: str):
-        self.conn.execute("UPDATE products SET name=? WHERE id=?;", (name, product_id))
+    def update_mkl_product(self, product_id: int, name: str):
+        self.conn.execute("UPDATE mkl_products SET name=? WHERE id=?;", (name, product_id))
         self.conn.commit()
 
-    def delete_product(self, product_id: int):
-        self.conn.execute("DELETE FROM products WHERE id=?;", (product_id,))
+    def delete_mkl_product(self, product_id: int):
+        self.conn.execute("DELETE FROM mkl_products WHERE id=?;", (product_id,))
+        self.conn.commit()
+
+    # Meridian
+    def list_meridian_products(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name FROM meridian_products ORDER BY name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"]} for r in rows]
+
+    def add_meridian_product(self, name: str) -> int:
+        cur = self.conn.execute("INSERT INTO meridian_products (name) VALUES (?);", (name,))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_meridian_product(self, product_id: int, name: str):
+        self.conn.execute("UPDATE meridian_products SET name=? WHERE id=?;", (name, product_id))
+        self.conn.commit()
+
+    def delete_meridian_product(self, product_id: int):
+        self.conn.execute("DELETE FROM meridian_products WHERE id=?;", (product_id,))
         self.conn.commit()
 
     # --- MKL Orders ---
