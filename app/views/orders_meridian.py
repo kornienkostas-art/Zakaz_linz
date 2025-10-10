@@ -99,7 +99,6 @@ class MeridianOrdersView(ttk.Frame):
         for s in self.STATUSES:
             status_menu.add_command(label=s, command=lambda st=s: self._set_status(st))
         self.menu.add_cascade(label="Статус", menu=status_menu)
-        self.tree.bin("<pButton-3>", self self.menu.add_command(label="Переключить напоминание", command=self._toggle_notify)
         self.tree.bind("<Button-3>", self._show_context_menu)
         self.tree.bind("<Double-1>", lambda e: self._edit_order())
 
