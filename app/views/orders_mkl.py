@@ -44,14 +44,14 @@ class MKLOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back).pack(side="left")
-        ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=self._open_clients).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt).pack(side="left", padx=(8, 0))
+        ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=lambda: self._go_back()).pack(side="left")
+        ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=lambda: self._new_order()).pack(side="left", padx=(8, 0))
+        ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=lambda: self._edit_order()).pack(side="left", padx=(8, 0))
+        ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=lambda: self._delete_order()).pack(side="left", padx=(8, 0))
+        ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=lambda: self._change_status()).pack(side="left", padx=(8, 0))
+        ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=lambda: self._open_clients()).pack(side="left", padx=(8, 0))
+        ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=lambda: self._open_products()).pack(side="left", padx=(8, 0))
+        ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=lambda: self._export_txt()).pack(side="left", padx=(8, 0))
 
     def _go_back(self):
         try:
