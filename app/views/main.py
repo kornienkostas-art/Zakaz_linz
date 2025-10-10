@@ -182,8 +182,7 @@ class MainWindow(ttk.Frame):
         btn_meridian.grid(row=1, column=0, sticky="ew", pady=(0, 12))
         btn_settings.grid(row=2, column=0, sticky="ew")
 
-        footer = ttk.Label(card, text="Локальная база данных будет добавлена позже. Начинаем с меню.", style="Subtitle.TLabel")
-        footer.grid(row=4, column=0, sticky="w", pady=(20, 0))
+        
 
     
 
