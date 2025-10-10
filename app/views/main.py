@@ -255,9 +255,14 @@ class MainWindow(ttk.Frame):
                 import os
                 if os.name == "nt":
                     import winsound
-                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
-                    winsound.Beep(800, 180)
-                    winsound.Beep(920, 180)
+                    # Play custom WAV if provided, else Beep
+                    wav_path = (self.master.app_settings.get("notify_sound_path") or "").strip()
+                    if wav_path:
+                        winsound.PlaySound(wav_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                    else:
+                        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                        winsound.Beep(800, 180)
+                        winsound.Beep(920, 180)
                 else:
                     self.master.bell()
             except Exception:
@@ -490,10 +495,18 @@ class SettingsView(ttk.Frame):
             w.bind("<FocusOut>", lambda e, wid=w: (_auto_parse(wid.get())))
             w.bind("<KeyRelease>", lambda e, wid=w: (_auto_parse(wid.get())))
 
-        ttk.Separator(card).grid(row=13, column=0, columnspan=3, sticky="ew", pady=(12, 12))
+        # Custom WAV sound (Windows)
+        ttk.Label(card, text="Файл звука уведомления (WAV, Windows)", style="Subtitle.TLabel").grid(row=13, column=0, sticky="w", pady=(12, 0))
+        self.sound_var = tk.StringVar(value=self.app_settings.get("notify_sound_path") or "")
+        sound_entry = ttk.Entry(card, textvariable=self.sound_var)
+        sound_entry.grid(row=14, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(card, text="Выбрать WAV…", style="Menu.TButton", command=self._browse_sound).grid(row=14, column=1, sticky="w", padx=(8, 0))
+
+        ttk.Separator(card).grid(row=15, column=0, columnspan=3, sticky="ew", pady=(12, 12))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=14, column=0, columnspan=3, sticky="e")
+        btns.grid(row=16, column=0, columnspan=3, sticky="e")
+        ttk.Button(btns, text="Проверить уведомление сейчас", style="Menu.TButton", command=self._test_notify_now).pack(side="left")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
 
     def _go_back(self):
@@ -515,11 +528,18 @@ class SettingsView(ttk.Frame):
         if path:
             self.logo_var.set(path)
 
+    def _browse_sound(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(title="Выберите WAV-файл для звука уведомления (Windows)", filetypes=[("WAV", "*.wav"), ("Все файлы", "*.*")])
+        if path:
+            self.sound_var.set(path)
+
     def _save(self):
         path = self.path_var.get().strip()
         logo_path = self.logo_var.get().strip()
         autostart_enabled = bool(self.autostart_var.get())
         tray_enabled = bool(self.tray_var.get())
+        sound_path = (self.sound_var.get() or "").strip()
 
         if not path:
             messagebox.showinfo("Настройки", "Укажите папку для сохранения.")
@@ -553,6 +573,7 @@ class SettingsView(ttk.Frame):
             s["minimize_to_tray"] = tray_enabled
             s["notify_days"] = selected_days
             s["notify_time"] = f"{hh_i:02d}:{mm_i:02d}"
+            s["notify_sound_path"] = sound_path
 
             try:
                 sp = os.path.join(os.getcwd(), "settings.json")
