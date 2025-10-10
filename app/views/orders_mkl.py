@@ -81,8 +81,8 @@ class MKLOrdersView(ttk.Frame):
         for col in columns:
             self.tree.heading(col, text=self.HEADERS[col], anchor="w")
             width = {
-                "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
-                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 120,
+                "fio": 180, "phone": 140, "product": 180, "sph": 70, "cyl": 70,
+                "ax": 70, "bc": 70, "qty": 90, "status": 130, "date": 150, "comment_flag": 110,
             }[col]
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
@@ -246,6 +246,10 @@ class MKLOrdersView(ttk.Frame):
         dialog.configure(bg="#f8fafc")
         dialog.transient(self)
         dialog.grab_set()
+        try:
+            center_on_screen(dialog)
+        except Exception:
+            pass
 
         ttk.Label(dialog, text="Выберите статус", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", padx=12, pady=(12, 4))
         var = tk.StringVar(value=current)

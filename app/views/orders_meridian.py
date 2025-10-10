@@ -82,9 +82,13 @@ class MeridianOrdersView(ttk.Frame):
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscroll=y_scroll.set)
+        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
+
         self.tree.grid(row=0, column=0, sticky="nsew")
         y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
 
@@ -262,6 +266,10 @@ class MeridianOrdersView(ttk.Frame):
         dialog.configure(bg="#f8fafc")
         dialog.transient(self)
         dialog.grab_set()
+        try:
+            center_on_screen(dialog)
+        except Exception:
+            pass
         ttk.Label(dialog, text="Выберите статус", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", padx=12, pady=(12, 4))
         var = tk.StringVar(value=current)
         combo = ttk.Combobox(dialog, textvariable=var, values=self.STATUSES, height=6)
