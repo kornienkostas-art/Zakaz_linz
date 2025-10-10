@@ -9,7 +9,7 @@ from app.db import AppDB  # type hint only
 
 class MKLOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ МКЛ' внутри главного окна (DB-backed)."""
-    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date")
+    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date", "comment_flag")
     HEADERS = {
         "fio": "ФИО",
         "phone": "Телефон",
@@ -21,85 +21,13 @@ class MKLOrdersView(ttk.Frame):
         "qty": "Количество",
         "status": "Статус",
         "date": "Дата",
+        "comment_flag": "Комментарий",
     }
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
-
-    def __init__(self, master: tk.Tk, on_back):
-        super().__init__(master, style="Card.TFrame", padding=0)
-        self.master = master
-        self.on_back = on_back
-        self.db: AppDB | None = getattr(self.master, "db", None)
-
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
-
-        self.orders: list[dict] = []
-
-        self._build_toolbar()
-        self._build_table()
-        self._refresh_orders_view()
-
-    def _build_toolbar(self):
-        toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
-        toolbar.pack(fill="x")
-
-        ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back).pack(side="left")
-        ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=self._open_clients).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt).pack(side="left", padx=(8, 0))
-
-    def _go_back(self):
-        try:
-            self.destroy()
-        finally:
-            cb = getattr(self, "on_back", None)
-            if callable(cb):
-                cb()
-
-    def _build_table(self):
-        container = ttk.Frame(self, style="Card.TFrame", padding=16)
-        container.pack(fill="both", expand=True)
-
-        header = ttk.Label(container, text="Заказ МКЛ • Таблица данных", style="Title.TLabel")
-        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, Количество, Статус, Дата", style="Subtitle.TLabel")
-        header.pack(anchor="w")
-        sub.pack(anchor="w", pady=(4, 12))
-
-        ttk.Separator(container).pack(fill="x", pady=(8, 12))
-
-        table_frame = ttk.Frame(container, style="Card.TFrame")
-        table_frame.pack(fill="both", expand=True)
-
-        columns = self.COLUMNS
-        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", style="Data.Treeview")
-        for col in columns:
-            self.tree.heading(col, text=self.HEADERS[col], anchor="w")
-            width = {
-                "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
-                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160,
-            }[col]
-            self.tree.column(col, width=width, anchor="w", stretch=True)
-
-        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
-
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        y_scroll.grid(row=0, column=1, sticky="ns")
-        x_scroll.grid(row=1, column=0, sticky="ew")
-
-        table_frame.columnconfigure(0, weight=1)
-        table_frame.rowconfigure(0, weight=1)
-
-        self.tree.tag_configure("status_Не заказан", background="#fee2e2", foreground="#7f1d1d")
-        self.tree.tag_configure("status_Заказан", background="#fef3c7", foreground="#7c2d12")
-        self.tree.tag_configure("status_Прозвонен", background="#dbeafe", foreground="#1e3a8a")
-        self.tree.tag_configure("status_Вручен", background="#dcfce7", foreground="#065f46")
+    ...
+            self.tree.tag_configure("status_Вручен", background="#dcfce7", foreground="#065f46")
+            # Яркая подсветка строк с комментарием (нет возможности сделать жирный только в одной ячейке в ttk.Treeview)
+            self.tree.tag_configure("has_comment", background="#fde68a", foreground="#111827")
 
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Редактировать", command=self._edit_order)
@@ -185,7 +113,7 @@ class MKLOrdersView(ttk.Frame):
         order_id = current.get("id")
 
         clients = self.db.list_clients() if self.db else []
-        products = self.db.list_products() if self.db else []
+        products = self.db.list_mkl_products() if (self.db and hasattr(self.db, "list_mkl_products")) else []
 
         def on_save(updated: dict):
             new_status = updated.get("status", current.get("status", "Не заказан"))
@@ -329,6 +257,7 @@ class MKLOrdersView(ttk.Frame):
             self.tree.delete(i)
         for idx, item in enumerate(self.orders):
             masked_phone = format_phone_mask(item.get("phone", ""))
+            has_comment = bool((item.get("comment", "") or "").strip())
             values = (
                 item.get("fio", ""),
                 masked_phone,
@@ -340,6 +269,9 @@ class MKLOrdersView(ttk.Frame):
                 item.get("qty", ""),
                 item.get("status", ""),
                 item.get("date", ""),
+                "ЕСТЬ" if has_comment else "Нет",
             )
-            tag = f"status_{item.get('status','Не заказан')}"
-            self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+            tags = [f"status_{item.get('status','Не заказан')}"]
+            if has_comment:
+                tags.append("has_comment")
+            self.tree.insert("", "end", iid=str(idx), values=values, tags=tuple(tags))

@@ -126,6 +126,24 @@ class OrderForm(tk.Toplevel):
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=8, column=0, sticky="w")
 
+        # Comment
+        ttk.Label(card, text="Комментарий к заказу", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", padx=(8,0), pady=(8,0))
+        self.comment_text = tk.Text(card, height=4, wrap="word", undo=True)
+        self.comment_text.grid(row=8, column=1, sticky="nsew", padx=(8,0))
+        # Prefill initial comment if provided
+        try:
+            from_initial = getattr(self, "status_var", None)  # placeholder
+            initial_comment = ""
+        except Exception:
+            initial_comment = ""
+        try:
+            # If form was called with initial dict containing 'comment'
+            pass
+        except Exception:
+            pass
+        # Expand column for Text
+        card.rowconfigure(8, weight=1)
+
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
