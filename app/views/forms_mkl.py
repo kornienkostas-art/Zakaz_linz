@@ -308,7 +308,8 @@ class MKLOrderEditorView(ttk.Frame):
 
         # Load datasets
         self.clients = self.db.list_clients() if self.db else []
-        self.products = self.db.list_products() if self.db else []
+        # Use separate MKL products catalog
+        self.products = self.db.list_mkl_products() if (self.db and hasattr(self.db, "list_mkl_products")) else []
 
         # Vars
         self.client_var = tk.StringVar()
