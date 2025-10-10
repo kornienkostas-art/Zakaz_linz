@@ -26,6 +26,51 @@ class MKLOrdersView(ttk.Frame):
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
     
 
+        def _build_table(self):
+        container = ttk.Frame(self, style="Card.TFrame", padding=16)
+        container.pack(fill="both", expand=True)
+
+        header = ttk.Label(container, text="Заказ МКЛ • Таблица данных", style="Title.TLabel")
+        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, Количество, Статус, Дата, Комментарий", style="Subtitle.TLabel")
+        header.pack(anchor="w")
+        sub.pack(anchor="w", pady=(4, 12))
+
+        ttk.Separator(container).pack(fill="x", pady=(8, 12))
+
+        table_frame = ttk.Frame(container, style="Card.TFrame")
+        table_frame.pack(fill="both", expand=True)
+
+        columns = self.COLUMNS
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", style="Data.Treeview")
+        for col in columns:
+            self.tree.heading(col, text=self.HEADERS[col], anchor="w")
+        width_map = {
+            "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
+            "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 120,
+        }
+        for col in columns:
+            self.tree.column(col, width=width_map.get(col, 120), anchor="w", stretch=True)
+
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+
+        # Статусные теги (цвет фона/текста)
+        self.tree.tag_configure("status_Не заказан", background="#fee2e2", foreground="#7f1d1d")
+        self.tree.tag_configure("status_Заказан", background="#fef3c7", foreground="#7c2d12")
+        self.tree.tag_configure("status_Прозвонен", background="#dbeafe", foreground="#1e3a8a")
+        self.tree.tag_configure("status_Вручен", background="#dcfce7", foreground="#065f46")
+        # Подсветка строк с комментарием
+        self.tree.tag_configure("has_comment", background="#fde68a", foreground="#111827")
+
+        # Контекстное меню
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Редактировать", command=self._edit_order)
         self.menu.add_command(label="Удалить", command=self._delete_order)
