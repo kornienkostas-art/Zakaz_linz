@@ -437,11 +437,14 @@ class SettingsView(ttk.Frame):
         self.notify_min_var = tk.IntVar(value=init_m)
 
         ttk.Label(card, text="Время:", style="Subtitle.TLabel").grid(row=12, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        hour_spin = ttk.Spinbox(card, from_=0, to=23, increment=1, width=5, textvariable=self.notify_hour_var)
-        min_spin = ttk.Spinbox(card, from_=0, to=59, increment=1, width=5, textvariable=self.notify_min_var)
-        hour_spin.grid(row=12, column=1, sticky="w", pady=(8, 0))
-        ttk.Label(card, text=":", style="Subtitle.TLabel").grid(row=12, column=2, sticky="w", padx=(4, 4), pady=(8, 0))
-        min_spin.grid(row=12, column=3, sticky="w", pady=(8, 0))
+        time_frame = ttk.Frame(card, style="Card.TFrame")
+        time_frame.grid(row=12, column=1, sticky="w", pady=(8, 0))
+        hour_spin = ttk.Spinbox(time_frame, from_=0, to=23, increment=1, width=5, textvariable=self.notify_hour_var)
+        sep_label = ttk.Label(time_frame, text=":", style="Subtitle.TLabel")
+        min_spin = ttk.Spinbox(time_frame, from_=0, to=59, increment=1, width=5, textvariable=self.notify_min_var)
+        hour_spin.pack(side="left")
+        sep_label.pack(side="left", padx=(4, 4))
+        min_spin.pack(side="left")
 
         def _auto_parse(text: str):
             digits = "".join(ch for ch in (text or "") if ch.isdigit())
@@ -461,8 +464,9 @@ class SettingsView(ttk.Frame):
                     pass
 
         # Auto-correct when user types 1053 etc. in either spinbox
-        hour_spin.bind("<FocusOut>", lambda e: _auto_parse(hour_spin.get()))
-        min_spin.bind("<FocusOut>", lambda e: _auto_parse(min_spin.get()))
+        for w in (hour_spin, min_spin):
+            w.bind("<FocusOut>", lambda e, wid=w: _auto_parse(wid.get()))
+            w.bind("<KeyRelease>", lambda e, wid=w: _auto_parse(wid.get()))
 
         self.notify_snooze_var = tk.IntVar(value=int(self.app_settings.get("notify_snooze_minutes", 30) or 30))
         ttk.Label(card, text="Отложить на (минут):", style="Subtitle.TLabel").grid(row=13, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
