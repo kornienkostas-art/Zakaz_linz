@@ -101,32 +101,86 @@ def format_phone_mask(raw: str) -> str:
 
 def enable_layout_independent_shortcuts(root: tk.Tk):
     """
-    Enable Ctrl+C/V/X/A across keyboard layouts by using physical keycodes on Windows
+    Enable Ctrl-based shortcuts across keyboard layouts by using physical keycodes on Windows
     and keysym/char fallbacks on other OS. Applies to Entry, TEntry, Text, TCombobox.
+
+    Supported:
+    - Ctrl+C / Ctrl+С  → Copy
+    - Ctrl+V / Ctrl+М  → Paste
+    - Ctrl+X / Ctrl+Ч  → Cut
+    - Ctrl+A / Ctrl+Ф  → Select All
+    - Ctrl+Z / Ctrl+Я  → Undo (Text widgets require undo=True, fallback uses edit_undo)
     """
-    WIN_KEYCODES = {65: "<<SelectAll>>", 67: "<<Copy>>", 86: "<<Paste>>", 88: "<<Cut>>"}
-    LATIN = {"a": "<<SelectAll>>", "c": "<<Copy>>", "v": "<<Paste>>", "x": "<<Cut>>"}
-    CYRILLIC = {"ф": "<<SelectAll>>", "с": "<<Copy>>", "м": "<<Paste>>", "ч": "<<Cut>>"}
+    WIN_KEYCODES = {
+        65: "<<SelectAll>>",  # A
+        67: "<<Copy>>",       # C
+        86: "<<Paste>>",      # V
+        88: "<<Cut>>",        # X
+        90: "<<Undo>>",       # Z
+    }
+    LATIN = {
+        "a": "<<SelectAll>>",
+        "c": "<<Copy>>",
+        "v": "<<Paste>>",
+        "x": "<<Cut>>",
+        "z": "<<Undo>>",
+    }
+    CYRILLIC = {
+        "ф": "<<SelectAll>>",
+        "с": "<<Copy>>",
+        "м": "<<Paste>>",
+        "ч": "<<Cut>>",
+        "я": "<<Undo>>",
+    }
+
+    def _fallback_action(widget, action: str):
+        # Fallbacks if virtual event not supported
+        try:
+            if action == "<<Undo>>":
+                # Text widgets can undo via edit_undo even if undo=True wasn't set (may still raise)
+                if widget.winfo_class() == "Text":
+                    try:
+                        widget.edit_undo()
+                        return True
+                    except Exception:
+                        return False
+                # Entry/TEntry generally don't support undo; no-op
+                return False
+        except Exception:
+            return False
+        return False
 
     def handler(e):
+        # Prefer physical keycode on Windows
         if os.name == "nt":
             act = WIN_KEYCODES.get(e.keycode)
             if act:
-                e.widget.event_generate(act)
-                return "break"
+                try:
+                    e.widget.event_generate(act)
+                    return "break"
+                except Exception:
+                    if _fallback_action(e.widget, act):
+                        return "break"
+        # Fallback for non-Windows (or if keycode not matched): keysym/char checks
         k = (e.keysym or "").lower()
         c = (e.char or "").lower()
         act = LATIN.get(k) or LATIN.get(c) or CYRILLIC.get(k) or CYRILLIC.get(c)
         if act:
-            e.widget.event_generate(act)
-            return "break"
+            try:
+                e.widget.event_generate(act)
+                return "break"
+            except Exception:
+                if _fallback_action(e.widget, act):
+                    return "break"
         return None
 
+    # Bind to common editable classes
     for cls in ("Entry", "TEntry", "Text", "TCombobox"):
         try:
             root.bind_class(cls, "<Control-KeyPress>", handler, add=True)
         except Exception:
             pass
+    # Global fallback
     try:
         root.bind_all("<Control-KeyPress>", handler, add=True)
     except Exception:
