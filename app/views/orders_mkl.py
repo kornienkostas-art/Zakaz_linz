@@ -24,10 +24,7 @@ class MKLOrdersView(ttk.Frame):
         "comment_flag": "Комментарий",
     }
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
-    ...
-            self.tree.tag_configure("status_Вручен", background="#dcfce7", foreground="#065f46")
-            # Яркая подсветка строк с комментарием (нет возможности сделать жирный только в одной ячейке в ttk.Treeview)
-            self.tree.tag_configure("has_comment", background="#fde68a", foreground="#111827")
+    
 
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Редактировать", command=self._edit_order)
