@@ -26,6 +26,27 @@ def set_initial_geometry(win: tk.Tk | tk.Toplevel, min_w: int, min_h: int, cente
     win.geometry(f"+{x}+{y}")
 
 
+def center_on_screen(win: tk.Toplevel | tk.Tk):
+    """Center an existing window on the screen without changing its size."""
+    try:
+        win.update_idletasks()
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        ww = win.winfo_width()
+        wh = win.winfo_height()
+        if ww <= 1 or wh <= 1:
+            # for newly created Toplevel before geometry calculation
+            geo = win.geometry()
+            # fallback size
+            ww = 400
+            wh = 300
+        x = (sw // 2) - (ww // 2)
+        y = (sh // 2) - (wh // 2)
+        win.geometry(f"+{x}+{y}")
+    except Exception:
+        pass
+
+
 def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 120, steps: int = 8):
     """Simple fade-out, swap view, fade-in on the root window."""
     try:

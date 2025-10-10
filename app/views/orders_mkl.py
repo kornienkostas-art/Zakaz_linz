@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition, format_phone_mask
+from app.utils import fade_transition, format_phone_mask, center_on_screen
 from app.db import AppDB  # type hint only
 
 

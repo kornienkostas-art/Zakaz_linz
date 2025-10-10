@@ -277,12 +277,30 @@ class MainWindow(ttk.Frame):
                 except Exception:
                     pass
 
+            # Restore from tray if needed and bring to front
+            try:
+                _stop_tray(self.master)
+            except Exception:
+                pass
+            try:
+                self.master.deiconify()
+                self.master.state("normal")
+                self.master.lift()
+                self.master.focus_force()
+            except Exception:
+                pass
+
             # Dialog
             dialog = tk.Toplevel(self.master)
             dialog.title("Напоминание: Меридиан")
             dialog.configure(bg="#f8fafc")
             dialog.transient(self.master)
             dialog.grab_set()
+            try:
+                from app.utils import center_on_screen
+                center_on_screen(dialog)
+            except Exception:
+                pass
 
             frame = ttk.Frame(dialog, style="Card.TFrame", padding=16)
             frame.pack(fill="both", expand=True)
@@ -426,11 +444,29 @@ class MainWindow(ttk.Frame):
                 except Exception:
                     pass
 
+            # Restore from tray if needed and bring to front
+            try:
+                _stop_tray(self.master)
+            except Exception:
+                pass
+            try:
+                self.master.deiconify()
+                self.master.state("normal")
+                self.master.lift()
+                self.master.focus_force()
+            except Exception:
+                pass
+
             dialog = tk.Toplevel(self.master)
             dialog.title("Напоминание: Заказы МКЛ")
             dialog.configure(bg="#f8fafc")
             dialog.transient(self.master)
             dialog.grab_set()
+            try:
+                from app.utils import center_on_screen
+                center_on_screen(dialog)
+            except Exception:
+                pass
 
             frame = ttk.Frame(dialog, style="Card.TFrame", padding=16)
             frame.pack(fill="both", expand=True)

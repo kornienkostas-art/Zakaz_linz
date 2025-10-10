@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition
+from app.utils import fade_transition, center_on_screen
 from app.db import AppDB  # type hint only
 
 
@@ -262,7 +262,7 @@ class MeridianOrdersView(ttk.Frame):
         dialog.configure(bg="#f8fafc")
         dialog.transient(self)
         dialog.grab_set()
-
+        try
         ttk.Label(dialog, text="Выберите статус", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", padx=12, pady=(12, 4))
         var = tk.StringVar(value=current)
         combo = ttk.Combobox(dialog, textvariable=var, values=self.STATUSES, height=6)
