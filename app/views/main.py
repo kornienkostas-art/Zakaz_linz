@@ -486,12 +486,16 @@ class SettingsView(ttk.Frame):
                 messagebox.showinfo("Настройки", "Время должно быть в формате HH:MM (00–23:00–59).")
                 return
 
-            days = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
-            day_name = self.notify_day_var.get()
-            try:
-                day_idx = days.index(day_name)
-            except ValueError:
-                day_idx = 0
+            # Collect selected days (multiple)
+            selected_days = []
+            for i, var in enumerate(getattr(self, "notify_day_vars", [])):
+                try:
+                    if bool(var.get()):
+                        selected_days.append(i)
+                except Exception:
+                    pass
+            if not selected_days:
+                selected_days = [0]
 
             snooze_minutes = int(self.notify_snooze_var.get() or 30)
             if snooze_minutes < 5:
@@ -504,7 +508,7 @@ class SettingsView(ttk.Frame):
             s["minimize_to_tray"] = tray_enabled
 
             # Notification settings
-            s["notify_day"] = day_idx
+            s["notify_days"] = selected_days
             s["notify_time"] = f"{hh_i:02d}:{mm_i:02d}"
             s["notify_snooze_minutes"] = snooze_minutes
 
