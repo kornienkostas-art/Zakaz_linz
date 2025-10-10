@@ -42,7 +42,6 @@ class MeridianOrdersView(ttk.Frame):
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
         btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
         btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
-        btn_clients = ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=self._open_clients)
         btn_products = ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products)
         btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
 
@@ -51,7 +50,6 @@ class MeridianOrdersView(ttk.Frame):
         btn_edit_order.pack(side="left", padx=(8, 0))
         btn_delete_order.pack(side="left", padx=(8, 0))
         btn_change_status.pack(side="left", padx=(8, 0))
-        btn_clients.pack(side="left", padx=(8, 0))
         btn_products.pack(side="left", padx=(8, 0))
         btn_export.pack(side="left", padx=(8, 0))
 
