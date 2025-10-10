@@ -78,7 +78,22 @@ if exist build rd /s /q build
 if exist dist rd /s /q dist
 if exist UssurochkiRF.spec del /q UssurochkiRF.spec
 
-python -m PyInstaller --clean --noconsole --onefile --name UssurochkiRF main.py
+REM Optional icon support
+set "ICON_ARG="
+if exist ".\assets\app.ico" (
+  set "ICON_ARG=--icon .\assets\app.ico"
+  echo Using icon: .\assets\app.ico
+) else (
+  echo No icon found at .\assets\app.ico - building without custom icon.
+)
+
+REM Optionally include assets (logo) into bundle for future use
+set "DATA_ARG="
+if exist ".\assets\logo.png" (
+  set "DATA_ARG=--add-data .\assets\logo.png;assets"
+)
+
+python -m PyInstaller --clean --noconsole --onefile --name UssurochkiRF %ICON_ARG% %DATA_ARG% main.py
 set "ERR=%ERRORLEVEL%"
 
 echo.
