@@ -2,7 +2,7 @@ import atexit
 import tkinter as tk
 
 from app.views.main import MainWindow
-
+from app.utils import enable_ru_shortcuts
 
 def main():
     # High-DPI scaling for readability (Windows)
@@ -13,6 +13,12 @@ def main():
         pass
 
     root = tk.Tk()
+
+    # Enable RU-layout shortcuts (Copy/Paste/Cut/Select All)
+    try:
+        enable_ru_shortcuts(root)
+    except Exception:
+        pass
 
     # Tk scaling improves text/UI size on HiDPI
     try:
@@ -33,7 +39,6 @@ def main():
 
     MainWindow(root)
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()

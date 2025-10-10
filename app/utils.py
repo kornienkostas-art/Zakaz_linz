@@ -1,7 +1,6 @@
 import re
 import tkinter as tk
 
-
 def set_initial_geometry(win: tk.Tk | tk.Toplevel, min_w: int, min_h: int, center_to: tk.Tk | None = None):
     """Adaptive window sizing: ensure minimum size and center on screen or relative to parent."""
     win.update_idletasks()
@@ -25,7 +24,6 @@ def set_initial_geometry(win: tk.Tk | tk.Toplevel, min_w: int, min_h: int, cente
         y = (sh // 2) - (th // 2)
     win.geometry(f"+{x}+{y}")
 
-
 def center_on_screen(win: tk.Toplevel | tk.Tk):
     """Center an existing window on the screen without changing its size."""
     try:
@@ -45,7 +43,6 @@ def center_on_screen(win: tk.Toplevel | tk.Tk):
         win.geometry(f"+{x}+{y}")
     except Exception:
         pass
-
 
 def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 120, steps: int = 8):
     """Simple fade-out, swap view, fade-in on the root window."""
@@ -69,7 +66,6 @@ def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 120, steps: i
     except tk.TclError:
         # If alpha not supported, just swap
         swap_callback()
-
 
 def format_phone_mask(raw: str) -> str:
     """Format phone to '+7-XXX-XXX-XX-XX' or '8-XXX-XXX-XX-XX' for display, accepting various inputs."""
@@ -101,5 +97,60 @@ def format_phone_mask(raw: str) -> str:
         return (raw or "").strip()
 
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
+
+def enable_ru_shortcuts(root: tk.Tk):
+    """
+    Enable common Ctrl-based shortcuts to work under Russian keyboard layout:
+    - Copy: Ctrl+C and Ctrl+С (Cyrillic es)
+    - Paste: Ctrl+V and Ctrl+М (Cyrillic em)
+    - Cut: Ctrl+X and Ctrl+Ч (Cyrillic che)
+    - Select All: Ctrl+A and Ctrl+Ф (Cyrillic ef)
+
+    Applies to common editable widgets via class bindings (Entry, Text).
+    """
+    try:
+        # Map of keysym strings to virtual events
+        bindings = {
+            # Latin
+            "<Control-c>": "<<Copy>>",
+            "<Control-v>": "<<Paste>>",
+            "<Control-x>": "<<Cut>>",
+            "<Control-a>": "<<SelectAll>>",
+            # Cyrillic (lowercase symbols on RU layout)
+            "<Control-с>": "<<Copy>>",   # U+0441 small es
+            "<Control-м>": "<<Paste>>",  # U+043C small em
+            "<Control-ч>": "<<Cut>>",    # U+0447 small che
+            "<Control-ф>": "<<SelectAll>>",  # U+0444 small ef
+        }
+
+        def bind_class_events(classname: str):
+            for seq, vev in bindings.items():
+                try:
+                    root.bind_class(classname, seq, lambda e, v=vev: (e.widget.event_generate(v)))
+                except Exception:
+                    pass
+
+        for cls in ("Entry", "Text"):
+            bind_class_events(cls)
+
+        # Also handle uppercase keysyms just in case
+        bindings_up = {
+            "<Control-С>": "<<Copy>>",   # U+0421 capital ES
+            "<Control-М>": "<<Paste>>",  # U+041C capital EM
+            "<Control-Ч>": "<<Cut>>",    # U+0427 capital CHE
+            "<Control-Ф>": "<<SelectAll>>",  # U+0424 capital EF
+        }
+        def bind_class_events_up(classname: str):
+            for seq, vev in bindings_up.items():
+                try:
+                    root.bind_class(classname, seq, lambda e, v=vev: (e.widget.event_generate(v)))
+                except Exception:
+                    pass
+
+        for cls in ("Entry", "Text"):
+            bind_class_events_up(cls)
+    except Exception:
+        # Non-fatal: UI will still work with Latin layout defaults
+        pass
 
 
