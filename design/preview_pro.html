@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>УссурОЧки.рф — Современный Look&amp;Feel (Pro)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0b0f1a; --grad1:#0a0f2c; --grad2:#111b3a; --panel:rgba(13,19,35,.72);
+      --text:#e6e7eb; --muted:#96a0b8; --border:rgba(255,255,255,.08);
+      --primary:#7c5cff; --primary-2:#5a45ff; --accent:#22d3ee; --accent-2:#06b6d4;
+      --success:#22c55e; --danger:#f43f5e; --amber:#f59e0b; --focus:rgba(124,92,255,.35);
+      --ring: 0 0 0 2px var(--focus), 0 20px 60px rgba(0,0,0,.35);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,.30);
+      --shadow-md: 0 12px 34px rgba(0,0,0,.22);
+      --glass: blur(10px) saturate(120%);
+    }
+    .light{
+      --bg:#eef2ff; --grad1:#f7f9ff; --grad2:#eef2ff; --panel:rgba(255,255,255,.86);
+      --text:#0b1020; --muted:#5b6b86; --border:rgba(7,12,22,.08);
+      --primary:#4f46e5; --primary-2:#4338ca; --accent:#0891b2; --accent-2:#0ea5e9;
+      --success:#16a34a; --danger:#dc2626; --amber:#d97706; --focus:rgba(79,70,229,.25);
+      --ring: 0 0 0 2px var(--focus), 0 20px 60px rgba(15,23,42,.15);
+      --shadow-lg: 0 24px 60px rgba(15,23,42,.18);
+      --shadow-md: 0 12px 32px rgba(15,23,42,.12);
+      --glass: blur(8px) saturate(115%);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--text);
+      background:
+        radial-gradient(900px 600px at 100% 0%, rgba(34,211,238,.20), transparent 60%),
+        radial-gradient(1100px 700px at -10% 110%, rgba(124,92,255,.25), transparent 65%),
+        linear-gradient(160deg, var(--grad1), var(--grad2));
+      font: 14px/1.5 "Inter", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      display:flex; overflow:hidden;
+    }
+
+    .grid{
+      display:grid; grid-template-columns: 280px 1fr; gap: 18px; width:100%;
+      padding: 18px; backdrop-filter: var(--glass);
+    }
+
+    /* Sidebar */
+    .side{
+      position:relative; border:1px solid var(--border); border-radius:18px;
+      background: linear-gradient(180deg, rgba(124,92,255,.12), rgba(34,211,238,.08)),
+                  var(--panel);
+      box-shadow: var(--shadow-lg); padding: 16px; display:flex; flex-direction:column; gap:12px;
+      overflow:hidden;
+    }
+    .halo{ position:absolute; inset:-40% -30% auto auto; width:400px; height:400px;
+      background: radial-gradient(closest-side, rgba(124,92,255,.24), transparent 70%); filter:blur(24px); opacity:.7; pointer-events:none;}
+    .brand{display:flex; align-items:center; gap:12px; z-index:1}
+    .logo{width:44px; height:44px; border-radius:14px; background:
+      conic-gradient(from 240deg, #7c5cff, #22d3ee, #7c5cff); box-shadow: 0 10px 28px rgba(124,92,255,.35); display:grid; place-items:center; color:white; font-weight:800}
+    .title{font-weight:900; letter-spacing:.3px}
+    .muted{color:var(--muted); font-size:12px}
+
+    .nav{display:flex; flex-direction:column; gap:8px; margin-top:8px; z-index:1}
+    .btn{
+      display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px;
+      border:1px solid var(--border); background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.02)), var(--panel);
+      cursor:pointer; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+      user-select:none;
+    }
+    .btn:hover{transform: translateY(-1px); border-color: color-mix(in oklab, var(--border) 55%, var(--text) 45%);
+      box-shadow: var(--shadow-md)}
+    .btn.active{outline: var(--ring)}
+    .btn.primary{ background:
+       linear-gradient(180deg, color-mix(in oklab, var(--primary) 26%, transparent), transparent), var(--panel);
+       border-color: color-mix(in oklab, var(--primary) 55%, var(--border) 45%)}
+
+    .spacer{flex:1}
+    .toggle{
+      display:flex; gap:10px; align-items:center; z-index:1;
+    }
+    .pill{padding:8px 12px; border-radius:999px; border:1px solid var(--border); cursor:pointer}
+    .pill.on{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, transparent), transparent);
+      border-color: color-mix(in oklab, var(--accent) 50%, var(--border) 50%)}
+
+    /* Main area */
+    .header{
+      border:1px solid var(--border); border-radius:18px; background: var(--panel);
+      box-shadow: var(--shadow-lg); padding: 14px 18px; display:flex; align-items:center; justify-content:space-between;
+    }
+    .h1{font-size:22px; font-weight:900}
+    .sub{color:var(--muted); margin-top:4px}
+    .row{display:flex; gap:10px; align-items:center}
+    .act{padding:10px 14px; border-radius:12px; border:1px solid var(--border); background: var(--panel); cursor:pointer}
+    .act.primary{background: linear-gradient(180deg, color-mix(in oklab, var(--primary) 22%, transparent), transparent); border-color: color-mix(in oklab, var(--primary) 60%, var(--border) 40%)}
+
+    .panel{
+      min-height:0; border:1px solid var(--border); border-radius:18px; background: var(--panel);
+      box-shadow: var(--shadow-md); padding: 16px; overflow:auto;
+    }
+
+    /* Toolbar */
+    .toolbar{display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap}
+    .tool{padding:10px 12px; border-radius:12px; border:1px solid var(--border); background: var(--panel); cursor:pointer}
+    .tool.danger{background: linear-gradient(180deg, color-mix(in oklab, var(--danger) 16%, transparent), transparent); border-color: color-mix(in oklab, var(--danger) 50%, var(--border) 50%)}
+    .tool.warn{background: linear-gradient(180deg, color-mix(in oklab, var(--amber) 16%, transparent), transparent); border-color: color-mix(in oklab, var(--amber) 50%, var(--border) 50%)}
+
+    /* Table */
+    .table{
+      width:100%; border:1px solid var(--border); border-radius:14px; overflow:auto; box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+    }
+    table{width:100%; border-collapse:separate; border-spacing:0; min-width:900px}
+    thead th{
+      position:sticky; top:0; z-index:1; background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.03)), var(--panel);
+      padding:12px 14px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); font-weight:800; backdrop-filter: blur(6px);
+    }
+    tbody td{padding:12px 14px; white-space:nowrap; border-bottom:1px solid var(--border)}
+    tbody tr{transition: background .12s ease}
+    tbody tr:hover{background: linear-gradient(90deg, rgba(124,92,255,.06), rgba(34,211,238,.06))}
+    .badge{display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-weight:800; font-size:12px; letter-spacing:.2px}
+    .b-red{background: color-mix(in oklab, var(--danger) 18%, transparent); color: color-mix(in oklab, var(--danger) 85%, white 15%); border:1px solid color-mix(in oklab, var(--danger) 50%, transparent)}
+    .b-green{background: color-mix(in oklab, var(--success) 18%, transparent); color: color-mix(in oklab, var(--success) 85%, white 15%); border:1px solid color-mix(in oklab, var(--success) 50%, transparent)}
+    .b-amber{background: color-mix(in oklab, var(--amber) 16%, transparent); color: color-mix(in oklab, var(--amber) 90%, white 10%); border:1px solid color-mix(in oklab, var(--amber) 55%, transparent)}
+    .b-blue{background: color-mix(in oklab, var(--primary) 18%, transparent); color: color-mix(in oklab, var(--primary) 90%, white 10%); border:1px solid color-mix(in oklab, var(--primary) 55%, transparent)}
+
+    .note{color:var(--muted); margin-top:10px}
+    .hidden{display:none !important}
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <aside class="side">
+      <div class="halo"></div>
+      <div class="brand">
+        <div class="logo">УО</div>
+        <div>
+          <div class="title">УссурОЧки.рф</div>
+          <div class="muted">Современный интерфейс</div>
+        </div>
+      </div>
+      <div class="nav">
+        <div class="btn active" onclick="view('main', this)">Главное меню</div>
+        <div class="btn" onclick="view('mkl', this)">Заказ МКЛ</div>
+        <div class="btn" onclick="view('meridian', this)">Заказ Меридиан</div>
+        <div class="btn" onclick="view('settings', this)">Настройки</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="toggle">
+        <div class="pill on" onclick="theme('dark', this)">Тёмная</div>
+        <div class="pill" onclick="theme('light', this)">Светлая</div>
+      </div>
+    </aside>
+
+    <main style="display:grid; grid-template-rows: auto 1fr; gap:18px; min-height:0;">
+      <section class="header">
+        <div>
+          <div class="h1" id="ttl">Главное меню</div>
+          <div class="sub" id="sub">Быстрые действия и переходы</div>
+        </div>
+        <div class="row">
+          <div class="act" onclick="view('main')">В меню</div>
+          <div class="act primary" onclick="view('mkl')">Открыть МКЛ</div>
+        </div>
+      </section>
+
+      <section class="panel" id="v-main">
+        <div class="toolbar">
+          <div class="tool" onclick="view('mkl')">Заказ МКЛ</div>
+          <div class="tool" onclick="view('meridian')">Заказ Меридиан</div>
+          <div class="tool" onclick="view('settings')">Настройки</div>
+        </div>
+        <p class="note">Вариант PRO: стеклянные панели, неоновые акценты, “липкие” заголовки таблиц, мягкие подсветки на hover.</p>
+      </section>
+
+      <section class="panel hidden" id="v-mkl">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
+          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
+          <div class="tool" onclick="alert('Клиенты')">Клиенты</div>
+          <div class="tool" onclick="alert('Товары')">Товары</div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
+        </div>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>ФИО</th><th>Телефон</th><th>Товар</th><th>Sph</th><th>Cyl</th><th>Ax</th><th>BC</th>
+                <th>Кол-во</th><th>Статус</th><th>Дата</th><th>Комментарий</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Иванов Иван</td><td>8-999-123-45-67</td><td>Acuvue Oasys</td><td>-1.25</td><td>-0.75</td><td>90</td><td>8.5</td><td>2</td>
+                <td><span class="badge b-amber">Не заказан</span></td><td>2025-02-11 16:40</td><td><span class="badge b-red">ЕСТЬ</span></td>
+              </tr>
+              <tr>
+                <td>Петров Пётр</td><td>+7-921-222-33-44</td><td>Air Optix</td><td>-2.00</td><td></td><td></td><td>8.6</td><td>1</td>
+                <td><span class="badge b-blue">Прозвонен</span></td><td>2025-02-10 12:10</td><td><span class="badge b-green">НЕТ</span></td>
+              </tr>
+              <tr>
+                <td>Сидорова Анна</td><td>8-905-555-55-55</td><td>Biofinity</td><td>-0.75</td><td>-0.25</td><td>80</td><td>8.7</td><td>4</td>
+                <td><span class="badge b-green">Вручен</span></td><td>2025-02-08 10:05</td><td><span class="badge b-red">ЕСТЬ</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">МКЛ: индикатор комментария “ЕСТЬ/НЕТ”, статусы бэйджами, липкий thead, плавные подстветки.</p>
+      </section>
+
+      <section class="panel hidden" id="v-meridian">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
+          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
+        </div>
+        <div class="table">
+          <table>
+            <thead><tr><th>Название</th><th>Позиций</th><th>Статус</th><th>Дата</th></tr></thead>
+            <tbody>
+            <tr><td>Заказ Меридиан #12</td><td>5</td><td><span class="badge b-amber">Не заказан</span></td><td>2025-02-09 09:10</td></tr>
+            <tr><td>Заказ Меридиан #11</td><td>2</td><td><span class="badge b-green">Заказан</span></td><td>2025-02-05 17:22</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Меридиан: тот же визуальный язык, единообразие интерфейса.</p>
+      </section>
+
+      <section class="panel hidden" id="v-settings">
+        <div class="toolbar">
+          <div class="tool">Папка экспорта</div>
+          <div class="tool">Логотип трея</div>
+          <div class="tool">Автозапуск</div>
+        </div>
+        <div class="table">
+          <table>
+            <thead><tr><th>Опция</th><th>Значение</th><th>Комментарий</th></tr></thead>
+            <tbody>
+            <tr><td>Тема</td><td><span class="badge b-blue">Тёмная</span></td><td>Переключите в сайдбаре</td></tr>
+            <tr><td>Трей</td><td><span class="badge b-green">Вкл</span></td><td>Сворачивать при закрытии</td></tr>
+            <tr><td>Уведомления</td><td><span class="badge b-amber">Пн–Пт 09:00</span></td><td>Настраивается</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Настройки: аккуратные таблицы; в живом UI здесь будут тумблеры, инпуты, селекты.</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const meta = {
+      main: ["Главное меню","Быстрые действия и переходы"],
+      mkl: ["Заказ МКЛ","Таблица заказов в современном стиле"],
+      meridian: ["Заказ Меридиан","Список заказов и статусы"],
+      settings: ["Настройки","Параметры приложения"]
+    };
+    function view(id, el){
+      for(const k of Object.keys(meta)){
+        document.getElementById("v-"+k).classList.toggle("hidden", k!==id);
+      }
+      document.getElementById("ttl").textContent = meta[id][0];
+      document.getElementById("sub").textContent = meta[id][1];
+      document.querySelectorAll(".nav .btn").forEach(b=>b.classList.remove("active"));
+      if(el) el.classList.add("active");
+    }
+    function theme(name, el){
+      document.body.classList.toggle("light", name==="light");
+      document.querySelectorAll(".toggle .pill").forEach(p=>p.classList.remove("on"));
+      if(el) el.classList.add("on");
+    }
+    // init
+    view('main'); theme('dark');
+  </script>
+</body>
+</html>
