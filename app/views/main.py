@@ -213,7 +213,7 @@ class MainWindow(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            from app.views.settings import SettingsView
+            # SettingsView is defined in this module; import not required
             SettingsView(self.master, on_back=lambda: MainWindow(self.master))
         fade_transition(self.master, swap)
 

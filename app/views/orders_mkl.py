@@ -304,3 +304,32 @@ class MKLOrdersView(ttk.Frame):
                 pass
         except Exception as e:
             messagebox.showerror("Экспорт", f"Ошибка записи файла:\n{e}")
+
+    def _refresh_orders_view(self):
+        """Reload orders from DB and render the table."""
+        self.orders = []
+        if self.db:
+            try:
+                self.orders = self.db.list_mkl_orders()
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось загрузить заказы МКЛ:\n{e}")
+                self.orders = []
+        # Clear and render
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        for idx, item in enumerate(self.orders):
+            masked_phone = format_phone_mask(item.get("phone", ""))
+            values = (
+                item.get("fio", ""),
+                masked_phone,
+                item.get("product", ""),
+                item.get("sph", ""),
+                item.get("cyl", ""),
+                item.get("ax", ""),
+                item.get("bc", ""),
+                item.get("qty", ""),
+                item.get("status", ""),
+                item.get("date", ""),
+            )
+            tag = f"status_{item.get('status','Не заказан')}"
+            self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
