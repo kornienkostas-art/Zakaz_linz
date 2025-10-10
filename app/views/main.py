@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from app.db import AppDB
-from app.utils import set_initial_geometry, fade_transition
+from app.utils import set_initial_geometry
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set
 
 
@@ -543,35 +543,27 @@ class MainWindow(ttk.Frame):
 
     # Actions
     def _on_order_mkl(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            # Lazy import to avoid circulars
-            from app.views.orders_mkl import MKLOrdersView
-            MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
-        fade_transition(self.master, swap)
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        from app.views.orders_mkl import MKLOrdersView
+        MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
 
     def _on_order_meridian(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.orders_meridian import MeridianOrdersView
-            MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
-        fade_transition(self.master, swap)
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        from app.views.orders_meridian import MeridianOrdersView
+        MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))
 
     def _on_settings(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            # SettingsView is defined in this module; import not required
-            SettingsView(self.master, on_back=lambda: MainWindow(self.master))
-        fade_transition(self.master, swap)
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        SettingsView(self.master, on_back=lambda: MainWindow(self.master))
 
     
 

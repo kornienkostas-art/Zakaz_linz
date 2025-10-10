@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition, format_phone_mask, center_on_screen
+from app.utils import format_phone_mask, center_on_screen
 from app.db import AppDB  # type hint only
 
 
@@ -126,60 +126,44 @@ class MKLOrdersView(ttk.Frame):
             self.menu.grab_release()
 
     def _open_clients(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.clients import ClientsView
-            from app.views.main import MainWindow
-            ClientsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
-        fade_transition(self.master, swap)
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        from app.views.clients import ClientsView
+        from app.views.main import MainWindow
+        ClientsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
 
     def _open_products(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.products import ProductsView
-            from app.views.main import MainWindow
-            ProductsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
-        fade_transition(self.master, swap)
-
-    def _selected_index(self):
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showinfo("Выбор", "Пожалуйста, выберите заказ.")
-            return None
         try:
-            return int(sel[0])
-        except ValueError:
-            return None
+            self.destroy()
+        except Exception:
+            pass
+        from app.views.products import ProductsView
+        from app.views.main import MainWindow
+        ProductsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
 
     def _new_order(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.forms_mkl import MKLOrderEditorView
-            from app.views.main import MainWindow
-            def on_save(order: dict):
-                # Save to DB only; view will be recreated by on_back of editor
-                if self.db:
-                    try:
-                        self.db.add_mkl_order(order)
-                    except Exception as e:
-                        messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
-            MKLOrderEditorView(
-                self.master,
-                db=self.db,
-                on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_save=on_save,
-                initial=None
-            )
-        fade_transition(self.master, swap)
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        from app.views.forms_mkl import MKLOrderEditorView
+        from app.views.main import MainWindow
+        def on_save(order: dict):
+            # Save to DB only; view will be recreated by on_back of editor
+            if self.db:
+                try:
+                    self.db.add_mkl_order(order)
+                except Exception as e:
+                    messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
+        MKLOrderEditorView(
+            self.master,
+            db=self.db,
+            on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+            on_save=on_save,
+            initial=None
+        )
 
     def _edit_order(self):
         idx = self._selected_index()
