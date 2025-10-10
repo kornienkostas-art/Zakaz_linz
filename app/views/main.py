@@ -514,16 +514,14 @@ class SettingsView(ttk.Frame):
                 messagebox.showinfo("Настройки", "Указанный путь не существует.")
                 return
 
-            # Validate time
-            tval = (self.notify_time_var.get() or "09:00").strip()
+            # Validate time from spinboxes
             try:
-                hh, mm = tval.split(":")
-                hh_i = int(hh); mm_i = int(mm)
-                if not (0 <= hh_i <= 23 and 0 <= mm_i <= 59):
-                    raise ValueError
+                hh_i = int(self.notify_hour_var.get())
+                mm_i = int(self.notify_min_var.get())
             except Exception:
-                messagebox.showinfo("Настройки", "Время должно быть в формате HH:MM (00–23:00–59).")
-                return
+                hh_i, mm_i = 9, 0
+            hh_i = max(0, min(23, hh_i))
+            mm_i = max(0, min(59, mm_i))
 
             # Collect selected days (multiple)
             selected_days = []
