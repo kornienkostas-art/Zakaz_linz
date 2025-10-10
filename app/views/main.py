@@ -40,7 +40,7 @@ class MainWindow(ttk.Frame):
             "notify_snooze_minutes": 30,
             "notify_snooze_until": "",  # epoch seconds as string, empty if none
             "notify_last_date": "",     # YYYY-MM-DD when notified last
-        }
+            "notify_last_ts        }
 
         def _settings_path():
             try:
@@ -205,16 +205,13 @@ class MainWindow(ttk.Frame):
 
         def should_notify(now: dt) -> bool:
             s = self.master.app_settings
-            # Snooze check (use local time)
+            # Snooze check (local time)
             snooze_until = s.get("notify_snooze_until") or ""
             if snooze_until:
                 try:
                     ts = float(snooze_until)
                     if time.time() < ts:
                         return False
-                    else:
-                        # Snooze expired: allow notification even if already notified today
-                        pass
                 except Exception:
                     s["notify_snooze_until"] = ""
             # Day/time check (local time via dt.now())
@@ -232,12 +229,18 @@ class MainWindow(ttk.Frame):
             hh, mm = parse_time_str(s.get("notify_time", "09:00"))
             if now.weekday() not in days:
                 return False
-            if now.hour < hh or (now.hour == hh and now.minute < mm):
+            # scheduled timestamp for today
+            import time as _t
+            import datetime as _dt
+            scheduled = _dt.datetime(now.year, now.month, now.day, hh, mm)
+            scheduled_ts = scheduled.timestamp()
+            now_ts = _t.time()
+            # Only fire when current time is past scheduled (allow grace window 5 minutes)
+            if now_ts + 1 < scheduled_ts:
                 return False
-            # Avoid multiple notifications same day unless snoozed expired just now
-            last_date = (s.get("notify_last_date") or "").strip()
-            today = now.strftime("%Y-%m-%d")
-            if last_date == today and not snooze_until:
+            # Anti-spam: do not fire more than once per 10 minutes
+            last_ts = float(s.get("notify_last_ts") or 0)
+            if last_ts and (now_ts - last_ts) < 600:  # 10 minutes
                 return False
             return True
 
@@ -316,9 +319,9 @@ class MainWindow(ttk.Frame):
 
             ttk.Button(btns, text="Закрыть", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
 
-            # Mark notified for today
-            self.master.app_settings["notify_last_date"] = dt.now().strftime("%Y-%m-%d")
-            # Clear snooze flag after showing (to enable next-day schedule handling cleanly)
+            # Mark notified timestamp (anti-spam) and clear snooze flag
+            import time as _t
+            self.master.app_settings["notify_last_ts"] = _t.time()
             self.master.app_settings["notify_snooze_until"] = ""
             try:
                 sp = os.path.join(os.getcwd(), "settings.json")
