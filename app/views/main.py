@@ -463,9 +463,24 @@ class SettingsView(ttk.Frame):
         hour_spin = ttk.Spinbox(time_frame, from_=0, to=23, increment=1, width=5, textvariable=self.notify_hour_var)
         sep_label = ttk.Label(time_frame, text=":", style="Subtitle.TLabel")
         min_spin = ttk.Spinbox(time_frame, from_=0, to=59, increment=1, width=5, textvariable=self.notify_min_var)
+        preview = ttk.Label(time_frame, text=f"(Текущее: {init_h:02d}:{init_m:02d})", style="Subtitle.TLabel")
         hour_spin.pack(side="left")
         sep_label.pack(side="left", padx=(4, 4))
         min_spin.pack(side="left")
+        preview.pack(side="left", padx=(12, 0))
+
+        def _update_preview():
+            try:
+                h = int(self.notify_hour_var.get())
+            except Exception:
+                h = init_h
+            try:
+                m = int(self.notify_min_var.get())
+            except Exception:
+                m = init_m
+            h = max(0, min(23, h))
+            m = max(0, min(59, m))
+            preview.configure(text=f"(Текущее: {h:02d}:{m:02d})")
 
         def _auto_parse(text: str):
             digits = "".join(ch for ch in (text or "") if ch.isdigit())
@@ -483,11 +498,12 @@ class SettingsView(ttk.Frame):
                     self.notify_min_var.set(m)
                 except Exception:
                     pass
+            _update_preview()
 
         # Auto-correct when user types 1053 etc. in either spinbox
         for w in (hour_spin, min_spin):
-            w.bind("<FocusOut>", lambda e, wid=w: _auto_parse(wid.get()))
-            w.bind("<KeyRelease>", lambda e, wid=w: _auto_parse(wid.get()))
+            w.bind("<FocusOut>", lambda e, wid=w: (_auto_parse(wid.get())))
+            w.bind("<KeyRelease>", lambda e, wid=w: (_auto_parse(wid.get())))
 
         self.notify_snooze_var = tk.IntVar(value=int(self.app_settings.get("notify_snooze_minutes", 30) or 30))
         ttk.Label(card, text="Отложить на (минут):", style="Subtitle.TLabel").grid(row=13, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
