@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>УссурОЧки.рф — High‑Contrast Modern (Light) Preview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      /* High-Contrast Modern, Light */
+      --bg:#F8FAFC; --panel:#FFFFFF; --muted:#64748B; --text:#0B1020;
+      --primary:#0EA5E9; /* cyan-500 */
+      --primary-2:#0284C7; /* cyan-600 */
+      --accent:#9333EA; /* violet-600 for secondary accents */
+      --success:#16A34A; --warning:#F59E0B; --danger:#DC2626;
+      --border:#E5E7EB; --head:#F1F5F9; --hover:#ECFEFF; /* very light cyan */
+      --shadow: 0 14px 36px rgba(2,6,23,.08);
+      --shadow-md: 0 10px 26px rgba(2,6,23,.06);
+      --ring: 0 0 0 3px rgba(14,165,233,.20);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--text);
+      background:
+        radial-gradient(1000px 700px at 100% -10%, rgba(14,165,233,.12), transparent 60%),
+        radial-gradient(800px 600px at -10% 110%, rgba(147,51,234,.08), transparent 65%),
+        var(--bg);
+      font: 14px/1.55 "Inter", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      display:flex; overflow:hidden;
+    }
+    .grid{display:grid; grid-template-columns: 280px 1fr; gap:18px; width:100%; padding:18px}
+    /* Sidebar */
+    .side{
+      background: var(--panel); border:1px solid var(--border); border-radius:18px; padding:16px;
+      display:flex; flex-direction:column; gap:12px; box-shadow: var(--shadow);
+    }
+    .brand{display:flex; align-items:center; gap:12px}
+    .logo{
+      width:46px; height:46px; border-radius:12px; display:grid; place-items:center; overflow:hidden;
+      background:#fff; border:1px solid var(--border);
+    }
+    .logo img{max-width:100%; max-height:100%; object-fit:contain}
+    .title{font-weight:900; letter-spacing:.2px}
+    .muted{color:var(--muted); font-size:12px}
+    .nav{display:flex; flex-direction:column; gap:8px; margin-top:8px}
+    .btn{
+      display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px;
+      border:1px solid var(--border); background: var(--panel); cursor:pointer; user-select:none;
+      transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+    }
+    .btn svg{width:18px; height:18px; color: var(--muted)}
+    .btn:hover{transform: translateY(-1px); border-color:#d9dde3; box-shadow: var(--shadow-md)}
+    .btn.active{outline: var(--ring)}
+    .btn.primary{ background: linear-gradient(180deg, rgba(14,165,233,.10), transparent), var(--panel); border-color:#bae6fd}
+    .spacer{flex:1}
+    .chip{font-size:12px; padding:6px 10px; border:1px dashed var(--border); border-radius:999px; color:var(--muted); align-self:flex-start}
+
+    /* Header */
+    .content{display:grid; grid-template-rows:auto 1fr; gap:18px; min-height:0}
+    .header{
+      background: var(--panel); border:1px solid var(--border); border-radius:18px; padding:16px 20px;
+      display:flex; align-items:center; justify-content:space-between; box-shadow: var(--shadow);
+    }
+    .h1{font-size:24px; font-weight:900; letter-spacing:.2px}
+    .sub{color:var(--muted); margin-top:4px}
+    .actions{display:flex; gap:10px}
+    .act{display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); background: var(--panel); cursor:pointer}
+    .act.primary{background: linear-gradient(180deg, rgba(14,165,233,.12), transparent); border-color:#bae6fd}
+    .act svg{width:18px; height:18px; color: var(--primary-2)}
+
+    /* Panel and toolbars */
+    .panel{background: var(--panel); border:1px solid var(--border); border-radius:18px; padding:16px 16px 10px; overflow:auto; box-shadow: var(--shadow-md)}
+    .toolbar{display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap}
+    .tool{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--panel); cursor:pointer}
+    .tool svg{width:18px; height:18px}
+    .tool.warn{background: linear-gradient(180deg, rgba(245,158,11,.10), transparent); border-color:#fde7c2}
+    .tool.danger{background: linear-gradient(180deg, rgba(220,38,38,.10), transparent); border-color:#f6c9c9}
+
+    /* Table (airier) */
+    .table{width:100%; border:1px solid var(--border); border-radius:14px; overflow:auto; background: var(--panel)}
+    table{width:100%; border-collapse:separate; border-spacing:0; min-width:980px}
+    thead th{background: var(--head); padding:14px 16px; text-align:left; color:#334155; font-weight:800; border-bottom:1px solid var(--border); position:sticky; top:0}
+    tbody td{padding:14px 16px; border-bottom:1px solid var(--border); white-space:nowrap}
+    tbody tr:hover{background: var(--hover)}
+    /* Badges */
+    .badge{display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; font-weight:800; font-size:12px; border:1px solid transparent; letter-spacing:.2px}
+    .b-amber{color:#92400E; background:#FEF3C7; border-color:#FDE68A}
+    .b-blue{color:#075985; background:#E0F2FE; border-color:#BAE6FD}
+    .b-green{color:#065F46; background:#D1FAE5; border-color:#A7F3D0}
+    .b-red{color:#7F1D1D; background:#FEE2E2; border-color:#FECACA}
+
+    .note{color:var(--muted); margin:6px 2px 0}
+    .hidden{display:none !important}
+
+    /* Icon helpers */
+    .i{display:inline-flex; align-items:center; justify-content:center}
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <aside class="side">
+      <div class="brand">
+        <div class="logo">
+          <img id="brandLogoModern" src="../assets/logo.png" alt="Логотип">
+        </div>
+        <div>
+          <div class="title">УссурОЧки.рф</div>
+          <div class="muted">High‑Contrast Modern • Light</div>
+        </div>
+      </div>
+      <div class="nav">
+        <div class="btn active" onclick="view('main', this)"><span class="i">
+          <!-- home -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12l9-9 9 9" /><path d="M9 21V9h6v12" />
+          </svg></span>Главное меню</div>
+        <div class="btn" onclick="view('mkl', this)"><span class="i">
+          <!-- table -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/>
+          </svg></span>Заказ МКЛ</div>
+        <div class="btn" onclick="view('meridian', this)"><span class="i">
+          <!-- layers -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 14l9 5 9-5"/>
+          </svg></span>Заказ Меридиан</div>
+        <div class="btn" onclick="view('settings', this)"><span class="i">
+          <!-- settings -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 3.2l.06.06a1.65 1.65 0 0 0 1.82.33h.01A1.65 1.65 0 0 0 10.5 2.09V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01c.6.25 1.28.14 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.47.54-.58 1.23-.33 1.82v.01c.25.6.85 1 1.51 1H22a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg></span>Настройки</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="chip">Визуальный предпросмотр</div>
+    </aside>
+
+    <main class="content">
+      <section class="header">
+        <div>
+          <div class="h1" id="ttl">Главное меню</div>
+          <div class="sub" id="sub">Воздушная сетка, контраст, акцент #0EA5E9</div>
+        </div>
+        <div class="actions">
+          <div class="act" onclick="view('main')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            В меню
+          </div>
+          <div class="act primary" onclick="view('mkl')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Новый заказ
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="v-main">
+        <div class="toolbar">
+          <div class="tool" onclick="view('mkl')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>
+            Заказ МКЛ
+          </div>
+          <div class="tool" onclick="view('meridian')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 14l9 5 9-5"/></svg>
+            Заказ Меридиан
+          </div>
+          <div class="tool" onclick="view('settings')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"/></svg>
+            Настройки
+          </div>
+        </div>
+        <p class="note">Это предпросмотр стиля. Иконки встроены (SVG), элементы “воздушные” — увеличены отступы и высоты строк.</p>
+      </section>
+
+      <section class="panel hidden" id="v-mkl">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Новый заказ
+          </div>
+          <div class="tool" onclick="alert('Редактировать')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-4a2 2 0 0 1 2-2h4"/><path d="M18.7 2.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4L11 16l-4 1 1-4 12.7-12.7z"/></svg>
+            Редактировать
+          </div>
+          <div class="tool" onclick="alert('Клиенты')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 14a4 4 0 1 0-8 0"/><circle cx="12" cy="8" r="4"/><path d="M6 18v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2"/></svg>
+            Клиенты
+          </div>
+          <div class="tool" onclick="alert('Товары')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Товары
+          </div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M14 2v6h6"/><path d="M16 13v6"/><path d="M13 16h6"/></svg>
+            Экспорт TXT
+          </div>
+          <div class="tool danger" onclick="alert('Удалить')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Удалить
+          </div>
+        </div>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>ФИО</th><th>Телефон</th><th>Товар</th><th>Sph</th><th>Cyl</th><th>Ax</th><th>BC</th>
+                <th>Кол-во</th><th>Статус</th><th>Дата</th><th>Комментарий</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Иванов Иван</td><td>8-999-123-45-67</td><td>Acuvue Oasys</td><td>-1.25</td><td>-0.75</td><td>90</td><td>8.5</td><td>2</td>
+                <td><span class="badge b-amber">Не заказан</span></td><td>2025-02-11 16:40</td><td><span class="badge b-red">ЕСТЬ</span></td>
+              </tr>
+              <tr>
+                <td>Петров Пётр</td><td>+7-921-222-33-44</td><td>Air Optix</td><td>-2.00</td><td></td><td></td><td>8.6</td><td>1</td>
+                <td><span class="badge b-blue">Прозвонен</span></td><td>2025-02-10 12:10</td><td><span class="badge b-green">НЕТ</span></td>
+              </tr>
+              <tr>
+                <td>Сидорова Анна</td><td>8-905-555-55-55</td><td>Biofinity</td><td>-0.75</td><td>-0.25</td><td>80</td><td>8.7</td><td>4</td>
+                <td><span class="badge b-green">Вручен</span></td><td>2025-02-08 10:05</td><td><span class="badge b-red">ЕСТЬ</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Воздушные таблицы: увеличенные паддинги и контраст, бэйджи статусов и индикатор комментария.</p>
+      </section>
+
+      <section class="panel hidden" id="v-meridian">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Новый заказ
+          </div>
+          <div class="tool" onclick="alert('Редактировать')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-4a2 2 0 0 1 2-2h4"/><path d="M18.7 2.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4L11 16l-4 1 1-4 12.7-12.7z"/></svg>
+            Редактировать
+          </div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M14 2v6h6"/><path d="M16 13v6"/><path d="M13 16h6"/></svg>
+            Экспорт TXT
+          </div>
+          <div class="tool danger" onclick="alert('Удалить')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Удалить
+          </div>
+        </div>
+        <div class="table">
+          <table>
+            <thead><tr><th>Название</th><th>Позиций</th><th>Статус</th><th>Дата</th></tr></thead>
+            <tbody>
+            <tr><td>Заказ Меридиан #12</td><td>5</td><td><span class="badge b-amber">Не заказан</span></td><td>2025-02-09 09:10</td></tr>
+            <tr><td>Заказ Меридиан #11</td><td>2</td><td><span class="badge b-green">Заказан</span></td><td>2025-02-05 17:22</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Единый визуальный язык для всех разделов.</p>
+      </section>
+
+      <section class="panel hidden" id="v-settings">
+        <div class="toolbar">
+          <div class="tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            Папка экспорта
+          </div>
+          <div class="tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+            Логотип трея
+          </div>
+          <div class="tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+            Автозапуск
+          </div>
+        </div>
+        <div class="table">
+          <table>
+            <thead><tr><th>Опция</th><th>Значение</th><th>Комментарий</th></tr></thead>
+            <tbody>
+            <tr><td>Тема</td><td>Светлая</td><td>По умолчанию</td></tr>
+            <tr><td>Трей</td><td>Вкл</td><td>Сворачивать при закрытии</td></tr>
+            <tr><td>Уведомления</td><td>Пн–Пт 09:00</td><td>Настраивается</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">В живом приложении здесь будут тумблеры/поля, но стилистика сохранится.</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      const img = document.getElementById('brandLogoModern');
+      if(!img) return;
+      img.addEventListener('error', function handler(){
+        img.removeEventListener('error', handler);
+        img.src = "../assets/лого.jpeg";
+      });
+    })();
+
+    const meta = {
+      main:["Главное меню","Воздушная сетка, контраст, акцент #0EA5E9"],
+      mkl:["Заказ МКЛ","Таблица заказов в современном стиле"],
+      meridian:["Заказ Меридиан","Список заказов и статусы"],
+      settings:["Настройки","Параметры приложения"]
+    };
+    function view(id, el){
+      Object.keys(meta).forEach(k=>{
+        document.getElementById("v-"+k).classList.toggle("hidden", k!==id);
+      });
+      document.getElementById("ttl").textContent = meta[id][0];
+      document.getElementById("sub").textContent = meta[id][1];
+      document.querySelectorAll(".nav .btn").forEach(b=>b.classList.remove("active"));
+      if(el) el.classList.add("active");
+    }
+    // init
+    view('main');
+  </script>
+</body>
+</html>
