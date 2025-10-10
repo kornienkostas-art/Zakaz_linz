@@ -2,7 +2,9 @@ import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+from typing import Optional
 
+from app.db import AppDB
 from app.utils import set_initial_geometry
 from app.utils import format_phone_mask  # used for displaying client phones
 
