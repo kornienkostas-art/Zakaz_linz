@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>УссурОЧки.рф — Дизайн-превью</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f172a; --muted:#94a3b8; --text:#e5e7eb;
+      --primary:#4f46e5; --primary-2:#6366f1; --accent:#14b8a6;
+      --danger:#ef4444; --warning:#f59e0b; --success:#10b981;
+      --border:#1f2a44; --row:#0c1426; --rowAlt:#0a1222; --shadow:rgba(2,6,23,.5);
+      --tableHead:#0b1730; --focus: rgba(79,70,229,.35);
+    }
+    .light{
+      --bg:#f7fafc; --panel:#ffffff; --muted:#64748b; --text:#0f172a;
+      --primary:#3b82f6; --primary-2:#2563eb; --accent:#14b8a6;
+      --danger:#ef4444; --warning:#f59e0b; --success:#10b981;
+      --border:#e2e8f0; --row:#ffffff; --rowAlt:#f8fafc; --shadow:rgba(15,23,42,.08);
+      --tableHead:#f1f5f9; --focus: rgba(37,99,235,.25);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font: 14px/1.45 "Inter", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      color:var(--text); background: radial-gradient(1200px 800px at 80% -10%, rgba(79,70,229,.12), transparent 65%),
+      radial-gradient(900px 600px at 0% 110%, rgba(20,184,166,.12), transparent 60%), var(--bg);
+      display:flex;
+    }
+    .app{
+      display:grid; grid-template-columns: 260px 1fr; gap: 16px; width:100%;
+      padding: 20px; backdrop-filter: saturate(120%);
+    }
+    .sidebar{
+      background: linear-gradient(180deg, rgba(79,70,229,.12), rgba(20,184,166,.10)),
+      var(--panel); border:1px solid var(--border);
+      border-radius: 16px; padding:16px; box-shadow: 0 8px 24px var(--shadow);
+      display:flex; flex-direction:column; gap:12px;
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px; margin-bottom:8px;
+    }
+    .logo{
+      width:38px; height:38px; border-radius:10px; background:
+       conic-gradient(from 210deg, #4f46e5, #14b8a6, #4f46e5);
+      box-shadow: 0 6px 16px var(--shadow); position:relative;
+    }
+    .logo::after{content:"УО"; position:absolute; inset:0; display:grid; place-items:center;
+      color:#fff; font-weight:700; text-shadow: 0 1px 2px rgba(0,0,0,.25)}
+    .title{font-size:16px; font-weight:800; letter-spacing:.2px}
+    .muted{color:var(--muted); font-size:12px}
+    .nav{display:flex; flex-direction:column; gap:8px; margin-top:8px}
+    .btn{
+      display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px;
+      border:1px solid var(--border); color:var(--text); background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.02)), var(--panel);
+      cursor:pointer; transition:.18s ease; text-decoration:none; user-select:none;
+    }
+    .btn:hover{transform: translateY(-1px); border-color: color-mix(in oklab, var(--border) 70%, var(--text) 30%); box-shadow:0 6px 16px var(--shadow)}
+    .btn.primary{ background: linear-gradient(180deg, color-mix(in oklab, var(--primary) 35%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--primary) 60%, var(--border) 40%)}
+    .btn.accent{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 28%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--accent) 50%, var(--border) 50%)}
+    .spacer{flex:1}
+    .switcher{display:flex; gap:8px}
+    .chip{font-size:12px; padding:6px 10px; border:1px dashed var(--border); border-radius:999px; color:var(--muted)}
+
+    .content{
+      display:grid; grid-template-rows: auto 1fr; gap:16px;
+    }
+    .header{
+      background: linear-gradient(180deg, rgba(63,81,181,.0), rgba(63,81,181,.06)), var(--panel);
+      border:1px solid var(--border); border-radius:16px; padding:14px 18px;
+      display:flex; align-items:center; justify-content:space-between; box-shadow:0 8px 24px var(--shadow)
+    }
+    .hgroup .h1{font-size:22px; font-weight:800; letter-spacing:.2px}
+    .hgroup .sub{color:var(--muted); margin-top:4px}
+    .actions{display:flex; gap:10px}
+    .act{padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer}
+    .act.primary{background: linear-gradient(180deg, color-mix(in oklab, var(--primary) 22%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--primary) 55%, var(--border) 45%)}
+    .act.outline{background:transparent}
+
+    .panel{
+      background: var(--panel); border:1px solid var(--border); border-radius:16px; box-shadow: 0 10px 26px var(--shadow);
+      padding:14px; overflow:auto;
+    }
+
+    table{
+      width:100%; border-collapse:separate; border-spacing:0;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.02)), var(--panel);
+      border:1px solid var(--border); border-radius:14px; overflow:hidden; display:block;
+    }
+    thead{background: var(--tableHead)}
+    th,td{padding:12px 14px; text-align:left; white-space:nowrap}
+    th{font-weight:700; color:var(--muted); border-bottom:1px solid var(--border)}
+    tbody tr{background:var(--row)}
+    tbody tr:nth-child(odd){background:var(--rowAlt)}
+    tbody tr:hover{outline:2px solid var(--focus); outline-offset:-2px}
+    .badge{display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px;}
+    .b-red{background: color-mix(in oklab, var(--danger) 16%, transparent); color: color-mix(in oklab, var(--danger) 85%, white 15%); border:1px solid color-mix(in oklab, var(--danger) 45%, transparent)}
+    .b-green{background: color-mix(in oklab, var(--success) 16%, transparent); color: color-mix(in oklab, var(--success) 85%, white 15%); border:1px solid color-mix(in oklab, var(--success) 45%, transparent)}
+    .b-amber{background: color-mix(in oklab, var(--warning) 14%, transparent); color: color-mix(in oklab, var(--warning) 85%, white 15%); border:1px solid color-mix(in oklab, var(--warning) 45%, transparent)}
+    .b-blue{background: color-mix(in oklab, var(--primary) 16%, transparent); color: color-mix(in oklab, var(--primary) 85%, white 15%); border:1px solid color-mix(in oklab, var(--primary) 45%, transparent)}
+
+    .toolbar{display:flex; gap:8px; margin-bottom:10px}
+    .tool{padding:8px 12px; border-radius:10px; border:1px solid var(--border); background: var(--panel); color:var(--text); cursor:pointer}
+    .tool.danger{background: linear-gradient(180deg, color-mix(in oklab, var(--danger) 18%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--danger) 50%, var(--border) 50%)}
+    .tool.warn{background: linear-gradient(180deg, color-mix(in oklab, var(--warning) 18%, transparent), transparent), var(--panel); border-color: color-mix(in oklab, var(--warning) 50%, var(--border) 50%)}
+
+    .footer-note{margin-top:12px; color:var(--muted)}
+    .hidden{display:none !important}
+  </style>
+</head>
+<body class="light">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="title">УссурОЧки.рф</div>
+          <div class="muted">Управление заказами</div>
+        </div>
+      </div>
+      <div class="nav">
+        <div class="btn primary" onclick="showView('main')">Главное меню</div>
+        <div class="btn" onclick="showView('mkl')">Заказ МКЛ</div>
+        <div class="btn" onclick="showView('meridian')">Заказ Меридиан</div>
+        <div class="btn" onclick="showView('settings')">Настройки</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="switcher">
+        <div class="btn accent" onclick="setTheme('light')">Светлая</div>
+        <div class="btn" onclick="setTheme('dark')">Тёмная</div>
+      </div>
+      <div class="chip">Дизайн-превью (HTML)</div>
+    </aside>
+
+    <main class="content">
+      <section class="header">
+        <div class="hgroup">
+          <div class="h1" id="hdr-title">Главное меню</div>
+          <div class="sub" id="hdr-sub">Быстрый доступ к разделам</div>
+        </div>
+        <div class="actions">
+          <div class="act outline" onclick="showView('main')">В меню</div>
+          <div class="act primary" onclick="showView('mkl')">Открыть МКЛ</div>
+        </div>
+      </section>
+
+      <section class="panel" id="view-main">
+        <div class="toolbar">
+          <div class="tool" onclick="showView('mkl')">Заказ МКЛ</div>
+          <div class="tool" onclick="showView('meridian')">Заказ Меридиан</div>
+          <div class="tool" onclick="showView('settings')">Настройки</div>
+        </div>
+        <p class="footer-note">Демо-страница. Слева навигация, сверху заголовок. Ниже — примеры таблиц и стилей.</p>
+      </section>
+
+      <section class="panel hidden" id="view-mkl">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
+          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
+          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
+          <div class="tool" onclick="alert('Клиенты')">Клиенты</div>
+          <div class="tool" onclick="alert('Товары')">Товары</div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ФИО</th><th>Телефон</th><th>Товар</th><th>Sph</th><th>Cyl</th><th>Ax</th><th>BC</th><th>Кол-во</th><th>Статус</th><th>Дата</th><th>Комментарий</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Иванов Иван</td><td>8-999-123-45-67</td><td>Acuvue Oasys</td><td>-1.25</td><td>-0.75</td><td>90</td><td>8.5</td><td>2</td>
+              <td><span class="badge b-amber">Не заказан</span></td><td>2025-02-11 16:40</td><td><span class="badge b-red">ЕСТЬ</span></td>
+            </tr>
+            <tr>
+              <td>Петров Пётр</td><td>+7-921-222-33-44</td><td>Air Optix</td><td>-2.00</td><td></td><td></td><td>8.6</td><td>1</td>
+              <td><span class="badge b-blue">Прозвонен</span></td><td>2025-02-10 12:10</td><td><span class="badge b-green">НЕТ</span></td>
+            </tr>
+            <tr>
+              <td>Сидорова Анна</td><td>8-905-555-55-55</td><td>Biofinity</td><td>-0.75</td><td>-0.25</td><td>80</td><td>8.7</td><td>4</td>
+              <td><span class="badge b-green">Вручен</span></td><td>2025-02-08 10:05</td><td><span class="badge b-red">ЕСТЬ</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="footer-note">МКЛ: метки статуса и индикатор комментария “ЕСТЬ/НЕТ”.</p>
+      </section>
+
+      <section class="panel hidden" id="view-meridian">
+        <div class="toolbar">
+          <div class="tool" onclick="alert('Новый заказ')">Новый заказ</div>
+          <div class="tool" onclick="alert('Редактировать')">Редактировать</div>
+          <div class="tool danger" onclick="alert('Удалить')">Удалить</div>
+          <div class="tool warn" onclick="alert('Экспорт TXT')">Экспорт TXT</div>
+        </div>
+        <table>
+          <thead>
+          <tr><th>Название заказа</th><th>Позиций</th><th>Статус</th><th>Дата</th></tr>
+          </thead>
+          <tbody>
+          <tr><td>Заказ Меридиан #12</td><td>5</td><td><span class="badge b-amber">Не заказан</span></td><td>2025-02-09 09:10</td></tr>
+          <tr><td>Заказ Меридиан #11</td><td>2</td><td><span class="badge b-green">Заказан</span></td><td>2025-02-05 17:22</td></tr>
+          </tbody>
+        </table>
+        <p class="footer-note">Меридиан: лаконичная сводка и те же принципы оформления.</p>
+      </section>
+
+      <section class="panel hidden" id="view-settings">
+        <div class="toolbar">
+          <div class="tool">Обзор папки экспорта</div>
+          <div class="tool">Логотип трея</div>
+        </div>
+        <table>
+          <thead><tr><th>Опция</th><th>Значение</th><th>Комментарий</th></tr></thead>
+          <tbody>
+          <tr><td>Автозапуск</td><td><span class="badge b-blue">Вкл</span></td><td>Запускать с Windows</td></tr>
+          <tr><td>Сворачивать в трей</td><td><span class="badge b-blue">Вкл</span></td><td>При закрытии</td></tr>
+          <tr><td>Тема</td><td><span class="badge b-green">Светлая</span></td><td>Переключается слева</td></tr>
+          </tbody>
+        </table>
+        <p class="footer-note">Настройки: чистые таблицы/интерактивные элементы. В живом приложении здесь будут поля и тумблеры.</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const views = {
+      main: {title:"Главное меню", sub:"Быстрый доступ к разделам"},
+      mkl: {title:"Заказ МКЛ", sub:"Таблица заказов, быстрые действия"},
+      meridian: {title:"Заказ Меридиан", sub:"Список заказов и статусы"},
+      settings: {title:"Настройки", sub:"Параметры приложения"}
+    };
+    function showView(key){
+      Object.keys(views).forEach(k=>{
+        document.getElementById("view-"+k).classList.toggle("hidden", k!==key);
+      });
+      document.getElementById("hdr-title").textContent = views[key].title;
+      document.getElementById("hdr-sub").textContent = views[key].sub;
+    }
+    function setTheme(name){
+      document.body.classList.toggle("light", name==="light");
+    }
+    // init
+    showView('main'); setTheme('light');
+  </script>
+</body>
+</html>
