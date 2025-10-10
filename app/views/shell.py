@@ -11,13 +11,11 @@ class Shell(ttk.Frame):
       - Top header (title + subtitle) above content
       - Content area (self.content) where views are mounted
     """
-    def __init__(self, master: tk.Tk):
+    def __init__(self, master: tk.Misc):
         super().__init__(master, padding=16, style="Card.TFrame")
         self.master = master
 
-        # Grid: 2 columns (sidebar, main)
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
+        # Grid inside given parent (parent should manage its own weights)
         self.grid(sticky="nsew")
         self.columnconfigure(1, weight=1)
         self.rowconfigure(1, weight=1)

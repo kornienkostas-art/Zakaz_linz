@@ -145,11 +145,23 @@ class MainWindow(ttk.Frame):
 
     # Modern, readable style
     def _setup_style(self):
+        # Try ttkbootstrap theme for a more polished look
+        try:
+            import ttkbootstrap as tb  # type: ignore
+            tb.Style(theme="flatly")
+        except Exception:
+            pass
+
         self.style = ttk.Style(self.master)
         try:
-            self.style.theme_use("clam")
+            # If bootstrap not available, fallback
+            if self.style.theme_use() == "":
+                self.style.theme_use("clam")
         except tk.TclError:
-            pass
+            try:
+                self.style.theme_use("clam")
+            except tk.TclError:
+                pass
 
         # Base colors (light theme)
         bg = "#f8fafc"
@@ -173,13 +185,19 @@ class MainWindow(ttk.Frame):
         self.style.configure("Accent.TButton", background=accent, foreground="#ffffff", font=("Segoe UI", 12, "bold"), padding=(16, 12), borderwidth=1)
         self.style.map("Accent.TButton", background=[("active", accent_hover)], foreground=[("disabled", "#ffffff"), ("!disabled", "#ffffff")])
         self.style.configure("TSeparator", background=border)
-        self.style.configure("Data.Treeview", background=card_bg, fieldbackground=card_bg, foreground=text_primary, rowheight=28, bordercolor=border, borderwidth=1)
+        # Airier rows for a more modern look
+        self.style.configure("Data.Treeview", background=card_bg, fieldbackground=card_bg, foreground=text_primary, rowheight=32, bordercolor=border, borderwidth=1)
         self.style.configure("Data.Treeview.Heading", background="#f3f4f6", foreground=text_primary, font=("Segoe UI", 11, "bold"), bordercolor=border, borderwidth=1)
 
     def _build_layout(self):
-        # Use Shell layout (sidebar + header + content)
+        # Use Shell layout (sidebar + header + content) embedded in this frame
         from app.views.shell import Shell
-        self.shell = Shell(self.master)
+        # Ensure this container fills root
+        self.grid(sticky="nsew")
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.shell = Shell(self)
         self.shell.set_nav_callbacks(
             on_home=self._show_home,
             on_mkl=self._on_order_mkl,
