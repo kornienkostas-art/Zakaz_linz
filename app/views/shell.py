@@ -63,10 +63,11 @@ class Shell(ttk.Frame):
         self.content = ttk.Frame(self, style="Card.TFrame", padding=12)
         self.content.grid(row=1, column=1, sticky="nsew")
 
-        # Propagate commonly used attrs to content so existing views can access them via master.*
+        # Propagate commonly used attrs to content (from toplevel, not the parent frame)
+        top = self.winfo_toplevel()
         for attr in ("db", "app_settings", "tray_icon"):
-            if hasattr(self.master, attr):
-                setattr(self.content, attr, getattr(self.master, attr))
+            if hasattr(top, attr):
+                setattr(self.content, attr, getattr(top, attr))
 
     def set_nav_callbacks(self, on_home, on_mkl, on_meridian, on_settings):
         self.btn_home.configure(command=on_home)
@@ -85,8 +86,9 @@ class Shell(ttk.Frame):
                 child.destroy()
             except Exception:
                 pass
-        # Re-propagate attrs to content in case they changed
+        # Re-propagate attrs to content (ensure db/app_settings exist on the content's master)
+        top = self.winfo_toplevel()
         for attr in ("db", "app_settings", "tray_icon"):
-            if hasattr(self.master, attr):
-                setattr(self.content, attr, getattr(self.master, attr))
+            if hasattr(top, attr):
+                setattr(self.content, attr, getattr(top, attr))
         return builder(self.content)
