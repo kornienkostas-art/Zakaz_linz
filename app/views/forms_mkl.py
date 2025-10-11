@@ -290,6 +290,10 @@ class OrderForm(tk.Toplevel):
             messagebox.showinfo("Проверка", "Выберите или введите товар.")
             return
 
+        try:
+            comment_val = self.comment_text.get("1.0", "end").strip()
+        except Exception:
+            comment_val = ""
         order = {
             "fio": fio,
             "phone": phone,
@@ -301,6 +305,7 @@ class OrderForm(tk.Toplevel):
             "qty": qty,
             "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "comment": comment_val,
         }
         if callable(self.on_save):
             self.on_save(order)
