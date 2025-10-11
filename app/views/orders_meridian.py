@@ -123,8 +123,7 @@ class MeridianOrdersView(ttk.Frame):
         except Exception:
             pass
         from app.views.clients import ClientsView
-        from app.views.main import MainWindow
-        ClientsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+        ClientsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=self.on_back))
 
     def _open_products(self):
         try:
@@ -132,8 +131,7 @@ class MeridianOrdersView(ttk.Frame):
         except Exception:
             pass
         from app.views.products import ProductsView
-        from app.views.main import MainWindow
-        ProductsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+        ProductsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=self.on_back))
 
     def _new_order(self):
         try:
@@ -141,7 +139,6 @@ class MeridianOrdersView(ttk.Frame):
         except Exception:
             pass
         from app.views.forms_meridian import MeridianOrderEditorView
-        from app.views.main import MainWindow
 
         def on_save(order: dict):
             # Save to DB only; view will be recreated by on_back of editor
@@ -163,7 +160,7 @@ class MeridianOrdersView(ttk.Frame):
         MeridianOrderEditorView(
             self.master,
             db=getattr(self.master, "db", None),
-            on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+            on_back=lambda: MeridianOrdersView(self.master, on_back=self.on_back),
             on_save=on_save,
             initial=None,
         )
