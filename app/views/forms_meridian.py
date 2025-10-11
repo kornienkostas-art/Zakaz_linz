@@ -7,7 +7,7 @@ from app.utils import set_initial_geometry
 
 class MeridianOrderForm(tk.Toplevel):
     """Форма создания/редактирования заказа Меридиан (с несколькими позициями)."""
-    def __init__(self, master, on_save=None, initial: dict | None = None):
+    def __init__(self, master, on_save=None, initial: dict | None = None, products: list[dict] | None = None):
         super().__init__(master)
         self.title("Редактирование заказа" if initial else "Новый заказ")
         self.configure(bg="#f8fafc")
@@ -21,6 +21,7 @@ class MeridianOrderForm(tk.Toplevel):
         self.statuses = ["Не заказан", "Заказан"]
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
         self.is_new = initial is None
+        self.products = products or []
 
         self.items: list[dict] = []
         for it in (initial or {}).get("items", []):
@@ -92,14 +93,14 @@ class MeridianOrderForm(tk.Toplevel):
             return None
 
     def _add_item(self):
-        MeridianItemForm(self, on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
+        MeridianItemForm(self, on_save=lambda it: (self.items.append(it), self._refresh_items_view()), products=self.products)
 
     def _edit_item(self):
         idx = self._selected_item_index()
         if idx is None:
             return
         current = self.items[idx].copy()
-        MeridianItemForm(self, initial=current, on_save=lambda it: (self._apply_item_update(idx, it), self._refresh_items_view()))
+        MeridianItemForm(self, initial=current, on_save=lambda it: (self._apply_item_update(idx, it), self._refresh_items_view()), products=self.products)
 
     def _apply_item_update(self, idx: int, it: dict):
         self.items[idx] = it
@@ -127,7 +128,7 @@ class MeridianOrderForm(tk.Toplevel):
 
 class MeridianItemForm(tk.Toplevel):
     """Форма позиции товара для Меридиан."""
-    def __init__(self, master, on_save=None, initial: dict | None = None):
+    def __init__(self, master, on_save=None, initial: dict | None = None, products: list[dict] | None = None):
         super().__init__(master)
         self.title("Позиция товара")
         self.configure(bg="#f8fafc")
@@ -138,6 +139,7 @@ class MeridianItemForm(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
 
         self.on_save = on_save
+        self.products = products or []
         self.product_var = tk.StringVar(value=(initial or {}).get("product", ""))
         self.sph_var = tk.StringVar(value=(initial or {}).get("sph", ""))
         self.cyl_var = tk.StringVar(value=(initial or {}).get("cyl", ""))
@@ -147,6 +149,16 @@ class MeridianItemForm(tk.Toplevel):
 
         self._build_ui()
 
+    def _product_values(self):
+        return [p.get("name", "") for p in self.products]
+
+    def _filter_products(self):
+        term = (self.product_var.get() or "").strip().lower()
+        values = self._product_values()
+        if term:
+            values = [v for v in values if term in v.lower()]
+        self.product_combo["values"] = values
+
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -154,7 +166,9 @@ class MeridianItemForm(tk.Toplevel):
         card.columnconfigure(1, weight=1)
 
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(card, textvariable=self.product_var).grid(row=1, column=0, sticky="ew")
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+        self.product_combo.grid(row=1, column=0, sticky="ew")
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
         self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)

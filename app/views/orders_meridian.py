@@ -137,6 +137,7 @@ class MeridianOrdersView(ttk.Frame):
         # Use modal Toplevel form and refresh in place
         from app.views.forms_meridian import MeridianOrderForm
         db = getattr(self.master, "db", None)
+        products = db.list_products() if db else []
         def on_save(order: dict):
             if not db:
                 return
@@ -154,7 +155,7 @@ class MeridianOrdersView(ttk.Frame):
                 messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
                 return
             self._refresh_orders_view()
-        MeridianOrderForm(self, on_save=on_save, initial=None)
+        MeridianOrderForm(self, on_save=on_save, initial=None, products=products)
 
     def _selected_index(self):
         sel = self.tree.selection()
