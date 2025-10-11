@@ -22,6 +22,10 @@ ApplicationWindow {
 
     // View state
     property string currentView: "mkl"
+    property int mklSelectedIndex: -1
+    property int mklSelectedId: -1
+    property int merSelectedIndex: -1
+    property int merSelectedId: -1
 
     Rectangle {
         anchors.fill: parent
@@ -151,15 +155,13 @@ ApplicationWindow {
                                 spacing: 8
                                 Button {
                                     text: "Редактировать"
-                                    enabled: mklList.currentIndex >= 0
+                                    enabled: mklSelectedIndex >= 0
                                     onClicked: {
-                                        const idx = mklList.currentIndex
-                                        if (idx < 0) return
-                                        const idVal = mklModel.data(mklModel.index(idx,0), mklModel.roleNames().id)
-                                        const o = mklModel.getOrder(idVal)
+                                        if (mklSelectedIndex < 0 || mklSelectedId < 0) return
+                                        const o = mklModel.getOrder(mklSelectedId)
                                         if (!o) return
                                         // Prefill
-                                        editId.text = idVal
+                                        editId.text = mklSelectedId
                                         efio.text = o.fio || ""
                                         ephone.text = o.phone || ""
                                         eprod.text = o.product || ""
@@ -174,12 +176,10 @@ ApplicationWindow {
                                 }
                                 Button {
                                     text: "Удалить"
-                                    enabled: mklList.currentIndex >= 0
+                                    enabled: mklSelectedIndex >= 0
                                     onClicked: {
-                                        const idx = mklList.currentIndex
-                                        if (idx < 0) return
-                                        const idVal = mklModel.data(mklModel.index(idx,0), mklModel.roleNames().id)
-                                        mklModel.deleteOrder(idVal)
+                                        if (mklSelectedIndex < 0 || mklSelectedId < 0) return
+                                        mklModel.deleteOrder(mklSelectedId)
                                     }
                                 }
                             }
@@ -225,14 +225,19 @@ ApplicationWindow {
                                     delegate: MouseArea {
                                         anchors.fill: parent
                                         hoverEnabled: true
-                                        onClicked: mklList.currentIndex = index
+                                        implicitHeight: 36
+                                        onClicked: {
+                                            mklList.currentIndex = index
+                                            mklSelectedIndex = index
+                                            mklSelectedId = orderId
+                                        }
 
                                         RowLayout {
                                             anchors.fill: parent
                                             spacing: 8
                                             // FIO
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border
                                                 radius: 6
                                                 Layout.fillWidth: true
@@ -242,43 +247,43 @@ ApplicationWindow {
                                             }
                                             // phone
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 140; height: 34
                                                 Label { anchors.centerIn: parent; text: phone }
                                             }
                                             // product
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 180; height: 34
                                                 Label { anchors.centerIn: parent; text: product }
                                             }
                                             // sph
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 70; height: 34
                                                 Label { anchors.centerIn: parent; text: sph }
                                             }
                                             // cyl
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 70; height: 34
                                                 Label { anchors.centerIn: parent; text: cyl }
                                             }
                                             // ax
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 70; height: 34
                                                 Label { anchors.centerIn: parent; text: ax }
                                             }
                                             // bc
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 70; height: 34
                                                 Label { anchors.centerIn: parent; text: bc }
                                             }
                                             // qty
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 90; height: 34
                                                 Label { anchors.centerIn: parent; text: qty }
                                             }
@@ -289,7 +294,7 @@ ApplicationWindow {
                                             }
                                             // date
                                             Rectangle {
-                                                color: mklList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: mklSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 150; height: 34
                                                 Label { anchors.centerIn: parent; text: date }
                                             }
@@ -327,17 +332,17 @@ ApplicationWindow {
                                 spacing: 8
                                 Button {
                                     text: "Удалить"
-                                    enabled: merList.currentIndex >= 0
+                                    enabled: merSelectedIndex >= 0
                                     onClicked: {
-                                        const idx = merList.currentIndex
-                                        if (idx < 0) return
-                                        const idVal = merModel.data(merModel.index(idx,0), merModel.roleNames().id)
-                                        merModel.deleteOrder(idVal)
+                                        if (merSelectedInde <s 0 || merSelectedI <  0) return
+                                        merModel.deleteOrder(merSelectedId)
                                     }
                                 }
                                 Button {
                                     text: "Сменить статус"
-                                    enabled: merList.currentIndex >= 0
+                                    enabled: merSelectedIndex >= 0
+                                    onClicked: statusDialog.open()
+                             _code                   enabled: merList.currentIndex >= 0
                                     onClicked: statusDialog.open()
                                 }
                             }
@@ -379,19 +384,24 @@ ApplicationWindow {
 
                                     delegate: MouseArea {
                                         anchors.fill: parent
-                                        onClicked: merList.currentIndex = index
+                                        implicitHeight: 36
+                                        onClicked: {
+                                            merList.currentIndex = index
+                                            merSelectedIndex = index
+                                            merSelectedId = orderId
+                                        }
 
                                         RowLayout {
                                             anchors.fill: parent
                                             spacing: 8
 
                                             Rectangle {
-                                                color: merList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: merSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 260; height: 34
                                                 Label { anchors.centerIn: parent; text: title }
                                             }
                                             Rectangle {
-                                                color: merList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: merSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 100; height: 34
                                                 Label { anchors.centerIn: parent; text: itemsCount }
                                             }
@@ -400,7 +410,7 @@ ApplicationWindow {
                                                 Label { anchors.centerIn: parent; text: status; font.bold: true; color: "#92400E" }
                                             }
                                             Rectangle {
-                                                color: merList.currentIndex === index ? "#e0ecff" : "#fff"
+                                                color: merSelectedIndex === index ? "#e0ecff" : "#fff"
                                                 border.color: border; radius: 6; width: 160; height: 34
                                                 Label { anchors.centerIn: parent; text: date }
                                             }

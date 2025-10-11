@@ -18,7 +18,7 @@ from app.db import AppDB  # noqa: E402
 
 class MklOrdersModel(QAbstractListModel):
     ROLES = {
-        "id": Qt.UserRole + 1,
+        "orderId": Qt.UserRole + 1,
         "fio": Qt.UserRole + 2,
         "phone": Qt.UserRole + 3,
         "product": Qt.UserRole + 4,
@@ -48,7 +48,7 @@ class MklOrdersModel(QAbstractListModel):
         if row < 0 or row >= len(self._items):
             return None
         item = self._items[row]
-        if role == self.ROLES["id"]:
+        if role == self.ROLES["orderId"]:
             return item.get("id", 0)
         if role == self.ROLES["fio"]:
             return item.get("fio", "")
@@ -169,9 +169,9 @@ class MklOrdersModel(QAbstractListModel):
 
 class MeridianOrdersModel(QAbstractListModel):
     ROLES = {
-        "id": Qt.UserRole + 1,
+        "orderId": Qt.UserRole + 1,
         "title": Qt.UserRole + 2,
-        "status": Qt.UserRole + 3,
+   "status": Qt.UserRole + 3,
         "date": Qt.UserRole + 4,
         "itemsCount": Qt.UserRole + 5,
     }
@@ -191,7 +191,7 @@ class MeridianOrdersModel(QAbstractListModel):
         if row < 0 or row >= len(self._items):
             return None
         it = self._items[row]
-        if role == self.ROLES["id"]:
+        if role == self.ROLES["orderId"]:
             return it.get("id", 0)
         if role == self.ROLES["title"]:
             return it.get("title", "")
