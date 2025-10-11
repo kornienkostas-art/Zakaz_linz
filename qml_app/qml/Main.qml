@@ -431,7 +431,7 @@ ApplicationWindow {
 
         contentItem: ColumnLayout {
             spacing: 8
-            padding: 12
+            anchors.margins: 12
 
             RowLayout {
                 spacing: 8
@@ -502,7 +502,7 @@ ApplicationWindow {
 
         contentItem: ColumnLayout {
             spacing: 8
-            padding: 12
+            anchors.margins: 12
             TextField { id: merTitle; placeholderText: "Название заказа"; Layout.fillWidth: true }
             Label { text: "Позиции добавим на следующем шаге"; color: muted }
         }
@@ -522,7 +522,7 @@ ApplicationWindow {
 
         contentItem: ColumnLayout {
             spacing: 8
-            padding: 12
+            anchors.margins: 12
             ComboBox {
                 id: statusCombo
                 model: [ "Не заказан", "Заказан" ]
