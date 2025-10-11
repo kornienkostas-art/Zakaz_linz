@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>UssurochkiRF — Screens (Offline)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f7fafc; --panel:#ffffff; --muted:#64748b; --text:#0f172a;
+      --primary:#2563eb; --border:#e2e8f0; --head:#f1f5f9;
+      --shadow: 0 12px 28px rgba(15,23,42,.08); --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font:14px/1.55 "Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif; color:var(--text); background:var(--bg)}
+    .grid{display:grid; grid-template-columns: 280px 1fr; gap:18px; padding:18px}
+    .side{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:10px}
+    .brand{display:flex; align-items:center; gap:10px}
+    .logo{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:#fff; border:1px solid var(--border); overflow:hidden}
+    .logo img{max-width:100%; max-height:100%; object-fit:contain}
+    .title{font-size:16px; font-weight:900}
+    .muted{color:var(--muted); font-size:12px}
+    .btn{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer}
+    .btn img{width:18px; height:18px}
+    .spacer{flex:1}
+    .header{background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow)}
+    .h1{font-size:22px; font-weight:900}
+    .sub{color:var(--muted)}
+    .panel{background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow)}
+    .toolbar{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap}
+    .tool{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:#fff; cursor:pointer}
+    .tool img{width:18px; height:18px}
+    table{width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff}
+    th,td{padding:12px 14px; text-align:left; white-space:nowrap}
+    thead th{background:var(--head); font-weight:800; color:#334155; border-bottom:1px solid var(--border)}
+    tbody tr:hover{background:#f8fafc}
+    .badge{display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; font-weight:800; font-size:12px; border:1px solid transparent}
+    .b-amber{color:#92400E; background:#FEF3C7; border-color:#FDE68A}
+    .b-blue{color:#075985; background:#E0F2FE; border-color:#BAE6FD}
+    .b-green{color:#065F46; background:#D1FAE5; border-color:#A7F3D0}
+    .b-red{color:#7F1D1D; background:#FEE2E2; border-color:#FECACA}
+    .hidden{display:none !important}
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <aside class="side">
+      <div class="brand">
+        <div class="logo"><img id="brandLogo" src="../assets/logo.png" alt="Логотип"></div>
+        <div>
+          <div class="title">УссурОЧки.рф</div>
+          <div class="muted">Sidebar + Header</div>
+        </div>
+      </div>
+      <div class="btn" onclick="view('main')"><img src="./icons/home.svg">Главное меню</div>
+      <div class="btn" onclick="view('mkl')"><img src="./icons/table.svg">Заказ МКЛ</div>
+      <div class="btn" onclick="view('meridian')"><img src="./icons/table.svg">Заказ Меридиан</div>
+      <div class="btn" onclick="view('settings')"><img src="./icons/settings.svg">Настройки</div>
+      <div class="spacer"></div>
+      <div class="muted">Offline screens for PDF export</div>
+    </aside>
+
+    <main style="display:grid; grid-template-rows:auto 1fr; gap:18px; min-height:0;">
+      <section class="header">
+        <div>
+          <div class="h1" id="ttl">Главное меню</div>
+          <div class="sub" id="sub">Быстрый доступ к разделам</div>
+        </div>
+        <div class="toolbar">
+          <div class="tool" onclick="view('mkl')"><img src="./icons/add.svg">Новый заказ МКЛ</div>
+          <div class="tool" onclick="view('meridian')"><img src="./icons/add.svg">Новый заказ Меридиан</div>
+        </div>
+      </section>
+
+      <section class="panel" id="v-main">
+        <div class="toolbar">
+          <div class="tool" onclick="view('mkl')"><img src="./icons/table.svg">Заказ МКЛ</div>
+          <div class="tool" onclick="view('meridian')"><img src="./icons/table.svg">Заказ Меридиан</div>
+          <div class="tool" onclick="view('settings')"><img src="./icons/settings.svg">Настройки</div>
+        </div>
+        <p class="muted">Это главная панель. Слева — сайдбар, сверху — шапка. Ниже — экраны.</p>
+      </section>
+
+      <section class="panel hidden" id="v-mkl">
+        <div class="toolbar">
+          <div class="tool"><img src="./icons/add.svg">Новый заказ</div>
+          <div class="tool"><img src="./icons/edit.svg">Редактировать</div>
+          <div class="tool"><img src="./icons/delete.svg">Удалить</div>
+          <div class="tool"><img src="./icons/clients.svg">Клиенты</div>
+          <div class="tool"><img src="./icons/products.svg">Товары</div>
+          <div class="tool"><img src="./icons/export.svg">Экспорт TXT</div>
+        </div>
+        <table>
+          <thead>
+          <tr>
+            <th>ФИО</th><th>Телефон</th><th>Товар</th><th>Sph</th><th>Cyl</th><th>Ax</th><th>BC</th><th>Кол-во</th><th>Статус</th><th>Дата</th><th>Комментарий</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+            <td>Иванов Иван</td><td>8-999-123-45-67</td><td>Acuvue Oasys</td><td>-1.25</td><td>-0.75</td><td>90</td><td>8.5</td><td>2</td>
+            <td><span class="badge b-amber">Не заказан</span></td><td>2025-02-11 16:40</td><td><span class="badge b-red">ЕСТЬ</span></td>
+          </tr>
+          <tr>
+            <td>Петров Пётр</td><td>+7-921-222-33-44</td><td>Air Optix</td><td>-2.00</td><td></td><td></td><td>8.6</td><td>1</td>
+            <td><span class="badge b-blue">Прозвонен</span></td><td>2025-02-10 12:10</td><td><span class="badge b-green">НЕТ</span></td>
+          </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel hidden" id="v-meridian">
+        <div class="toolbar">
+          <div class="tool"><img src="./icons/add.svg">Новый заказ</div>
+          <div class="tool"><img src="./icons/edit.svg">Редактировать</div>
+          <div class="tool"><img src="./icons/delete.svg">Удалить</div>
+          <div class="tool"><img src="./icons/export.svg">Экспорт TXT</div>
+        </div>
+        <table>
+          <thead><tr><th>Название заказа</th><th>Позиций</th><th>Статус</th><th>Дата</th></tr></thead>
+          <tbody>
+          <tr><td>Заказ Меридиан #12</td><td>5</td><td><span class="badge b-amber">Не заказан</span></td><td>2025-02-09 09:10</td></tr>
+          <tr><td>Заказ Меридиан #11</td><td>2</td><td><span class="badge b-green">Заказан</span></td><td>2025-02-05 17:22</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel hidden" id="v-settings">
+        <div class="toolbar">
+          <div class="tool"><img src="./icons/settings.svg">Автозапуск</div>
+          <div class="tool"><img src="./icons/settings.svg">Папка экспорта</div>
+        </div>
+        <table>
+          <thead><tr><th>Опция</th><th>Значение</th><th>Комментарий</th></tr></thead>
+          <tbody>
+          <tr><td>Тема</td><td>Светлая</td><td>По умолчанию</td></tr>
+          <tr><td>Трей</td><td>Вкл</td><td>Сворачивать при закрытии</td></tr>
+          <tr><td>Уведомления</td><td>Пн–Пт 09:00</td><td>Настраивается</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      const img = document.getElementById('brandLogo');
+      if(!img) return;
+      img.addEventListener('error', function handler(){
+        img.removeEventListener('error', handler);
+        img.src = "../assets/лого.jpeg";
+      });
+    })();
+
+    const meta = {
+      main:["Главное меню","Быстрый доступ к разделам"],
+      mkl:["Заказ МКЛ","Таблица заказов и действия"],
+      meridian:["Заказ Меридиан","Список заказов и статусы"],
+      settings:["Настройки","Параметры приложения"]
+    };
+    function view(id){
+      document.getElementById('ttl').textContent = meta[id][0];
+      document.getElementById('sub').textContent = meta[id][1];
+      ["main","mkl","meridian","settings"].forEach(k=>{
+        document.getElementById("v-"+k).classList.toggle("hidden", k!==id);
+      });
+    }
+    view('main');
+  </script>
+</body>
+</html>

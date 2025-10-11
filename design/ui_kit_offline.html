@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>UssurochkiRF — UI Kit (Offline)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f7fafc; --panel:#ffffff; --muted:#64748b; --text:#0f172a;
+      --primary:#2563eb; --primary-2:#1d4ed8; --accent:#14b8a6;
+      --danger:#ef4444; --warning:#f59e0b; --success:#10b981;
+      --border:#e2e8f0; --shadow: 0 10px 26px rgba(15,23,42,.08);
+      --radius:12px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font:14px/1.55 "Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif; color:var(--text); background:var(--bg)}
+    .wrap{max-width:1200px; margin:0 auto; padding:24px}
+    h1{font-size:28px; margin:0 0 16px; font-weight:900}
+    h2{font-size:20px; margin:24px 0 12px; font-weight:800}
+    p{margin:8px 0 16px; color:var(--muted)}
+    .grid{display:grid; grid-template-columns: repeat(12,1fr); gap:16px}
+    .card{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
+    .span-6{grid-column: span 6}
+    .span-12{grid-column: span 12}
+
+    /* Buttons */
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--panel); cursor:pointer; user-select:none}
+    .btn svg{width:18px; height:18px}
+    .btn.primary{background: linear-gradient(180deg, rgba(37,99,235,.12), transparent); border-color:#bfdbfe}
+    .btn.accent{background: linear-gradient(180deg, rgba(20,184,166,.12), transparent); border-color:#99f6e4}
+    .btn.warn{background: linear-gradient(180deg, rgba(245,158,11,.12), transparent); border-color:#fde68a}
+    .btn.danger{background: linear-gradient(180deg, rgba(239,68,68,.12), transparent); border-color:#fecaca}
+
+    /* Inputs */
+    .input{padding:10px 12px; border:1px solid var(--border); border-radius:10px; width:100%; outline:none}
+    .select{padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#fff}
+
+    /* Badges */
+    .badge{display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; font-weight:800; font-size:12px; border:1px solid transparent; letter-spacing:.2px}
+    .b-amber{color:#92400E; background:#FEF3C7; border-color:#FDE68A}
+    .b-blue{color:#075985; background:#E0F2FE; border-color:#BAE6FD}
+    .b-green{color:#065F46; background:#D1FAE5; border-color:#A7F3D0}
+    .b-red{color:#7F1D1D; background:#FEE2E2; border-color:#FECACA}
+
+    /* Table */
+    table{width:100%; border-collapse:separate; border-spacing:0; background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden}
+    th,td{padding:12px 14px; text-align:left; white-space:nowrap}
+    thead th{background:#f1f5f9; font-weight:800; color:#334155; border-bottom:1px solid var(--border)}
+    tbody tr{border-top:1px solid var(--border)}
+    tbody tr:hover{background:#f8fafc}
+
+    .muted{color:var(--muted)}
+    .icon{width:18px; height:18px; vertical-align:middle}
+    .tokens{display:grid; grid-template-columns:repeat(6,1fr); gap:12px}
+    .sw{height:44px; border:1px solid var(--border); border-radius:10px; display:grid; place-items:center; font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>UssurochkiRF — UI Kit (Offline)</h1>
+    <p class="muted">Токены, компоненты и примеры для дальнейшего внедрения в приложение.</p>
+
+    <div class="grid">
+      <div class="card span-6">
+        <h2>Цвета</h2>
+        <div class="tokens">
+          <div class="sw" style="background:#2563EB; color:#fff">Primary #2563EB</div>
+          <div class="sw" style="background:#1D4ED8; color:#fff">Primary-2 #1D4ED8</div>
+          <div class="sw" style="background:#14B8A6; color:#fff">Accent #14B8A6</div>
+          <div class="sw" style="background:#10B981; color:#fff">Success #10B981</div>
+          <div class="sw" style="background:#F59E0B; color:#111827">Warning #F59E0B</div>
+          <div class="sw" style="background:#EF4444; color:#fff">Danger #EF4444</div>
+        </div>
+      </div>
+
+      <div class="card span-6">
+        <h2>Типографика</h2>
+        <div style="font-weight:900; font-size:24px">Заголовок H1 — 24–28</div>
+        <div style="font-weight:800; font-size:20px">Заголовок H2 — 20–22</div>
+        <div style="font-weight:700; font-size:14px">Текст жирный — 14</div>
+        <div style="color:#64748b">Обычный текст — 14, muted</div>
+      </div>
+
+      <div class="card span-6">
+        <h2>Кнопки</h2>
+        <div class="row">
+          <div class="btn primary"><img class="icon" src="./icons/add.svg">Новый заказ</div>
+          <div class="btn"><img class="icon" src="./icons/edit.svg">Редактировать</div>
+          <div class="btn danger"><img class="icon" src="./icons/delete.svg">Удалить</div>
+          <div class="btn warn"><img class="icon" src="./icons/export.svg">Экспорт TXT</div>
+        </div>
+      </div>
+
+      <div class="card span-6">
+        <h2>Поля</h2>
+        <div class="row">
+          <input class="input" placeholder="Ввод текста" />
+          <select class="select">
+            <option>Combobox (пример)</option>
+            <option>Вариант 1</option>
+            <option>Вариант 2</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card span-6">
+        <h2>Бейджи статусов</h2>
+        <div class="row">
+          <div class="badge b-amber">Не заказан</div>
+          <div class="badge b-blue">Прозвонен</div>
+          <div class="badge b-green">Вручен</div>
+          <div class="badge b-red">Комментарий: ЕСТЬ</div>
+        </div>
+      </div>
+
+      <div class="card span-12">
+        <h2>Таблица (воздушная)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ФИО</th><th>Телефон</th><th>Товар</th><th>Sph</th><th>Cyl</th><th>Ax</th><th>BC</th><th>Кол-во</th><th>Статус</th><th>Дата</th><th>Комментарий</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Иванов Иван</td><td>8-999-123-45-67</td><td>Acuvue Oasys</td><td>-1.25</td><td>-0.75</td><td>90</td><td>8.5</td><td>2</td>
+              <td><span class="badge b-amber">Не заказан</span></td><td>2025-02-11 16:40</td><td><span class="badge b-red">ЕСТЬ</span></td>
+            </tr>
+            <tr>
+              <td>Петров Пётр</td><td>+7-921-222-33-44</td><td>Air Optix</td><td>-2.00</td><td></td><td></td><td>8.6</td><td>1</td>
+              <td><span class="badge b-blue">Прозвонен</span></td><td>2025-02-10 12:10</td><td><span class="badge b-green">НЕТ</span></td>
+            </tr>
+            <tr>
+              <td>Сидорова Анна</td><td>8-905-555-55-55</td><td>Biofinity</td><td>-0.75</td><td>-0.25</td><td>80</td><td>8.7</td><td>4</td>
+              <td><span class="badge b-green">Вручен</span></td><td>2025-02-08 10:05</td><td><span class="badge b-red">ЕСТЬ</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted">Высота строки ~36px, заголовки жирные, hover‑фон, бейджи статусов, индикатор комментария.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
