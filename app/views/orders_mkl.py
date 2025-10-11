@@ -25,7 +25,7 @@ class MKLOrdersView(ttk.Frame):
     }
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
 
-    def __init__(self, master: tk.Tk, on_back):
+    def __init__(self, master: tk.Misc, on_back):
         super().__init__(master, style="Card.TFrame", padding=0)
         self.master = master
         self.on_back = on_back
@@ -131,8 +131,7 @@ class MKLOrdersView(ttk.Frame):
         except Exception:
             pass
         from app.views.clients import ClientsView
-        from app.views.main import MainWindow
-        ClientsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+        ClientsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=self.on_back))
 
     def _open_products(self):
         try:
@@ -140,8 +139,7 @@ class MKLOrdersView(ttk.Frame):
         except Exception:
             pass
         from app.views.products import ProductsView
-        from app.views.main import MainWindow
-        ProductsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+        ProductsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=self.on_back))
 
     def _new_order(self):
         try:
@@ -149,7 +147,6 @@ class MKLOrdersView(ttk.Frame):
         except Exception:
             pass
         from app.views.forms_mkl import MKLOrderEditorView
-        from app.views.main import MainWindow
         def on_save(order: dict):
             # Save to DB only; view will be recreated by on_back of editor
             if self.db:
@@ -160,10 +157,20 @@ class MKLOrdersView(ttk.Frame):
         MKLOrderEditorView(
             self.master,
             db=self.db,
-            on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+            on_back=lambda: MKLOrdersView(self.master, on_back=self.on_back),
             on_save=on_save,
             initial=None
         )
+
+    def _selected_index(self) -> int | None:
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Выбор", "Пожалуйста, выберите заказ.")
+            return None
+        try:
+            return int(sel[0])
+        except ValueError:
+            return None
 
     def _edit_order(self):
         idx = self._selected_index()
