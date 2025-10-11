@@ -142,25 +142,20 @@ class MKLOrdersView(ttk.Frame):
         ProductsView(self.master, self.db, on_back=lambda: MKLOrdersView(self.master, on_back=self.on_back))
 
     def _new_order(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
-        from app.views.forms_mkl import MKLOrderEditorView
+        # Use modal Toplevel form to avoid unmount/remount issues
+        clients = self.db.list_clients() if self.db else []
+        products = self.db.list_products() if self.db else []
+        from app.views.forms_mkl import OrderForm
         def on_save(order: dict):
-            # Save to DB only; view will be recreated by on_back of editor
-            if self.db:
-                try:
-                    self.db.add_mkl_order(order)
-                except Exception as e:
-                    messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
-        MKLOrderEditorView(
-            self.master,
-            db=self.db,
-            on_back=lambda: MKLOrdersView(self.master, on_back=self.on_back),
-            on_save=on_save,
-            initial=None
-        )
+            if not self.db:
+                return
+            try:
+                self.db.add_mkl_order(order)
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
+                return
+            self._refresh_orders_view()
+        OrderForm(self, clients=clients, products=products, on_save=on_save, initial=None, statuses=self.STATUSES)
 
     def _selected_index(self) -> int | None:
         sel = self.tree.selection()

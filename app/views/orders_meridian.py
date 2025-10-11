@@ -134,36 +134,27 @@ class MeridianOrdersView(ttk.Frame):
         ProductsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=self.on_back))
 
     def _new_order(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
-        from app.views.forms_meridian import MeridianOrderEditorView
-
+        # Use modal Toplevel form and refresh in place
+        from app.views.forms_meridian import MeridianOrderForm
+        db = getattr(self.master, "db", None)
         def on_save(order: dict):
-            # Save to DB only; view will be recreated by on_back of editor
-            db = getattr(self.master, "db", None)
+            if not db:
+                return
             title = (order.get("title", "") or "").strip()
             if not title:
                 try:
-                    existing = db.list_meridian_orders() if db else []
+                    existing = db.list_meridian_orders()
                     title = f"Заказ Меридиан #{len(existing) + 1}"
                 except Exception:
                     title = "Заказ Меридиан"
                 order["title"] = title
-            if db:
-                try:
-                    db.add_meridian_order(order, order.get("items", []))
-                except Exception as e:
-                    messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
-
-        MeridianOrderEditorView(
-            self.master,
-            db=getattr(self.master, "db", None),
-            on_back=lambda: MeridianOrdersView(self.master, on_back=self.on_back),
-            on_save=on_save,
-            initial=None,
-        )
+            try:
+                db.add_meridian_order(order, order.get("items", []))
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
+                return
+            self._refresh_orders_view()
+        MeridianOrderForm(self, on_save=on_save, initial=None)
 
     def _selected_index(self):
         sel = self.tree.selection()
