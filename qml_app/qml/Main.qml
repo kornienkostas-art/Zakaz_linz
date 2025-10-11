@@ -468,7 +468,7 @@ ApplicationWindow {
 
         contentItem: ColumnLayout {
             spacing: 8
-            padding: 12
+            anchors.margins: 12
 
             TextField { id: editId; visible: false }
             RowLayout {
