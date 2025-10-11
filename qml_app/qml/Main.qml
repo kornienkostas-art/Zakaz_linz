@@ -334,15 +334,13 @@ ApplicationWindow {
                                     text: "Удалить"
                                     enabled: merSelectedIndex >= 0
                                     onClicked: {
-                                        if (merSelectedInde <s 0 || merSelectedI <  0) return
+                                        if (merSelectedIndex < 0 || merSelectedId < 0) return
                                         merModel.deleteOrder(merSelectedId)
                                     }
                                 }
                                 Button {
                                     text: "Сменить статус"
                                     enabled: merSelectedIndex >= 0
-                                    onClicked: statusDialog.open()
-                             _code                   enabled: merList.currentIndex >= 0
                                     onClicked: statusDialog.open()
                                 }
                             }
