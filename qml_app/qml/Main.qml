@@ -524,10 +524,8 @@ ApplicationWindow {
         title: "Сменить статус"
         standardButtons: Dialog.Ok | Dialog.Cancel
         onAccepted: {
-            const idx = merList.currentIndex
-            if (idx < 0) return
-            const idVal = merModel.data(merModel.index(idx,0), merModel.roleNames().id)
-            merModel.updateStatus(idVal, statusCombo.currentText)
+            if (merSelectedIndex < 0 || merSelectedId < 0) return
+            merModel.updateStatus(merSelectedId, statusCombo.currentText)
         }
 
         contentItem: ColumnLayout {
