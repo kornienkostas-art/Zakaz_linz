@@ -22,7 +22,7 @@ def _get_exec_command() -> str:
         if getattr(sys, "frozen", False):
             return sys.executable
         # Fallback: use pythonw.exe to avoid console
-        pythonw = sys.executable  # may be python.exe; try to find pythonw
+        pythonw = sys.executable
         try:
             base = os.path.dirname(sys.executable)
             candidate = os.path.join(base, "pythonw.exe")
@@ -30,11 +30,12 @@ def _get_exec_command() -> str:
                 pythonw = candidate
         except Exception:
             pass
-        script = os.path.abspath(__file__)
+        # Point to main.py in project root
+        script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "main.py"))
         return f'"{pythonw}" "{script}"'
     except Exception:
-        # Last resort
-        return os.path.abspath(__file__)
+        # Last resort: attempt to point to main.py
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "main.py"))
 
 
 def _windows_autostart_set(enabled: bool):
