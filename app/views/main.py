@@ -571,7 +571,8 @@ class MainWindow(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            # SettingsView is defined in this module; import not required
+            # Открываем настройки как встроенную страницу внутри главного окна
+            from app.views.settings import SettingsView
             SettingsView(self.master, on_back=lambda: MainWindow(self.master))
         fade_transition(self.master, swap)
 
