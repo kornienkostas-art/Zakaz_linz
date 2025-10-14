@@ -27,47 +27,17 @@ class MainWindow:
         container = ttk.Frame(self.root)
         container.pack(fill="both", expand=True)
 
-        # Top bar with stats
-        top = ttk.Frame(container)
-        top.pack(side="top", fill="x", padx=20, pady=16)
-
-        self.clients_count_var = tk.StringVar(value="Клиенты: 0")
-        self.products_count_var = tk.StringVar(value="Товары: 0")
-        self.mkl_count_var = tk.StringVar(value="МКЛ: 0")
-        self.meridian_count_var = tk.StringVar(value="Меридиан: 0")
-
-        for var in (
-            self.clients_count_var,
-            self.products_count_var,
-            self.mkl_count_var,
-            self.meridian_count_var,
-        ):
-            ttk.Label(top, textvariable=var).pack(side="left", padx=12)
-
-        ttk.Button(top, text="Обновить", command=self._refresh_stats).pack(side="right", padx=8)
-
-        # Settings quick info
-        info = ttk.Frame(container)
-        info.pack(fill="x", padx=20)
-        export_path = (self.app_settings.get("export_path") or "").strip()
-        ttk.Label(info, text=f"Папка экспорта: {export_path or 'не задана'}").pack(side="left", padx=12)
-        ttk.Button(info, text="Настройки…", command=self._open_settings).pack(side="right", padx=8)
-
-        # Main menu buttons - larger
+        # Main menu - only MKL, Meridian, Settings
         menu = ttk.Frame(container)
-        menu.pack(fill="both", expand=True, padx=36, pady=28)
+        menu.pack(fill="both", expand=True, padx=36, pady=36)
 
-        row1 = ttk.Frame(menu)
-        row1.pack(pady=16)
-        row2 = ttk.Frame(menu)
-        row2.pack(pady=16)
+        btn_opts = dict(width=36)
+        row = ttk.Frame(menu)
+        row.pack(pady=24)
 
-        btn_opts = dict(width=32)
-        ttk.Button(row1, text="Клиенты", command=self._open_clients, **btn_opts).pack(side="left", padx=12, ipady=10)
-        ttk.Button(row1, text="Товары", command=self._open_products, **btn_opts).pack(side="left", padx=12, ipady=10)
-
-        ttk.Button(row2, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=12, ipady=10)
-        ttk.Button(row2, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=12, ipady=10)
+        ttk.Button(row, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=16, ipady=12)
+        ttk.Button(row, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=16, ipady=12)
+        ttk.Button(row, text="Настройки…", command=self._open_settings, **btn_opts).pack(side="left", padx=16, ipady=12)
 
     def _refresh_stats(self):
         db = self.root.db
