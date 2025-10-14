@@ -108,11 +108,11 @@ class SettingsView(ttk.Frame):
         ttk.Separator(card).grid(row=16, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
         # Sound enable
-        ttk.Label(card, text="Звук уведомления", style="Subtitle.TLabel").grid(row=14, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Звук уведомления", style="Subtitle.TLabel").grid(row=17, column=0, sticky="w", pady=(8, 0))
         self.notify_sound_enabled_var = tk.BooleanVar(value=bool(self.settings.get("notify_sound_enabled", True)))
-        ttk.Checkbutton(card, text="Включить звук (Windows)", variable=self.notify_sound_enabled_var).grid(row=14, column=1, sticky="w")
+        ttk.Checkbutton(card, text="Включить звук (Windows)", variable=self.notify_sound_enabled_var).grid(row=17, column=1, sticky="w")
 
-        ttk.Label(card, text="Тип звука (Windows)", style="Subtitle.TLabel").grid(row=15, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Тип звука (Windows)", style="Subtitle.TLabel").grid(row=18, column=0, sticky="w", pady=(8, 0))
         # Map display labels to winsound aliases
         sound_options = [
             ("Стандартный", "SystemAsterisk"),
@@ -132,20 +132,20 @@ class SettingsView(ttk.Frame):
                     break
         except Exception:
             pass
-        sound_combo.grid(row=15, column=1, sticky="w")
+        sound_combo.grid(row=18, column=1, sticky="w")
 
         # Sound mode: system alias vs custom WAV file
-        ttk.Label(card, text="Режим звука", style="Subtitle.TLabel").grid(row=16, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Режим звука", style="Subtitle.TLabel").grid(row=19, column=0, sticky="w", pady=(8, 0))
         self.notify_sound_mode_var = tk.StringVar(value=(self.settings.get("notify_sound_mode") or "alias"))
         mode_row = ttk.Frame(card, style="Card.TFrame")
-        mode_row.grid(row=16, column=1, sticky="w")
+        mode_row.grid(row=19, column=1, sticky="w")
         ttk.Radiobutton(mode_row, text="Системный звук", value="alias", variable=self.notify_sound_mode_var).pack(side="left")
         ttk.Radiobutton(mode_row, text="Файл WAV", value="file", variable=self.notify_sound_mode_var).pack(side="left", padx=(8, 0))
 
-        ttk.Label(card, text="Файл WAV", style="Subtitle.TLabel").grid(row=17, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Файл WAV", style="Subtitle.TLabel").grid(row=20, column=0, sticky="w", pady=(8, 0))
         self.notify_sound_file_var = tk.StringVar(value=(self.settings.get("notify_sound_file") or ""))
         file_row = ttk.Frame(card, style="Card.TFrame")
-        file_row.grid(row=17, column=1, sticky="ew")
+        file_row.grid(row=20, column=1, sticky="ew")
         file_entry = ttk.Entry(file_row, textvariable=self.notify_sound_file_var)
         file_entry.pack(side="left", fill="x", expand=True)
         ttk.Button(file_row, text="Обзор…", command=self._choose_sound_file).pack(side="left", padx=(8, 0))
@@ -170,11 +170,11 @@ class SettingsView(ttk.Frame):
             pass
         _update_sound_controls()
 
-        ttk.Separator(card).grid(row=18, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+        ttk.Separator(card).grid(row=21, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
         # Actions
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=19, column=0, columnspan=2, sticky="e")
+        actions.grid(row=22, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
 
