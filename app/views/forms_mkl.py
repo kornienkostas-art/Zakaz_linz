@@ -412,7 +412,8 @@ class MKLOrderEditorView(ttk.Frame):
 
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
-        ttk.Button(btns, text="Сохранить", style="Menu.TButton
+        ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
     def _go_back(self):
         try:
