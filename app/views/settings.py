@@ -93,9 +93,17 @@ class SettingsView(ttk.Frame):
 
         ttk.Separator(card).grid(row=13, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
-        # Actions
+        # Sound enable
+        ttk.Label(card, text="Звук уведомления", style="Subtitle.TLabel").grid(row=14, column=0, sticky="w", pady=(8, 0))
+        self.notify_sound_enabled_var = tk.BooleanVar(value=bool(self.settings.get("notify_sound_enabled", True)))
+        ttk.Checkbutton(card, text="Включить звук (Windows)", variable=self.notify_sound_enabled_var).grid(row=14, column=1, sticky="w")
+
+        ttk.Separator(card).grid(row=15, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+
+        # Actions + test notification
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=14, column=0, columnspan=2, sticky="e")
+        actions.grid(row=16, column=0, columnspan=2, sticky="e")
+        ttk.Button(actions, text="Проверить уведомление Меридиан", style="Menu.TButton", command=self._test_notify).pack(side="left")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
 
@@ -117,6 +125,7 @@ class SettingsView(ttk.Frame):
         data["notify_enabled"] = bool(self.notify_enabled_var.get())
         data["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
         data["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
+        data["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
 
         # Persist to settings.json at project root
         try:
@@ -183,6 +192,7 @@ class SettingsView(ttk.Frame):
             self.settings["notify_enabled"] = bool(self.notify_enabled_var.get())
             self.settings["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
             self.settings["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
+            self.settings["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
 
             # Apply autostart immediately (Windows)
             try:
@@ -195,6 +205,29 @@ class SettingsView(ttk.Frame):
             messagebox.showinfo("Настройки", "Изменения применены.")
         except Exception as e:
             messagebox.showerror("Настройки", f"Не удалось применить:\n{e}")
+
+    def _test_notify(self):
+        try:
+            # Collect pending meridian 'Не заказан' orders
+            db = getattr(self.master, "db", None)
+            orders = db.list_meridian_orders() if db else []
+            pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
+            if not pending:
+                messagebox.showinfo("Уведомление", "Нет заказов Меридиан со статусом 'Не заказан'.")
+                return
+            from app.views.notify import show_meridian_notification
+            def on_snooze(minutes):
+                messagebox.showinfo("Уведомление", f"Отложено на {minutes} минут.")
+            def on_mark_ordered():
+                try:
+                    for o in pending:
+                        db.update_meridian_order(o["id"], {"status": "Заказан"})
+                    messagebox.showinfo("Уведомление", "Статус заказов изменён на 'Заказан'.")
+                except Exception as e:
+                    messagebox.showerror("Уведомление", f"Не удалось изменить статус:\n{e}")
+            show_meridian_notification(self.master, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
+        except Exception as e:
+            messagebox.showerror("Уведомление", f"Ошибка проверки:\n{e}")
 
     def _go_back(self):
         try:

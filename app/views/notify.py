@@ -3,6 +3,26 @@ from tkinter import ttk, messagebox
 
 def show_meridian_notification(master: tk.Tk, pending_orders: list[dict], on_snooze, on_mark_ordered):
     """Popup notification for Meridian orders with status 'Не заказан'."""
+    # Play sound if enabled
+    try:
+        settings = getattr(master, "app_settings", {}) or {}
+        if bool(settings.get("notify_sound_enabled", True)):
+            if getattr(master, "tk", None) and hasattr(master, "bell"):
+                try:
+                    # Try Windows sound first
+                    if hasattr(__import__("os"), "name") and __import__("os").name == "nt":
+                        try:
+                            import winsound
+                            winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                        except Exception:
+                            master.bell()
+                    else:
+                        master.bell()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     try:
         win = tk.Toplevel(master)
         win.title("Уведомление • Заказы Меридиан")

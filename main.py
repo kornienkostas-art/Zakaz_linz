@@ -29,6 +29,10 @@ def ensure_settings(path: str):
                     "minimize_to_tray": True,
                     "start_in_tray": True,
                     "autostart_enabled": False,
+                    "notify_enabled": False,
+                    "notify_days": [],
+                    "notify_time": "09:00",
+                    "notify_sound_enabled": True,
                 },
                 f,
                 ensure_ascii=False,
@@ -51,6 +55,10 @@ def load_settings(path: str) -> dict:
                 "minimize_to_tray": True,
                 "start_in_tray": True,
                 "autostart_enabled": False,
+                "notify_enabled": False,
+                "notify_days": [],
+                "notify_time": "09:00",
+                "notify_sound_enabled": True,
             }
             for k, v in defaults.items():
                 data.setdefault(k, v)
