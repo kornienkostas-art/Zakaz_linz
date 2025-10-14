@@ -2,7 +2,8 @@ import atexit
 import json
 import os
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, ttk
+from tkinter import font as tkfont
 
 from db import AppDB
 from app.views.main import MainWindow
@@ -13,11 +14,21 @@ DB_FILE = "data.db"
 
 def ensure_settings(path: str):
     if not os.path.exists(path):
-        # Defaults: UI scale and export path
+        # Defaults: UI scale, font size and export path
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         export_path = desktop if os.path.isdir(desktop) else os.getcwd()
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"version": 1, "ui_scale": 1.25, "export_path": export_path}, f, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "version": 1,
+                    "ui_scale": 1.25,
+                    "ui_font_size": 20,
+                    "export_path": export_path,
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
 
 def load_settings(path: str) -> dict:
@@ -40,6 +51,29 @@ def save_settings(path: str, data: dict):
         pass
 
 
+def _apply_global_fonts(root: tk.Tk, size: int):
+    # Update Tk named fonts used by ttk
+    try:
+        for name in ("TkDefaultFont", "TkTextFont", "TkFixedFont", "TkMenuFont", "TkHeadingFont"):
+            try:
+                f = tkfont.nametofont(name)
+                f.configure(size=size)
+                f.configure(weight="normal")
+            except Exception:
+                pass
+        # Increase row height for Treeview to fit larger font
+        try:
+            style = ttk.Style(root)
+            style.configure("Treeview", rowheight=size + 12)
+            style.configure("Treeview.Heading", font=(None, size))
+            style.configure("TButton", font=(None, size))
+            style.configure("TLabel", font=(None, size))
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 def main():
     # High-DPI scaling for readability (Windows)
     try:
@@ -58,6 +92,10 @@ def main():
         root.tk.call("tk", "scaling", ui_scale)
     except tk.TclError:
         pass
+
+    # Apply global font size
+    ui_font_size = int(app_settings.get("ui_font_size", 20))
+    _apply_global_fonts(root, ui_font_size)
 
     # Start maximized on all platforms
     try:
