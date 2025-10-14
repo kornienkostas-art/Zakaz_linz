@@ -16,9 +16,8 @@ class SettingsView(ttk.Frame):
         # Attach settings dict from root
         self.settings = getattr(self.master, "app_settings", {}) or {}
 
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Use pack for the root container to avoid mixing geometry managers
+        self.pack(fill="both", expand=True)
 
         self._build_ui()
 
