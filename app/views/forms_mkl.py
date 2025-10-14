@@ -58,11 +58,20 @@ class OrderForm(tk.Toplevel):
             except Exception:
                 self.qty_var.set(1)
 
+        # Comment var
+        self.comment_var = tk.StringVar(value=(initial or {}).get("comment", ""))
+
         # UI
         self._build_ui()
 
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
+
+    def _go_back(self):
+        try:
+            self.destroy()
+        except Exception:
+            pass
 
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
@@ -121,13 +130,18 @@ class OrderForm(tk.Toplevel):
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=8, column=0, sticky="w")
 
+        # Comment field
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
+        self.comment_entry.grid(row=8, column=1, sticky="ew")
+
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+        ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
     # Helpers
     def _client_values(self):
@@ -280,11 +294,22 @@ class OrderForm(tk.Toplevel):
             "qty": qty,
             "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "comment": (self.comment_var.get() or "").strip(),
         }
         if callable(self.on_save):
             self.on_save(order)
-        self.destroy()
+        # Close via unified back handler
+        try:
+            self._go_back()
+        except Exception:
+            self.destroy()
 
+
+def _go_back(self):
+        try:
+            self.destroy()
+        except Exception:
+            pass
 
 class MKLOrderEditorView(ttk.Frame):
     """Встроенная форма создания/редактирования заказа МКЛ, как отдельный вид внутри главного окна."""
@@ -303,7 +328,7 @@ class MKLOrderEditorView(ttk.Frame):
 
         # Load datasets
         self.clients = self.db.list_clients() if self.db else []
-        self.products = self.db.list_products() if self.db else []
+        self.products = self.db.list_products_mkl() if self.db else []
 
         # Vars
         self.client_var = tk.StringVar()
@@ -314,6 +339,7 @@ class MKLOrderEditorView(ttk.Frame):
         self.bc_var = tk.StringVar(value="")
         self.qty_var = tk.IntVar(value=1)
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
+        self.comment_var = tk.StringVar(value=(initial or {}).get("comment", ""))
 
         # Prefill
         if initial:
@@ -396,10 +422,15 @@ class MKLOrderEditorView(ttk.Frame):
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
+        # Comment field
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
+        self.comment_entry.grid(row=8, column=1, sticky="ew")
+
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
+        ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
     def _go_back(self):
         try:
@@ -559,6 +590,7 @@ class MKLOrderEditorView(ttk.Frame):
             "qty": qty,
             "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "comment": (self.comment_var.get() or "").strip(),
         }
         cb = getattr(self, "on_save", None)
         if callable(cb):

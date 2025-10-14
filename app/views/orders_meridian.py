@@ -36,7 +36,7 @@ class MeridianOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back)
+        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back)
 
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
@@ -130,9 +130,9 @@ class MeridianOrdersView(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            from app.views.products import ProductsView
+            from app.views.products_meridian import ProductsMeridianView
             from app.views.main import MainWindow
-            ProductsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+            ProductsMeridianView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
         fade_transition(self.master, swap)
 
     def _selected_index(self):
@@ -262,7 +262,7 @@ class MeridianOrdersView(ttk.Frame):
         dialog.configure(bg="#f8fafc")
         dialog.transient(self)
         dialog.grab_set()
-        try
+
         ttk.Label(dialog, text="Выберите статус", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", padx=12, pady=(12, 4))
         var = tk.StringVar(value=current)
         combo = ttk.Combobox(dialog, textvariable=var, values=self.STATUSES, height=6)
@@ -275,6 +275,13 @@ class MeridianOrdersView(ttk.Frame):
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
 
         dialog.columnconfigure(0, weight=1)
+
+        # Center the dialog on screen
+        try:
+            from app.utils import center_on_screen
+            center_on_screen(dialog)
+        except Exception:
+            pass
 
     def _refresh_orders_view(self):
         db = getattr(self.master, "db", None)
@@ -298,6 +305,15 @@ class MeridianOrdersView(ttk.Frame):
             values = (o.get("title", ""), items_count, o.get("status", ""), o.get("date", ""))
             tag = f"status_{o.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+        # Auto-select the latest order (first row; list is DESC by id)
+        try:
+            children = self.tree.get_children()
+            if children:
+                self.tree.selection_set(children[0])
+                self.tree.focus(children[0])
+                self.tree.see(children[0])
+        except Exception:
+            pass
 
     def _export_txt(self):
         """Экспорт позиций из заказов 'Не заказан' с загрузкой items из БД, сгруппировано по товару."""
