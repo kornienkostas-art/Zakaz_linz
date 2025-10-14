@@ -92,6 +92,21 @@ class SettingsView(ttk.Frame):
 
         ttk.Separator(card).grid(row=13, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
+        # MKL notifications
+        ttk.Label(card, text="Уведомления по заказам МКЛ (статус 'Не заказан')", style="Title.TLabel").grid(row=13, column=0, sticky="w")
+        self.mkl_notify_enabled_var = tk.BooleanVar(value=bool(self.settings.get("mkl_notify_enabled", False)))
+        ttk.Checkbutton(card, text="Включить уведомления", variable=self.mkl_notify_enabled_var).grid(row=13, column=1, sticky="w")
+
+        ttk.Label(card, text="Напоминать через (дней)", style="Subtitle.TLabel").grid(row=14, column=0, sticky="w", pady=(8, 0))
+        self.mkl_notify_days_var = tk.IntVar(value=int(self.settings.get("mkl_notify_after_days", 3)))
+        ttk.Spinbox(card, from_=1, to=60, textvariable=self.mkl_notify_days_var, width=10).grid(row=14, column=1, sticky="w")
+
+        ttk.Label(card, text="Время (чч:мм)", style="Subtitle.TLabel").grid(row=15, column=0, sticky="w", pady=(8, 0))
+        self.mkl_notify_time_var = tk.StringVar(value=(self.settings.get("mkl_notify_time") or "09:00"))
+        ttk.Entry(card, textvariable=self.mkl_notify_time_var, width=10).grid(row=15, column=1, sticky="w")
+
+        ttk.Separator(card).grid(row=16, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+
         # Sound enable
         ttk.Label(card, text="Звук уведомления", style="Subtitle.TLabel").grid(row=14, column=0, sticky="w", pady=(8, 0))
         self.notify_sound_enabled_var = tk.BooleanVar(value=bool(self.settings.get("notify_sound_enabled", True)))
@@ -193,6 +208,11 @@ class SettingsView(ttk.Frame):
         data["notify_enabled"] = bool(self.notify_enabled_var.get())
         data["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
         data["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
+        # MKL notifications
+        data["mkl_notify_enabled"] = bool(self.mkl_notify_enabled_var.get())
+        data["mkl_notify_after_days"] = int(self.mkl_notify_days_var.get())
+        data["mkl_notify_time"] = (self.mkl_notify_time_var.get() or "09:00").strip()
+        # Sound
         data["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
         data["notify_sound_mode"] = (self.notify_sound_mode_var.get() or "alias")
         data["notify_sound_file"] = (self.notify_sound_file_var.get() or "").strip()
@@ -273,6 +293,11 @@ class SettingsView(ttk.Frame):
             self.settings["notify_enabled"] = bool(self.notify_enabled_var.get())
             self.settings["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
             self.settings["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
+            # MKL notifications
+            self.settings["mkl_notify_enabled"] = bool(self.mkl_notify_enabled_var.get())
+            self.settings["mkl_notify_after_days"] = int(self.mkl_notify_days_var.get())
+            self.settings["mkl_notify_time"] = (self.mkl_notify_time_var.get() or "09:00").strip()
+            # Sound
             self.settings["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
             self.settings["notify_sound_mode"] = (self.notify_sound_mode_var.get() or "alias")
             self.settings["notify_sound_file"] = (self.notify_sound_file_var.get() or "").strip()

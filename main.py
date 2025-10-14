@@ -29,10 +29,19 @@ def ensure_settings(path: str):
                     "minimize_to_tray": True,
                     "start_in_tray": True,
                     "autostart_enabled": False,
+                    # Meridian notifications
                     "notify_enabled": False,
                     "notify_days": [],
                     "notify_time": "09:00",
+                    # MKL notifications
+                    "mkl_notify_enabled": False,
+                    "mkl_notify_after_days": 3,
+                    "mkl_notify_time": "09:00",
+                    # Sound
                     "notify_sound_enabled": True,
+                    "notify_sound_alias": "SystemAsterisk",
+                    "notify_sound_mode": "alias",
+                    "notify_sound_file": "",
                 },
                 f,
                 ensure_ascii=False,
@@ -55,9 +64,15 @@ def load_settings(path: str) -> dict:
                 "minimize_to_tray": True,
                 "start_in_tray": True,
                 "autostart_enabled": False,
+                # Meridian notifications
                 "notify_enabled": False,
                 "notify_days": [],
                 "notify_time": "09:00",
+                # MKL notifications
+                "mkl_notify_enabled": False,
+                "mkl_notify_after_days": 3,
+                "mkl_notify_time": "09:00",
+                # Sound
                 "notify_sound_enabled": True,
                 "notify_sound_alias": "SystemAsterisk",
                 "notify_sound_mode": "alias",  # 'alias' or 'file'
@@ -198,7 +213,7 @@ def main():
         pass
 
     # --- Notifications scheduler (Meridian 'Не заказан') ---
-    _scheduler = {"snoozed_until": None}
+    _scheduler = {"snoozed_until": None, "mkl_snoozed_until": None}
 
     def _parse_notify_time(s: str):
         try:
@@ -256,37 +271,89 @@ def main():
 
         now = datetime.now()
 
-        # Snooze gate
+        # Meridian snooze
         until = _scheduler.get("snoozed_until")
         if until and now < until:
-            root.after(60_000, _check_and_notify)
-            return
-
-        if _should_notify(now):
-            # Only notify if there are Meridian orders with status 'Не заказан'
-            try:
-                db = getattr(root, "db", None)
-                orders = db.list_meridian_orders() if db else []
-                pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
-            except Exception:
-                pending = []
-            if pending:
-                # Reveal window reliably
-                _reveal_from_tray()
-                # Show notification dialog
+            pass
+        else:
+            if _should_notify(now):
+                # Meridian 'Не заказан'
                 try:
-                    from app.views.notify import show_meridian_notification
-                    def on_snooze(minutes):
-                        _scheduler["snoozed_until"] = now + timedelta(minutes=minutes)
-                    def on_mark_ordered():
-                        try:
-                            for o in pending:
-                                root.db.update_meridian_order(o["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
-                        except Exception:
-                            pass
-                    show_meridian_notification(root, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
+                    db = getattr(root, "db", None)
+                    orders = db.list_meridian_orders() if db else []
+                    pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
                 except Exception:
-                    pass
+                    pending = []
+                if pending:
+                    _reveal_from_tray()
+                    try:
+                        from app.views.notify import show_meridian_notification
+                        def on_snooze(minutes):
+                            _scheduler["snoozed_until"] = now + timedelta(minutes=minutes)
+                        def on_mark_ordered():
+                            try:
+                                for o in pending:
+                                    root.db.update_meridian_order(o["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+                            except Exception:
+                                pass
+                        show_meridian_notification(root, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
+                    except Exception:
+                        pass
+
+        # MKL notifications: time-based daily check with age threshold
+        try:
+            settings = root.app_settings or {}
+            if bool(settings.get("mkl_notify_enabled", False)):
+                hh, mm = _parse_notify_time(settings.get("mkl_notify_time", "09:00"))
+                if now.hour == hh and now.minute == mm:
+                    # Snooze gate for MKL
+                    mkl_until = _scheduler.get("mkl_snoozed_until")
+                    if not (mkl_until and now < mkl_until):
+                        days = int(settings.get("mkl_notify_after_days", 3))
+                        threshold = now - timedelta(days=max(0, days))
+                        try:
+                            db = getattr(root, "db", None)
+                            mkl_orders = db.list_mkl_orders() if db else []
+                        except Exception:
+                            mkl_orders = []
+                        aged_pending = []
+                        for o in mkl_orders:
+                            try:
+                                if (o.get("status", "") or "").strip() != "Не заказан":
+                                    continue
+                                ds = (o.get("date", "") or "").strip()
+                                dt = None
+                                for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d", "%d.%m.%Y %H:%M", "%d.%m.%Y"):
+                                    try:
+                                        from datetime import datetime as _dt
+                                        dt = _dt.strptime(ds, fmt)
+                                        break
+                                    except Exception:
+                                        continue
+                                if dt is None:
+                                    continue
+                                if dt <= threshold:
+                                    aged_pending.append(o)
+                            except Exception:
+                                continue
+                        if aged_pending:
+                            _reveal_from_tray()
+                            try:
+                                from app.views.notify import show_mkl_notification
+                                def on_snooze_days(d):
+                                    _scheduler["mkl_snoozed_until"] = now + timedelta(days=d)
+                                def on_mark_ordered_mkl():
+                                    try:
+                                        for o in aged_pending:
+                                            root.db.update_mkl_order(o["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+                                    except Exception:
+                                        pass
+                                show_mkl_notification(root, aged_pending, on_snooze_days=on_snooze_days, on_mark_ordered=on_mark_ordered_mkl)
+                            except Exception:
+                                pass
+        except Exception:
+            pass
+
         # Re-check every minute
         root.after(60_000, _check_and_notify)
 
