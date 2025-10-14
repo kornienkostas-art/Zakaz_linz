@@ -13,28 +13,42 @@ except Exception:
 
 def _get_exec_command() -> str:
     """
-    Return command string for autostart:
+    Return command string for Windows autostart:
     - If running as packaged exe (sys.frozen): sys.executable
-    - Else: pythonw.exe + full path to main.py
+    - Else: pythonw.exe (если есть) + абсолютный путь до main.py из корня проекта
     """
     import sys
     try:
+        # PyInstaller/onefile: просто запускаем сам exe
         if getattr(sys, "frozen", False):
             return sys.executable
-        # Fallback: use pythonw.exe to avoid console
-        pythonw = sys.executable  # may be python.exe; try to find pythonw
+
+        # Пытаемся найти pythonw.exe, чтобы не открывалось консольное окно
+        python_exec = sys.executable
         try:
             base = os.path.dirname(sys.executable)
             candidate = os.path.join(base, "pythonw.exe")
-            if os.path.isfile(candidate):
-                pythonw = candidate
+            if os.name == "nt" and os.path.isfile(candidate):
+                python_exec = candidate
         except Exception:
             pass
-        script = os.path.abspath(__file__)
-        return f'"{pythonw}" "{script}"'
+
+        # Путь до main.py расположен на уровень выше, чем этот файл (app/tray.py -> ../main.py)
+        try:
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(app_dir)
+            script = os.path.join(project_root, "main.py")
+        except Exception:
+            # Fallback — на случай, если что-то пошло не так
+            script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "main.py"))
+
+        return f'"{python_exec}" "{script}"'
     except Exception:
-        # Last resort
-        return os.path.abspath(__file__)
+        # Последняя попытка — вернуть путь к main.py
+        try:
+            return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "main.py"))
+        except Exception:
+            return os.path.abspath(__file__)
 
 
 def _windows_autostart_set(enabled: bool):

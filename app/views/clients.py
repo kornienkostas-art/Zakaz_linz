@@ -63,6 +63,9 @@ class ClientsView(ttk.Frame):
         table_card.columnconfigure(0, weight=1)
         table_card.rowconfigure(0, weight=1)
 
+        # Открывать карточку по двойному клику
+        self.tree.bind("<Double-1>", lambda e: self._edit())
+
         self._refresh_view()
 
     def _go_back(self):
