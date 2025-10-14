@@ -22,6 +22,7 @@ class MainWindow:
 
         self._build_ui()
         self._refresh_stats()
+        self._schedule_notifications()
 
     def _build_ui(self):
         container = ttk.Frame(self.root)
@@ -63,11 +64,11 @@ class MainWindow:
         row2.pack(pady=16)
 
         btn_opts = dict(width=32)
-        ttk.Button(row1, text="Клиенты", command=self._open_clients, **btn_opts).pack(side="left", padx=12, ipady=6)
-        ttk.Button(row1, text="Товары", command=self._open_products, **btn_opts).pack(side="left", padx=12, ipady=6)
+        ttk.Button(row1, text="Клиенты", command=self._open_clients, **btn_opts).pack(side="left", padx=12, ipady=10)
+        ttk.Button(row1, text="Товары", command=self._open_products, **btn_opts).pack(side="left", padx=12, ipady=10)
 
-        ttk.Button(row2, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=12, ipady=6)
-        ttk.Button(row2, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=12, ipady=6)
+        ttk.Button(row2, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=12, ipady=10)
+        ttk.Button(row2, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=12, ipady=10)
 
     def _refresh_stats(self):
         db = self.root.db
@@ -125,5 +126,71 @@ class MainWindow:
             for child in self.root.winfo_children():
                 if isinstance(child, ttk.Frame):
                     child.destroy()
+        except Exception:
+            pass
+
+    # Notifications
+    def _schedule_notifications(self):
+        settings = getattr(self.root, "app_settings", {}) or {}
+        enabled = bool(settings.get("notify_enabled", True))
+        interval_min = int(settings.get("notify_interval_minutes", 10))
+        if not enabled:
+            return
+        # Schedule next check
+        self.root.after(max(1, interval_min) * 60 * 1000, self._check_and_notify)
+
+    def _check_and_notify(self):
+        import datetime
+        settings = getattr(self.root, "app_settings", {}) or {}
+        enabled = bool(settings.get("notify_enabled", True))
+        interval_min = int(settings.get("notify_interval_minutes", 10))
+        age_hours = int(settings.get("notify_age_hours", 24))
+        if not enabled:
+            return
+
+        cutoff = datetime.datetime.now() - datetime.timedelta(hours=age_hours)
+        stale_mkl = []
+        stale_mer = []
+        try:
+            for o in self.root.db.list_mkl_orders():
+                # Notify for 'Заказан' older than cutoff and not yet 'Вручен'
+                if (o.get("status") == "Заказан"):
+                    # parse date
+                    try:
+                        dt = datetime.datetime.strptime(o.get("date", ""), "%Y-%m-%d %H:%M")
+                        if dt <= cutoff:
+                            stale_mkl.append(o)
+                    except Exception:
+                        pass
+            for o in self.root.db.list_meridian_orders():
+                if (o.get("status") == "Заказан"):
+                    try:
+                        dt = datetime.datetime.strptime(o.get("date", ""), "%Y-%m-%d %H:%M")
+                        if dt <= cutoff:
+                            stale_mer.append(o)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        if stale_mkl or stale_mer:
+            lines = []
+            if stale_mkl:
+                lines.append(f"МКЛ: просрочено {len(stale_mkl)} заказ(ов).")
+                for o in stale_mkl[:5]:
+                    lines.append(f"- {o.get('fio','')} • {o.get('product','')} • дата: {o.get('date','')}")
+            if stale_mer:
+                lines.append(f"Меридиан: просрочено {len(stale_mer)} заказ(ов).")
+                for o in stale_mer[:5]:
+                    lines.append(f"- {o.get('title','')} • дата: {o.get('date','')}")
+            try:
+                from tkinter import messagebox
+                messagebox.showinfo("Напоминание по заказам", "\n".join(lines))
+            except Exception:
+                pass
+
+        # Reschedule next check
+        try:
+            self.root.after(max(1, interval_min) * 60 * 1000, self._check_and_notify)
         except Exception:
             pass
