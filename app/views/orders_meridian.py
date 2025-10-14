@@ -276,6 +276,13 @@ class MeridianOrdersView(ttk.Frame):
 
         dialog.columnconfigure(0, weight=1)
 
+        # Center the dialog on screen
+        try:
+            from app.utils import center_on_screen
+            center_on_screen(dialog)
+        except Exception:
+            pass
+
     def _refresh_orders_view(self):
         db = getattr(self.master, "db", None)
         if db:
