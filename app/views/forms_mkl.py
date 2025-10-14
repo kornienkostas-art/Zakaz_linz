@@ -58,6 +58,9 @@ class OrderForm(tk.Toplevel):
             except Exception:
                 self.qty_var.set(1)
 
+        # Comment var
+        self.comment_var = tk.StringVar(value=(initial or {}).get("comment", ""))
+
         # UI
         self._build_ui()
 
@@ -121,13 +124,18 @@ class OrderForm(tk.Toplevel):
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=8, column=0, sticky="w")
 
+        # Comment field
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
+        self.comment_entry.grid(row=8, column=1, sticky="ew")
+
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+        ttk.Button(btns, text="Отмена", style="Back.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
 
     # Helpers
     def _client_values(self):
@@ -559,6 +567,7 @@ class MKLOrderEditorView(ttk.Frame):
             "qty": qty,
             "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "comment": (self.comment_var.get() or "").strip(),
         }
         cb = getattr(self, "on_save", None)
         if callable(cb):

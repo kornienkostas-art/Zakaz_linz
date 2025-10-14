@@ -3,13 +3,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition, format_phone_mask, center_on_screen
+from app.utils import fade_transition, format_phone_mask
 from app.db import AppDB  # type hint only
 
 
 class MKLOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ МКЛ' внутри главного окна (DB-backed)."""
-    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date")
+    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date", "comment_flag")
     HEADERS = {
         "fio": "ФИО",
         "phone": "Телефон",
@@ -21,6 +21,7 @@ class MKLOrdersView(ttk.Frame):
         "qty": "Количество",
         "status": "Статус",
         "date": "Дата",
+        "comment_flag": "Комментарий",
     }
     STATUSES = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
 
@@ -44,7 +45,7 @@ class MKLOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back).pack(side="left")
+        ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back).pack(side="left")
         ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(side="left", padx=(8, 0))
         ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order).pack(side="left", padx=(8, 0))
         ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order).pack(side="left", padx=(8, 0))
@@ -66,7 +67,7 @@ class MKLOrdersView(ttk.Frame):
         container.pack(fill="both", expand=True)
 
         header = ttk.Label(container, text="Заказ МКЛ • Таблица данных", style="Title.TLabel")
-        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, Количество, Статус, Дата", style="Subtitle.TLabel")
+        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, Количество, Статус, Дата, Комментарий", style="Subtitle.TLabel")
         header.pack(anchor="w")
         sub.pack(anchor="w", pady=(4, 12))
 
@@ -81,7 +82,7 @@ class MKLOrdersView(ttk.Frame):
             self.tree.heading(col, text=self.HEADERS[col], anchor="w")
             width = {
                 "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
-                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160,
+                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 140,
             }[col]
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
@@ -185,7 +186,7 @@ class MKLOrdersView(ttk.Frame):
         order_id = current.get("id")
 
         clients = self.db.list_clients() if self.db else []
-        products = self.db.list_products() if self.db else []
+        products = self.db.list_products_mkl() if self.db else []
 
         def on_save(updated: dict):
             new_status = updated.get("status", current.get("status", "Не заказан"))
@@ -324,6 +325,7 @@ class MKLOrdersView(ttk.Frame):
             self.tree.delete(i)
         for idx, item in enumerate(self.orders):
             masked_phone = format_phone_mask(item.get("phone", ""))
+            comment_flag = "ЕСТЬ" if (item.get("comment", "") or "").strip() else "НЕТ"
             values = (
                 item.get("fio", ""),
                 masked_phone,
@@ -335,6 +337,7 @@ class MKLOrdersView(ttk.Frame):
                 item.get("qty", ""),
                 item.get("status", ""),
                 item.get("date", ""),
+                comment_flag,
             )
             tag = f"status_{item.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))

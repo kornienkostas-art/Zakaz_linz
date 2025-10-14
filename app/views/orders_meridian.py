@@ -36,7 +36,7 @@ class MeridianOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back)
+        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back)
 
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)

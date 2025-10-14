@@ -22,7 +22,7 @@ def ensure_settings(path: str):
                 {
                     "version": 1,
                     "ui_scale": 1.25,
-                    "ui_font_size": 20,
+                    "ui_font_size": 17,
                     "export_path": export_path,
                 },
                 f,
@@ -68,6 +68,8 @@ def _apply_global_fonts(root: tk.Tk, size: int):
             style.configure("Treeview.Heading", font=(None, size))
             style.configure("TButton", font=(None, size))
             style.configure("TLabel", font=(None, size))
+            # Distinct style for 'Back' buttons
+            style.configure("Back.TButton", font=(None, size + 1, "bold"), padding=(18, 12))
         except Exception:
             pass
     except Exception:
