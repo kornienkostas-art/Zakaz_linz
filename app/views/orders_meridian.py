@@ -305,6 +305,15 @@ class MeridianOrdersView(ttk.Frame):
             values = (o.get("title", ""), items_count, o.get("status", ""), o.get("date", ""))
             tag = f"status_{o.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+        # Auto-select the latest order (first row; list is DESC by id)
+        try:
+            children = self.tree.get_children()
+            if children:
+                self.tree.selection_set(children[0])
+                self.tree.focus(children[0])
+                self.tree.see(children[0])
+        except Exception:
+            pass
 
     def _export_txt(self):
         """Экспорт позиций из заказов 'Не заказан' с загрузкой items из БД, сгруппировано по товару."""

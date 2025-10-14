@@ -341,3 +341,12 @@ class MKLOrdersView(ttk.Frame):
             )
             tag = f"status_{item.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+        # Auto-select the latest (first row since orders are DESC by id)
+        try:
+            children = self.tree.get_children()
+            if children:
+                self.tree.selection_set(children[0])
+                self.tree.focus(children[0])
+                self.tree.see(children[0])
+        except Exception:
+            pass
