@@ -196,4 +196,6 @@ def _show_main_window(master):
                 master.attributes("-zoomed", True)
             except Exception:
                 pass
-        master.after(50, lambda: master.attributes("-ss
+        master.after(50, lambda: master.attributes("-alpha", 1.0))
+    except Exception:
+        pass
