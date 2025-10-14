@@ -50,19 +50,11 @@ class MainWindow:
         ttk.Button(row, text="Настройки…", command=self._open_settings, **btn_opts).pack(side="left", padx=20, ipady=8)
 
     def _refresh_stats(self):
-        db = self.root.db
+        # На главном экране счётчики скрыты; оставим заглушку для совместимости.
         try:
-            clients = db.list_clients()
-            products = db.list_products()
-            mkl = db.list_mkl_orders()
-            mer = db.list_meridian_orders()
+            _ = self.root.db
         except Exception:
-            clients, products, mkl, mer = [], [], [], []
-
-        self.clients_count_var.set(f"Клиенты: {len(clients)}")
-        self.products_count_var.set(f"Товары: {len(products)}")
-        self.mkl_count_var.set(f"МКЛ: {len(mkl)}")
-        self.meridian_count_var.set(f"Меридиан: {len(mer)}")
+            pass
 
     # Navigation
     def _open_clients(self):
