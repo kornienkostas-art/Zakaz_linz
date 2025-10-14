@@ -323,57 +323,23 @@ class SettingsRewriteWindow(tk.Toplevel):
                 except Exception:
                     pass
 
-    # Test notification buttons
-    def _test_meridian(self):
-        try:
-            db = getattr(self.master, "db", None)
-            orders = db.list_meridian_orders() if db else []
-            pending = [o for o in orders if (o.get("status","") or "").strip() == "Не заказан"]
-            if not pending:
-                messagebox.showinfo("Уведомление", "Нет заказов Меридиан со статусом 'Не заказан'.")
-                return
-            from app.views.notify import show_meridian_notification
-            def on_snooze(m): messagebox.showinfo("Уведомление", f"Отложено на {m} мин.")
-            def on_mark(): 
-                try:
-                    for o in pending: db.update_meridian_order(o["id"], {"status":"Заказан"})
-                    messagebox.showinfo("Уведомление", "Статус заказов изменён на 'Заказан'.")
-                except Exception as e:
-                    messagebox.showerror("Уведомление", f"Не удалось изменить статус:\n{e}")
-            show_meridian_notification(self.master, pending, on_snooze=on_snooze, on_mark_ordered=on_mark)
-        except Exception as e:
-            messagebox.showerror("Уведомление", f"Ошибка проверки:\n{e}")
-
+    # Test notification button (MKL only, without age filter)
     def _test_mkl(self):
         try:
-            from datetime import datetime, timedelta
             db = getattr(self.master, "db", None)
             orders = db.list_mkl_orders() if db else []
-            days = int(self.mkl_notify_days_var.get() or 3)
-            threshold = datetime.now() - timedelta(days=max(0, days))
-            aged = []
-            for o in orders:
-                try:
-                    if (o.get("status","") or "").strip() != "Не заказан": continue
-                    ds = (o.get("date","") or "").strip()
-                    dt = None
-                    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d", "%d.%m.%Y %H:%M", "%d.%m.%Y"):
-                        try:
-                            dt = datetime.strptime(ds, fmt); break
-                        except Exception: continue
-                    if dt and dt <= threshold: aged.append(o)
-                except Exception: continue
-            if not aged:
-                messagebox.showinfo("Уведомление МКЛ", "Нет просроченных заказов МКЛ со статусом 'Не заказан'.")
+            pending = [o for o in orders if (o.get("status","") or "").strip() == "Не заказан"]
+            if not pending:
+                messagebox.showinfo("Уведомление МКЛ", "Нет заказов МКЛ со статусом 'Не заказан'.")
                 return
             from app.views.notify import show_mkl_notification
             def on_snooze_days(d): messagebox.showinfo("Уведомление МКЛ", f"Отложено на {d} дн.")
             def on_mark():
                 try:
-                    for o in aged: db.update_mkl_order(o["id"], {"status":"Заказан"})
+                    for o in pending: db.update_mkl_order(o["id"], {"status":"Заказан"})
                     messagebox.showinfo("Уведомление МКЛ", "Статус заказов изменён на 'Заказан'.")
                 except Exception as e:
                     messagebox.showerror("Уведомление МКЛ", f"Не удалось изменить статус:\n{e}")
-            show_mkl_notification(self.master, aged, on_snooze_days=on_snooze_days, on_mark_ordered=on_mark)
+            show_mkl_notification(self.master, pending, on_snooze_days=on_snooze_days, on_mark_ordered=on_mark)
         except Exception as e:
             messagebox.showerror("Уведомление МКЛ", f"Ошибка проверки:\n{e}")
