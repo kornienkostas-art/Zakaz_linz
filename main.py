@@ -2,6 +2,7 @@ import atexit
 import json
 import os
 import tkinter as tk
+from tkinter import filedialog
 
 from db import AppDB
 from app.views.main import MainWindow
@@ -12,8 +13,31 @@ DB_FILE = "data.db"
 
 def ensure_settings(path: str):
     if not os.path.exists(path):
+        # Defaults: UI scale and export path
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        export_path = desktop if os.path.isdir(desktop) else os.getcwd()
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"version": 1}, f, ensure_ascii=False, indent=2)
+            json.dump({"version": 1, "ui_scale": 1.25, "export_path": export_path}, f, ensure_ascii=False, indent=2)
+
+
+def load_settings(path: str) -> dict:
+    ensure_settings(path)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, dict):
+                return {}
+            return data
+    except Exception:
+        return {}
+
+
+def save_settings(path: str, data: dict):
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 
 def main():
@@ -26,9 +50,12 @@ def main():
 
     root = tk.Tk()
 
-    # Tk scaling improves text/UI size on HiDPI
+    # Load settings and apply UI scale
+    app_settings = load_settings(SETTINGS_FILE)
+    root.app_settings = app_settings
+    ui_scale = float(app_settings.get("ui_scale", 1.25))
     try:
-        root.tk.call("tk", "scaling", 1.25)
+        root.tk.call("tk", "scaling", ui_scale)
     except tk.TclError:
         pass
 
@@ -46,8 +73,7 @@ def main():
             except Exception:
                 pass
 
-    # Ensure settings and DB
-    ensure_settings(SETTINGS_FILE)
+    # Ensure DB
     root.db = AppDB(DB_FILE)
 
     # Ensure DB connection closes on exit

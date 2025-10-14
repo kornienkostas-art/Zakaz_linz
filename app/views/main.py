@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 
 from app.db import AppDB
 from app.utils import set_initial_geometry, fade_transition
@@ -11,11 +11,14 @@ class MainWindow:
         self.root.title("УссурОЧки.рф — Заказ линз")
 
         # Geometry
-        set_initial_geometry(self.root, min_w=1024, min_h=700)
+        set_initial_geometry(self.root, min_w=1100, min_h=760)
 
         # Ensure DB exists on root (created in main.py), but allow fallback
         if not hasattr(self.root, "db") or not isinstance(self.root.db, AppDB):
             self.root.db = AppDB("data.db")
+
+        # Load settings dict (set in main.py)
+        self.app_settings = getattr(self.root, "app_settings", {})
 
         self._build_ui()
         self._refresh_stats()
@@ -26,7 +29,7 @@ class MainWindow:
 
         # Top bar with stats
         top = ttk.Frame(container)
-        top.pack(side="top", fill="x", padx=16, pady=12)
+        top.pack(side="top", fill="x", padx=20, pady=16)
 
         self.clients_count_var = tk.StringVar(value="Клиенты: 0")
         self.products_count_var = tk.StringVar(value="Товары: 0")
@@ -39,25 +42,32 @@ class MainWindow:
             self.mkl_count_var,
             self.meridian_count_var,
         ):
-            ttk.Label(top, textvariable=var).pack(side="left", padx=8)
+            ttk.Label(top, textvariable=var).pack(side="left", padx=12)
 
-        ttk.Button(top, text="Обновить", command=self._refresh_stats).pack(side="right")
+        ttk.Button(top, text="Обновить", command=self._refresh_stats).pack(side="right", padx=8)
 
-        # Main menu cards
+        # Settings quick info
+        info = ttk.Frame(container)
+        info.pack(fill="x", padx=20)
+        export_path = (self.app_settings.get("export_path") or "").strip()
+        ttk.Label(info, text=f"Папка экспорта: {export_path or 'не задана'}").pack(side="left", padx=12)
+        ttk.Button(info, text="Настройки…", command=self._open_settings).pack(side="right", padx=8)
+
+        # Main menu buttons - larger
         menu = ttk.Frame(container)
-        menu.pack(fill="both", expand=True, padx=32, pady=24)
+        menu.pack(fill="both", expand=True, padx=36, pady=28)
 
-        # Two rows of buttons
         row1 = ttk.Frame(menu)
-        row1.pack(pady=12)
+        row1.pack(pady=16)
         row2 = ttk.Frame(menu)
-        row2.pack(pady=12)
+        row2.pack(pady=16)
 
-        ttk.Button(row1, text="Клиенты", width=24, command=self._open_clients).pack(side="left", padx=8)
-        ttk.Button(row1, text="Товары", width=24, command=self._open_products).pack(side="left", padx=8)
+        btn_opts = dict(width=32)
+        ttk.Button(row1, text="Клиенты", command=self._open_clients, **btn_opts).pack(side="left", padx=12, ipady=6)
+        ttk.Button(row1, text="Товары", command=self._open_products, **btn_opts).pack(side="left", padx=12, ipady=6)
 
-        ttk.Button(row2, text="Заказы МКЛ", width=24, command=self._open_mkl).pack(side="left", padx=8)
-        ttk.Button(row2, text="Заказы Меридиан", width=24, command=self._open_meridian).pack(side="left", padx=8)
+        ttk.Button(row2, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=12, ipady=6)
+        ttk.Button(row2, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=12, ipady=6)
 
     def _refresh_stats(self):
         db = self.root.db
@@ -77,49 +87,43 @@ class MainWindow:
     # Navigation
     def _open_clients(self):
         def swap():
-            try:
-                # Remove current main menu
-                for child in self.root.winfo_children():
-                    if isinstance(child, ttk.Frame):
-                        child.destroy()
-            except Exception:
-                pass
+            self._clear_root_frames()
             from app.views.clients import ClientsView
             ClientsView(self.root, self.root.db, on_back=lambda: MainWindow(self.root))
         fade_transition(self.root, swap)
 
     def _open_products(self):
         def swap():
-            try:
-                for child in self.root.winfo_children():
-                    if isinstance(child, ttk.Frame):
-                        child.destroy()
-            except Exception:
-                pass
+            self._clear_root_frames()
             from app.views.products import ProductsView
             ProductsView(self.root, self.root.db, on_back=lambda: MainWindow(self.root))
         fade_transition(self.root, swap)
 
     def _open_mkl(self):
         def swap():
-            try:
-                for child in self.root.winfo_children():
-                    if isinstance(child, ttk.Frame):
-                        child.destroy()
-            except Exception:
-                pass
+            self._clear_root_frames()
             from app.views.orders_mkl import MKLOrdersView
             MKLOrdersView(self.root, on_back=lambda: MainWindow(self.root))
         fade_transition(self.root, swap)
 
     def _open_meridian(self):
         def swap():
-            try:
-                for child in self.root.winfo_children():
-                    if isinstance(child, ttk.Frame):
-                        child.destroy()
-            except Exception:
-                pass
+            self._clear_root_frames()
             from app.views.orders_meridian import MeridianOrdersView
             MeridianOrdersView(self.root, on_back=lambda: MainWindow(self.root))
         fade_transition(self.root, swap)
+
+    def _open_settings(self):
+        def swap():
+            self._clear_root_frames()
+            from app.views.settings import SettingsView
+            SettingsView(self.root, on_back=lambda: MainWindow(self.root))
+        fade_transition(self.root, swap)
+
+    def _clear_root_frames(self):
+        try:
+            for child in self.root.winfo_children():
+                if isinstance(child, ttk.Frame):
+                    child.destroy()
+        except Exception:
+            pass
