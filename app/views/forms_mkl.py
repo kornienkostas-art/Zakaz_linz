@@ -294,6 +294,12 @@ class OrderForm(tk.Toplevel):
         self.destroy()
 
 
+def _go_back(self):
+        try:
+            self.destroy()
+        except Exception:
+            pass
+
 class MKLOrderEditorView(ttk.Frame):
     """Встроенная форма создания/редактирования заказа МКЛ, как отдельный вид внутри главного окна."""
     def __init__(self, master: tk.Tk, db: Optional[AppDB], on_back, on_save, initial: dict | None = None):
