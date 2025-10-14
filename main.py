@@ -217,11 +217,34 @@ def main():
         hh, mm = _parse_notify_time(settings.get("notify_time", "09:00"))
         return (now.hour == hh and now.minute == mm)
 
-    def _check_and_notify():
+    def _reveal_from_tray():
+        # Robustly bring window to front even if tray helpers are unavailable
         try:
             from app.tray import _show_main_window
         except Exception:
             _show_main_window = None
+        try:
+            if _show_main_window:
+                _show_main_window(root)
+            else:
+                root.deiconify()
+                try:
+                    root.state("zoomed")
+                except Exception:
+                    try:
+                        root.attributes("-zoomed", True)
+                    except Exception:
+                        pass
+                # Force focus/topmost briefly
+                try:
+                    root.attributes("-topmost", True)
+                    root.after(300, lambda: root.attributes("-topmost", False))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _check_and_notify():
         from datetime import datetime, timedelta
 
         now = datetime.now()
@@ -241,12 +264,8 @@ def main():
             except Exception:
                 pending = []
             if pending:
-                # Reveal main window from tray if available
-                try:
-                    if _show_main_window:
-                        _show_main_window(root)
-                except Exception:
-                    pass
+                # Reveal window reliably
+                _reveal_from_tray()
                 # Show notification dialog
                 try:
                     from app.views.notify import show_meridian_notification
