@@ -7,6 +7,7 @@ from tkinter import font as tkfont
 
 from db import AppDB
 from app.views.main import MainWindow
+from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -14,7 +15,7 @@ DB_FILE = "data.db"
 
 def ensure_settings(path: str):
     if not os.path.exists(path):
-        # Defaults: UI scale, font size and export path
+        # Defaults: UI scale, font size, export path and tray/autostart
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         export_path = desktop if os.path.isdir(desktop) else os.getcwd()
         with open(path, "w", encoding="utf-8") as f:
@@ -24,6 +25,10 @@ def ensure_settings(path: str):
                     "ui_scale": 1.25,
                     "ui_font_size": 17,
                     "export_path": export_path,
+                    "tray_enabled": True,
+                    "minimize_to_tray": True,
+                    "start_in_tray": True,
+                    "autostart_enabled": False,
                 },
                 f,
                 ensure_ascii=False,
@@ -38,6 +43,17 @@ def load_settings(path: str) -> dict:
             data = json.load(f)
             if not isinstance(data, dict):
                 return {}
+            # Fill missing keys with defaults
+            defaults = {
+                "ui_scale": 1.25,
+                "ui_font_size": 17,
+                "tray_enabled": True,
+                "minimize_to_tray": True,
+                "start_in_tray": True,
+                "autostart_enabled": False,
+            }
+            for k, v in defaults.items():
+                data.setdefault(k, v)
             return data
     except Exception:
         return {}
@@ -76,6 +92,43 @@ def _apply_global_fonts(root: tk.Tk, size: int):
         pass
 
 
+def _handle_close(root: tk.Tk):
+    settings = getattr(root, "app_settings", {}) or {}
+    if settings.get("tray_enabled", True) and settings.get("minimize_to_tray", True):
+        try:
+            root.withdraw()
+            _start_tray(root)
+            return  # do not quit
+        except Exception:
+            pass
+    # Fallback: quit
+    try:
+        root.quit()
+    except Exception:
+        pass
+    try:
+        root.destroy()
+    except Exception:
+        pass
+
+
+def _bind_minimize_to_tray(root: tk.Tk):
+    # Intercept minimize (iconify) and move to tray
+    def on_unmap(event):
+        settings = getattr(root, "app_settings", {}) or {}
+        if settings.get("tray_enabled", True) and settings.get("minimize_to_tray", True):
+            try:
+                if root.state() == "iconic":  # minimized
+                    root.withdraw()
+                    _start_tray(root)
+            except Exception:
+                pass
+    try:
+        root.bind("<Unmap>", on_unmap)
+    except Exception:
+        pass
+
+
 def main():
     # High-DPI scaling for readability (Windows)
     try:
@@ -96,7 +149,7 @@ def main():
         pass
 
     # Apply global font size
-    ui_font_size = int(app_settings.get("ui_font_size", 20))
+    ui_font_size = int(app_settings.get("ui_font_size", 17))
     _apply_global_fonts(root, ui_font_size)
 
     # Start maximized on all platforms
@@ -116,6 +169,16 @@ def main():
     # Ensure DB
     root.db = AppDB(DB_FILE)
 
+    # Apply autostart setting (Windows)
+    try:
+        if os.name == "nt":
+            want_autostart = bool(app_settings.get("autostart_enabled", False))
+            current = _windows_autostart_get()
+            if want_autostart != current:
+                _windows_autostart_set(want_autostart)
+    except Exception:
+        pass
+
     # Ensure DB connection closes on exit
     def _close_db():
         db = getattr(root, "db", None)
@@ -127,7 +190,26 @@ def main():
 
     atexit.register(_close_db)
 
-    MainWindow(root)
+    # Close/minimize behavior
+    try:
+        root.protocol("WM_DELETE_WINDOW", lambda: _handle_close(root))
+        _bind_minimize_to_tray(root)
+    except Exception:
+        pass
+
+    # Launch UI
+    if app_settings.get("tray_enabled", True) and app_settings.get("start_in_tray", True):
+        # Start hidden in tray
+        try:
+            root.withdraw()
+            _start_tray(root)
+        except Exception:
+            MainWindow(root)
+            root.mainloop()
+            return
+    else:
+        MainWindow(root)
+
     root.mainloop()
 
 

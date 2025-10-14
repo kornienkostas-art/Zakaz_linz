@@ -6,7 +6,7 @@ from app.utils import set_initial_geometry
 
 
 class SettingsView(ttk.Frame):
-    """Экран настроек: масштаб интерфейса и папка экспорта."""
+    """Экран настроек: масштаб интерфейса, папка экспорта, автозапуск и трей."""
 
     def __init__(self, master: tk.Tk, on_back):
         super().__init__(master, style="Card.TFrame", padding=0)
@@ -25,7 +25,7 @@ class SettingsView(ttk.Frame):
     def _build_ui(self):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
-        ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
+        ttk.Button(toolbar, text="← Назад", style="Back.TButton", command=self._go_back).pack(side="left")
 
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -50,14 +50,30 @@ class SettingsView(ttk.Frame):
 
         # Global font size
         ttk.Label(card, text="Размер шрифта (по всему приложению)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w")
-        self.ui_font_size_var = tk.IntVar(value=int(self.settings.get("ui_font_size", 20)))
+        self.ui_font_size_var = tk.IntVar(value=int(self.settings.get("ui_font_size", 17)))
         ttk.Spinbox(card, from_=12, to=28, textvariable=self.ui_font_size_var, width=10).grid(row=3, column=1, sticky="w", padx=(8, 0))
 
         ttk.Separator(card).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
+        # Tray and autostart settings
+        ttk.Label(card, text="Трей и автозапуск", style="Title.TLabel").grid(row=5, column=0, sticky="w")
+        self.tray_enabled_var = tk.BooleanVar(value=bool(self.settings.get("tray_enabled", True)))
+        ttk.Checkbutton(card, text="Включить системный трей", variable=self.tray_enabled_var).grid(row=5, column=1, sticky="w")
+
+        self.minimize_to_tray_var = tk.BooleanVar(value=bool(self.settings.get("minimize_to_tray", True)))
+        ttk.Checkbutton(card, text="Сворачивать в трей (закрыть/свернуть)", variable=self.minimize_to_tray_var).grid(row=6, column=1, sticky="w")
+
+        self.start_in_tray_var = tk.BooleanVar(value=bool(self.settings.get("start_in_tray", True)))
+        ttk.Checkbutton(card, text="Запускать в трее (при старте)", variable=self.start_in_tray_var).grid(row=7, column=1, sticky="w")
+
+        self.autostart_var = tk.BooleanVar(value=bool(self.settings.get("autostart_enabled", False)))
+        ttk.Checkbutton(card, text="Автозапуск с Windows", variable=self.autostart_var).grid(row=8, column=1, sticky="w")
+
+        ttk.Separator(card).grid(row=9, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+
         # Actions
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=5, column=0, columnspan=2, sticky="e")
+        actions.grid(row=10, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
 
@@ -71,6 +87,10 @@ class SettingsView(ttk.Frame):
         data["ui_scale"] = float(self.ui_scale_var.get())
         data["export_path"] = self.export_var.get().strip()
         data["ui_font_size"] = int(self.ui_font_size_var.get())
+        data["tray_enabled"] = bool(self.tray_enabled_var.get())
+        data["minimize_to_tray"] = bool(self.minimize_to_tray_var.get())
+        data["start_in_tray"] = bool(self.start_in_tray_var.get())
+        data["autostart_enabled"] = bool(self.autostart_var.get())
 
         # Persist to settings.json at project root
         try:
@@ -80,6 +100,15 @@ class SettingsView(ttk.Frame):
                 json.dump(data, f, ensure_ascii=False, indent=2)
             # Update root
             self.master.app_settings = data
+
+            # Apply autostart setting immediately (Windows)
+            try:
+                from app.tray import _windows_autostart_set
+                if os.name == "nt":
+                    _windows_autostart_set(bool(self.autostart_var.get()))
+            except Exception:
+                pass
+
             messagebox.showinfo("Настройки", "Сохранено.")
         except Exception as e:
             messagebox.showerror("Настройки", f"Не удалось сохранить:\n{e}")
@@ -115,6 +144,20 @@ class SettingsView(ttk.Frame):
                     style.configure("TLabel", font=(None, size))
                 except Exception:
                     pass
+            except Exception:
+                pass
+
+            # Update tray/autostart settings in-memory
+            self.settings["tray_enabled"] = bool(self.tray_enabled_var.get())
+            self.settings["minimize_to_tray"] = bool(self.minimize_to_tray_var.get())
+            self.settings["start_in_tray"] = bool(self.start_in_tray_var.get())
+            self.settings["autostart_enabled"] = bool(self.autostart_var.get())
+
+            # Apply autostart immediately (Windows)
+            try:
+                from app.tray import _windows_autostart_set
+                if os.name == "nt":
+                    _windows_autostart_set(bool(self.autostart_var.get()))
             except Exception:
                 pass
 
