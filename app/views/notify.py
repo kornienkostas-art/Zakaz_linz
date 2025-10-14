@@ -7,13 +7,20 @@ def show_meridian_notification(master: tk.Tk, pending_orders: list[dict], on_sno
     try:
         settings = getattr(master, "app_settings", {}) or {}
         if bool(settings.get("notify_sound_enabled", True)):
-            alias = (settings.get("notify_sound_alias") or "SystemAsterisk")
+            mode = (settings.get("notify_sound_mode") or "alias")
             try:
                 import os as _os
                 if _os.name == "nt":
                     import winsound
-                    # Play selected system sound alias asynchronously
-                    winsound.PlaySound(alias, winsound.SND_ALIAS | winsound.SND_ASYNC)
+                    if mode == "file":
+                        wav = (settings.get("notify_sound_file") or "").strip()
+                        if wav:
+                            winsound.PlaySound(wav, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                        else:
+                            winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                    else:
+                        alias = (settings.get("notify_sound_alias") or "SystemAsterisk")
+                        winsound.PlaySound(alias, winsound.SND_ALIAS | winsound.SND_ASYNC)
                 else:
                     # Fallback bell on non-Windows
                     master.bell()

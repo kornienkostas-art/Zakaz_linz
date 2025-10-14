@@ -120,11 +120,47 @@ class SettingsView(ttk.Frame):
             pass
         sound_combo.grid(row=15, column=1, sticky="w")
 
-        ttk.Separator(card).grid(row=16, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+        # Sound mode: system alias vs custom WAV file
+        ttk.Label(card, text="Режим звука", style="Subtitle.TLabel").grid(row=16, column=0, sticky="w", pady=(8, 0))
+        self.notify_sound_mode_var = tk.StringVar(value=(self.settings.get("notify_sound_mode") or "alias"))
+        mode_row = ttk.Frame(card, style="Card.TFrame")
+        mode_row.grid(row=16, column=1, sticky="w")
+        ttk.Radiobutton(mode_row, text="Системный звук", value="alias", variable=self.notify_sound_mode_var).pack(side="left")
+        ttk.Radiobutton(mode_row, text="Файл WAV", value="file", variable=self.notify_sound_mode_var).pack(side="left", padx=(8, 0))
+
+        ttk.Label(card, text="Файл WAV", style="Subtitle.TLabel").grid(row=17, column=0, sticky="w", pady=(8, 0))
+        self.notify_sound_file_var = tk.StringVar(value=(self.settings.get("notify_sound_file") or ""))
+        file_row = ttk.Frame(card, style="Card.TFrame")
+        file_row.grid(row=17, column=1, sticky="ew")
+        file_entry = ttk.Entry(file_row, textvariable=self.notify_sound_file_var)
+        file_entry.pack(side="left", fill="x", expand=True)
+        ttk.Button(file_row, text="Обзор…", command=self._choose_sound_file).pack(side="left", padx=(8, 0))
+
+        # Enable/disable controls based on mode
+        def _update_sound_controls(*args):
+            mode = self.notify_sound_mode_var.get()
+            # alias combo enabled only in alias mode
+            try:
+                sound_combo.configure(state=("readonly" if mode == "alias" else "disabled"))
+            except Exception:
+                pass
+            # file entry/browse enabled only in file mode
+            try:
+                state = ("normal" if mode == "file" else "disabled")
+                file_entry.configure(state=state)
+            except Exception:
+                pass
+        try:
+            self.notify_sound_mode_var.trace_add("write", _update_sound_controls)
+        except Exception:
+            pass
+        _update_sound_controls()
+
+        ttk.Separator(card).grid(row=18, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
         # Actions
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=17, column=0, columnspan=2, sticky="e")
+        actions.grid(row=19, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
 
@@ -136,6 +172,14 @@ class SettingsView(ttk.Frame):
         path = filedialog.askdirectory(title="Выберите папку экспорта")
         if path:
             self.export_var.set(path)
+
+    def _choose_sound_file(self):
+        path = filedialog.askopenfilename(
+            title="Выберите WAV файл",
+            filetypes=[("WAV files", "*.wav;*.wave"), ("Все файлы", "*.*")],
+        )
+        if path:
+            self.notify_sound_file_var.set(path)
 
     def _save(self):
         data = dict(self.settings)
@@ -151,6 +195,8 @@ class SettingsView(ttk.Frame):
         data["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
         data["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
         data["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
+        data["notify_sound_mode"] = (self.notify_sound_mode_var.get() or "alias")
+        data["notify_sound_file"] = (self.notify_sound_file_var.get() or "").strip()
         # Map selection to alias
         try:
             sel = self._sound_combo.get()
@@ -226,6 +272,22 @@ class SettingsView(ttk.Frame):
 
             # Notifications
             self.settings["notify_enabled"] = bool(self.notify_enabled_var.get())
+            self.settings["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
+            self.settings["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
+            self.settings["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
+            self.settings["notify_sound_mode"] = (self.notify_sound_mode_var.get() or "alias")
+            self.settings["notify_sound_file"] = (self.notify_sound_file_var.get() or "").strip()
+            # Map selection to alias
+            try:
+                sel = self._sound_combo.get()
+                for label, alias in self._sound_options:
+                    if label == sel:
+                        self.settings["notify_sound_alias"] = alias
+                        break
+                else:
+                    self.settings["notify_sound_alias"] = (self.settings.get("notify_sound_alias") or "SystemAsterisk")
+            except Exception:
+                self.settings["notify_sound_alias"] = (self.settings.get("notify_sound_alias") or "SystemAsterisk")
             self.settings["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
             self.settings["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
             self.settings["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
