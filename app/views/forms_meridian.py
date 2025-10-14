@@ -430,7 +430,7 @@ class MeridianOrderEditorView(ttk.Frame):
         products = []
         try:
             if self.db:
-                products = self.db.list_products()
+                products = self.db.list_products_meridian()
         except Exception:
             products = []
         MeridianItemForm(self, products=products, on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
@@ -443,7 +443,7 @@ class MeridianOrderEditorView(ttk.Frame):
         products = []
         try:
             if self.db:
-                products = self.db.list_products()
+                products = self.db.list_products_meridian()
         except Exception:
             products = []
         MeridianItemForm(self, products=products, initial=current, on_save=lambda it: (self._apply_item_update(idx, it), self._refresh_items_view()))

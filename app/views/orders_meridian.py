@@ -130,9 +130,9 @@ class MeridianOrdersView(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            from app.views.products import ProductsView
+            from app.views.products_meridian import ProductsMeridianView
             from app.views.main import MainWindow
-            ProductsView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
+            ProductsMeridianView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
         fade_transition(self.master, swap)
 
     def _selected_index(self):
