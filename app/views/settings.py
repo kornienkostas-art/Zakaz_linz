@@ -93,22 +93,22 @@ class SettingsView(ttk.Frame):
         ttk.Separator(card).grid(row=13, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
         # MKL notifications
-        ttk.Label(card, text="Уведомления по заказам МКЛ (статус 'Не заказан')", style="Title.TLabel").grid(row=13, column=0, sticky="w")
+        ttk.Label(card, text="Уведомления по заказам МКЛ (статус 'Не заказан')", style="Title.TLabel").grid(row=14, column=0, sticky="w")
         self.mkl_notify_enabled_var = tk.BooleanVar(value=bool(self.settings.get("mkl_notify_enabled", False)))
-        ttk.Checkbutton(card, text="Включить уведомления", variable=self.mkl_notify_enabled_var).grid(row=13, column=1, sticky="w")
+        ttk.Checkbutton(card, text="Включить уведомления", variable=self.mkl_notify_enabled_var).grid(row=14, column=1, sticky="w")
 
-        ttk.Label(card, text="Напоминать через (дней)", style="Subtitle.TLabel").grid(row=14, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Напоминать через (дней)", style="Subtitle.TLabel").grid(row=15, column=0, sticky="w", pady=(8, 0))
         self.mkl_notify_days_var = tk.IntVar(value=int(self.settings.get("mkl_notify_after_days", 3)))
-        ttk.Spinbox(card, from_=1, to=60, textvariable=self.mkl_notify_days_var, width=10).grid(row=14, column=1, sticky="w")
+        ttk.Spinbox(card, from_=1, to=60, textvariable=self.mkl_notify_days_var, width=10).grid(row=15, column=1, sticky="w")
 
-        ttk.Label(card, text="Время (чч:мм)", style="Subtitle.TLabel").grid(row=15, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Время (чч:мм)", style="Subtitle.TLabel").grid(row=16, column=0, sticky="w", pady=(8, 0))
         self.mkl_notify_time_var = tk.StringVar(value=(self.settings.get("mkl_notify_time") or "09:00"))
-        ttk.Entry(card, textvariable=self.mkl_notify_time_var, width=10).grid(row=15, column=1, sticky="w")
+        ttk.Entry(card, textvariable=self.mkl_notify_time_var, width=10).grid(row=16, column=1, sticky="w")
 
-        ttk.Separator(card).grid(row=16, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+        ttk.Separator(card).grid(row=17, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
         # Sound enable
-        ttk.Label(card, text="Звук уведомления", style="Subtitle.TLabel").grid(row=17, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Звук уведомления", style="Subtitle.TLabel").grid(row=18, column=0, sticky="w", pady=(8, 0))
         self.notify_sound_enabled_var = tk.BooleanVar(value=bool(self.settings.get("notify_sound_enabled", True)))
         ttk.Checkbutton(card, text="Включить звук (Windows)", variable=self.notify_sound_enabled_var).grid(row=17, column=1, sticky="w")
 
@@ -174,7 +174,12 @@ class SettingsView(ttk.Frame):
 
         # Actions
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=22, column=0, columnspan=2, sticky="e")
+        actions.grid(row=22, column=0, columnspan=2, sticky="ew")
+        # Test buttons on the left
+        left_actions = ttk.Frame(actions, style="Card.TFrame")
+        left_actions.pack(side="left")
+        ttk.Button(left_actions, text="Проверить уведомление МКЛ", style="Menu.TButton", command=self._test_notify_mkl).pack(side="left")
+        # Save/apply on the right
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
 
@@ -358,6 +363,53 @@ class SettingsView(ttk.Frame):
             show_meridian_notification(self.master, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
         except Exception as e:
             messagebox.showerror("Уведомление", f"Ошибка проверки:\n{e}")
+
+    def _test_notify_mkl(self):
+        try:
+            from datetime import datetime, timedelta
+            db = getattr(self.master, "db", None)
+            orders = db.list_mkl_orders() if db else []
+            # Use current settings values (may be unsaved)
+            try:
+                days = int(self.mkl_notify_days_var.get())
+            except Exception:
+                days = 3
+            threshold = datetime.now() - timedelta(days=max(0, days))
+            aged_pending = []
+            for o in orders:
+                try:
+                    if (o.get("status", "") or "").strip() != "Не заказан":
+                        continue
+                    ds = (o.get("date", "") or "").strip()
+                    dt = None
+                    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d", "%d.%m.%Y %H:%M", "%d.%m.%Y"):
+                        try:
+                            dt = datetime.strptime(ds, fmt)
+                            break
+                        except Exception:
+                            continue
+                    if dt is None:
+                        continue
+                    if dt <= threshold:
+                        aged_pending.append(o)
+                except Exception:
+                    continue
+            if not aged_pending:
+                messagebox.showinfo("Уведомление МКЛ", "Нет просроченных заказов МКЛ со статусом 'Не заказан'.")
+                return
+            from app.views.notify import show_mkl_notification
+            def on_snooze_days(d):
+                messagebox.showinfo("Уведомление МКЛ", f"Отложено на {d} дн.")
+            def on_mark_ordered():
+                try:
+                    for o in aged_pending:
+                        db.update_mkl_order(o["id"], {"status": "Заказан"})
+                    messagebox.showinfo("Уведомление МКЛ", "Статус заказов изменён на 'Заказан'.")
+                except Exception as e:
+                    messagebox.showerror("Уведомление МКЛ", f"Не удалось изменить статус:\n{e}")
+            show_mkl_notification(self.master, aged_pending, on_snooze_days=on_snooze_days, on_mark_ordered=on_mark_ordered)
+        except Exception as e:
+            messagebox.showerror("Уведомление МКЛ", f"Ошибка проверки:\n{e}")
 
     def _go_back(self):
         try:
