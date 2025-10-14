@@ -322,6 +322,7 @@ class MKLOrderEditorView(ttk.Frame):
         self.bc_var = tk.StringVar(value="")
         self.qty_var = tk.IntVar(value=1)
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
+        self.comment_var = tk.StringVar(value=(initial or {}).get("comment", ""))
 
         # Prefill
         if initial:
@@ -404,10 +405,14 @@ class MKLOrderEditorView(ttk.Frame):
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
         footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
+        # Comment field
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
+        self.comment_entry.grid(row=8, column=1, sticky="ew")
+
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
-        ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
+        ttk.Button(btns, text="Сохранить", style="Menu.TButton
 
     def _go_back(self):
         try:
