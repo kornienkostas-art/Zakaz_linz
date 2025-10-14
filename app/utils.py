@@ -47,28 +47,16 @@ def center_on_screen(win: tk.Toplevel | tk.Tk):
         pass
 
 
-def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 120, steps: int = 8):
-    """Simple fade-out, swap view, fade-in on the root window."""
+def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 0, steps: int = 0):
+    """Instant view swap (effects disabled for speed)."""
     try:
-        # Fade out
-        for i in range(steps):
-            alpha = 1.0 - (i + 1) / steps
-            root.attributes("-alpha", max(0.0, alpha))
-            root.update_idletasks()
-            root.after(int(duration_ms / steps))
-        # Swap content
         swap_callback()
-        root.update_idletasks()
-        # Fade in
-        for i in range(steps):
-            alpha = (i + 1) / steps
-            root.attributes("-alpha", min(1.0, alpha))
-            root.update_idletasks()
-            root.after(int(duration_ms / steps))
-        root.attributes("-alpha", 1.0)
-    except tk.TclError:
-        # If alpha not supported, just swap
-        swap_callback()
+    except Exception:
+        # Ensure swap still occurs even if callback raises internally
+        try:
+            swap_callback()
+        except Exception:
+            pass
 
 
 def format_phone_mask(raw: str) -> str:
