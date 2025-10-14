@@ -67,6 +67,12 @@ class OrderForm(tk.Toplevel):
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
+    def _go_back(self):
+        try:
+            self.destroy()
+        except Exception:
+            pass
+
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -288,10 +294,15 @@ class OrderForm(tk.Toplevel):
             "qty": qty,
             "status": status,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "comment": (self.comment_var.get() or "").strip(),
         }
         if callable(self.on_save):
             self.on_save(order)
-        self.destroy()
+        # Close via unified back handler
+        try:
+            self._go_back()
+        except Exception:
+            self.destroy()
 
 
 def _go_back(self):
