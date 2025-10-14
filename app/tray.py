@@ -183,3 +183,4 @@ def _show_main_window(master):
         master.after(50, lambda: master.attributes("-alpha", 1.0))
     except Exception:
         pass
+# привет стас

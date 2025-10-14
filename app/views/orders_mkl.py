@@ -338,3 +338,5 @@ class MKLOrdersView(ttk.Frame):
             )
             tag = f"status_{item.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+
+# привет стас

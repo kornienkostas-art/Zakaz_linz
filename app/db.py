@@ -268,3 +268,4 @@ class AppDB:
         # Items will be cascaded
         self.conn.execute("DELETE FROM meridian_orders WHERE id=?;", (order_id,))
         self.conn.commit()
+# привет стас

@@ -299,6 +299,8 @@ class MeridianOrdersView(ttk.Frame):
             tag = f"status_{o.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
 
+# привет стас
+
     def _export_txt(self):
         """Экспорт позиций из заказов 'Не заказан' с загрузкой items из БД, сгруппировано по товару."""
         db = getattr(self.master, "db", None)

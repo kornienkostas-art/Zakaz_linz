@@ -102,4 +102,6 @@ def format_phone_mask(raw: str) -> str:
 
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
 
+# привет стас
+
 

@@ -59,3 +59,5 @@ pyinstaller --noconsole --onefile --name UssurochkiRF main.py
 - добавить тесты/пакетную сборку и т.п.
 
 Напишите, что именно сделать дальше.
+
+<!-- привет стас -->

@@ -1164,3 +1164,5 @@ class SettingsView(ttk.Frame):
 
         except Exception as e:
             messagebox.showerror("Напоминание МКЛ", f"Ошибка проверки уведомления:\n{e}")
+
+# привет_code сnewт</ас}")
