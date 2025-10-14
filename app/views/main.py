@@ -86,11 +86,25 @@ class MainWindow:
         fade_transition(self.root, swap)
 
     def _open_settings(self):
-        def swap():
+        # Open settings without transition to avoid any hidden/alpha states
+        try:
             self._clear_root_frames()
             from app.views.settings import SettingsView
             SettingsView(self.root, on_back=lambda: MainWindow(self.root))
-        fade_transition(self.root, swap)
+            try:
+                self.root.deiconify()
+                self.root.attributes("-alpha", 1.0)
+                self.root.lift()
+                self.root.focus_force()
+            except Exception:
+                pass
+        except Exception:
+            # Fallback with transition just in case
+            def swap():
+                self._clear_root_frames()
+                from app.views.settings import SettingsView
+                SettingsView(self.root, on_back=lambda: MainWindow(self.root))
+            fade_transition(self.root, swap)
 
     def _clear_root_frames(self):
         try:
