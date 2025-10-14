@@ -86,20 +86,49 @@ class MainWindow:
         fade_transition(self.root, swap)
 
     def _open_settings(self):
-        # Open settings without transition to avoid any hidden/alpha states
+        # Open settings in a separate window (Toplevel) to avoid root layout issues
         try:
-            self._clear_root_frames()
             from app.views.settings import SettingsView
-            SettingsView(self.root, on_back=lambda: MainWindow(self.root))
+            import tkinter as _tk
+            from app.utils import set_initial_geometry as _set_geo
+            top = _tk.Toplevel(self.root)
+            top.title("Настройки")
             try:
-                self.root.deiconify()
-                self.root.attributes("-alpha", 1.0)
-                self.root.lift()
-                self.root.focus_force()
+                top.configure(bg="#f8fafc")
+            except Exception:
+                pass
+            # Share settings dict with root and keep back-reference to root
+            top.app_settings = self.root.app_settings
+            top._owner_root = self.root
+            # Geometry
+            try:
+                _set_geo(top, min_w=900, min_h=680, center_to=self.root)
+            except Exception:
+                pass
+            # Close protocol should return to main
+            def _on_close():
+                try:
+                    top.destroy()
+                finally:
+                    try:
+                        # Refresh main menu after closing settings
+                        self._clear_root_frames()
+                        MainWindow(self.root)
+                    except Exception:
+                        pass
+            try:
+                top.protocol("WM_DELETE_WINDOW", _on_close)
+            except Exception:
+                pass
+            # Mount settings view inside toplevel
+            SettingsView(top, on_back=_on_close)
+            try:
+                top.lift()
+                top.focus_force()
             except Exception:
                 pass
         except Exception:
-            # Fallback with transition just in case
+            # Fallback: show inside root
             def swap():
                 self._clear_root_frames()
                 from app.views.settings import SettingsView
