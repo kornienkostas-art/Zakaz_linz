@@ -110,15 +110,42 @@ def _start_tray(master):
     settings = getattr(master, "app_settings", {})
     image = _create_tray_image(settings) or None
 
+    def _ensure_main():
+        try:
+            from app.views.main import MainWindow
+            # Initialize main window if not yet built
+            if not getattr(master, "main_initialized", False):
+                MainWindow(master)
+                master.main_initialized = True
+        except Exception:
+            pass
+
     def on_open(icon, item=None):
         try:
-            master.after(0, lambda: (_show_main_window(master), _stop_tray(master)))
+            master.after(0, lambda: (_ensure_main(), _show_main_window(master), _stop_tray(master)))
         except Exception:
             pass
 
     def on_exit(icon, item=None):
         try:
             def _exit():
+                # Save main window geometry before exit
+                try:
+                    geom = master.geometry()
+                    settings = getattr(master, "app_settings", {}) or {}
+                    settings["main_geometry"] = geom
+                    try:
+                        import json
+                        with open("settings.json", "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        if isinstance(data, dict):
+                            data["main_geometry"] = geom
+                            with open("settings.json", "w", encoding="utf-8") as f:
+                                json.dump(data, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
                 _stop_tray(master)
                 try:
                     master.quit()
@@ -178,6 +205,14 @@ def _stop_tray(master):
 def _show_main_window(master):
     try:
         master.deiconify()
+        # Maximize when restoring from tray
+        try:
+            master.state("zoomed")
+        except Exception:
+            try:
+                master.attributes("-zoomed", True)
+            except Exception:
+                pass
         master.after(50, lambda: master.attributes("-alpha", 1.0))
     except Exception:
         pass
