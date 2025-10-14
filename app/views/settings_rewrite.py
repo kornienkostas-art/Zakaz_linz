@@ -140,9 +140,7 @@ class SettingsRewriteWindow(tk.Toplevel):
         ttk.Entry(root, textvariable=self.notify_time_var, width=10).grid(row=row, column=1, sticky="w", padx=12, pady=(6, 0))
         row += 1
 
-        # Test Meridian
-        ttk.Button(root, text="Проверить уведомление Меридиан", command=self._test_meridian).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(6, 0))
-        row += 1
+        
 
         ttk.Separator(root).grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(12, 12))
         row += 1
