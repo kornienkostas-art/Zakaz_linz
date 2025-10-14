@@ -71,9 +71,31 @@ class SettingsView(ttk.Frame):
 
         ttk.Separator(card).grid(row=9, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
+        # Meridian notifications
+        ttk.Label(card, text="Уведомления по заказам Меридиан (статус 'Не заказан')", style="Title.TLabel").grid(row=10, column=0, sticky="w")
+        self.notify_enabled_var = tk.BooleanVar(value=bool(self.settings.get("notify_enabled", False)))
+        ttk.Checkbutton(card, text="Включить уведомления", variable=self.notify_enabled_var).grid(row=10, column=1, sticky="w")
+
+        ttk.Label(card, text="Дни недели", style="Subtitle.TLabel").grid(row=11, column=0, sticky="w", pady=(8, 0))
+        days_frame = ttk.Frame(card, style="Card.TFrame")
+        days_frame.grid(row=11, column=1, sticky="w")
+        self.notify_days_vars = []
+        days_labels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        current_days = set(self.settings.get("notify_days") or [])
+        for i, lbl in enumerate(days_labels):
+            var = tk.BooleanVar(value=(i in current_days))
+            self.notify_days_vars.append(var)
+            ttk.Checkbutton(days_frame, text=lbl, variable=var).pack(side="left", padx=(0, 6))
+
+        ttk.Label(card, text="Время (чч:мм)", style="Subtitle.TLabel").grid(row=12, column=0, sticky="w", pady=(8, 0))
+        self.notify_time_var = tk.StringVar(value=(self.settings.get("notify_time") or "09:00"))
+        ttk.Entry(card, textvariable=self.notify_time_var, width=10).grid(row=12, column=1, sticky="w")
+
+        ttk.Separator(card).grid(row=13, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+
         # Actions
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=10, column=0, columnspan=2, sticky="e")
+        actions.grid(row=14, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
 
@@ -91,6 +113,10 @@ class SettingsView(ttk.Frame):
         data["minimize_to_tray"] = bool(self.minimize_to_tray_var.get())
         data["start_in_tray"] = bool(self.start_in_tray_var.get())
         data["autostart_enabled"] = bool(self.autostart_var.get())
+        # Notifications
+        data["notify_enabled"] = bool(self.notify_enabled_var.get())
+        data["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
+        data["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
 
         # Persist to settings.json at project root
         try:
@@ -152,6 +178,11 @@ class SettingsView(ttk.Frame):
             self.settings["minimize_to_tray"] = bool(self.minimize_to_tray_var.get())
             self.settings["start_in_tray"] = bool(self.start_in_tray_var.get())
             self.settings["autostart_enabled"] = bool(self.autostart_var.get())
+
+            # Notifications
+            self.settings["notify_enabled"] = bool(self.notify_enabled_var.get())
+            self.settings["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
+            self.settings["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
 
             # Apply autostart immediately (Windows)
             try:

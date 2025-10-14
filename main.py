@@ -179,6 +179,86 @@ def main():
     except Exception:
         pass
 
+    # --- Notifications scheduler (Meridian 'Не заказан') ---
+    _scheduler = {"snoozed_until": None}
+
+    def _parse_notify_time(s: str):
+        try:
+            parts = (s or "").strip().split(":")
+            hh = int(parts[0])
+            mm = int(parts[1]) if len(parts) > 1 else 0
+            return max(0, min(23, hh)), max(0, min(59, mm))
+        except Exception:
+            return 9, 0  # default 09:00
+
+    def _should_notify(now):
+        settings = root.app_settings or {}
+        if not bool(settings.get("notify_enabled", False)):
+            return False
+        days = settings.get("notify_days") or []
+        try:
+            # Python Monday=0 ... Sunday=6
+            wday = now.weekday()
+        except Exception:
+            wday = -1
+        if wday not in days:
+            return False
+        hh, mm = _parse_notify_time(settings.get("notify_time", "09:00"))
+        return (now.hour == hh and now.minute == mm)
+
+    def _check_and_notify():
+        try:
+            from app.tray import _show_main_window
+        except Exception:
+            _show_main_window = None
+        from datetime import datetime, timedelta
+
+        now = datetime.now()
+
+        # Snooze gate
+        until = _scheduler.get("snoozed_until")
+        if until and now < until:
+            root.after(60_000, _check_and_notify)
+            return
+
+        if _should_notify(now):
+            # Only notify if there are Meridian orders with status 'Не заказан'
+            try:
+                db = getattr(root, "db", None)
+                orders = db.list_meridian_orders() if db else []
+                pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
+            except Exception:
+                pending = []
+            if pending:
+                # Reveal main window from tray if available
+                try:
+                    if _show_main_window:
+                        _show_main_window(root)
+                except Exception:
+                    pass
+                # Show notification dialog
+                try:
+                    from app.views.notify import show_meridian_notification
+                    def on_snooze(minutes):
+                        _scheduler["snoozed_until"] = now + timedelta(minutes=minutes)
+                    def on_mark_ordered():
+                        try:
+                            for o in pending:
+                                root.db.update_meridian_order(o["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+                        except Exception:
+                            pass
+                    show_meridian_notification(root, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
+                except Exception:
+                    pass
+        # Re-check every minute
+        root.after(60_000, _check_and_notify)
+
+    # Start scheduler loop
+    try:
+        root.after(3_000, _check_and_notify)
+    except Exception:
+        pass
+
     # Ensure DB connection closes on exit
     def _close_db():
         db = getattr(root, "db", None)
