@@ -1,1 +1,1 @@
-# Package marker for app modules
+# Package marker for app

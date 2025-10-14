@@ -1,1 +1,1 @@
-# Package marker for views
+# Package marker for app.views
