@@ -188,6 +188,12 @@ def _stop_tray(master):
 def _show_main_window(master):
     try:
         master.deiconify()
-        master.after(50, lambda: master.attributes("-alpha", 1.0))
-    except Exception:
-        pass
+        # Maximize when restoring from tray
+        try:
+            master.state("zoomed")
+        except Exception:
+            try:
+                master.attributes("-zoomed", True)
+            except Exception:
+                pass
+        master.after(50, lambda: master.attributes("-ss
