@@ -163,19 +163,26 @@ def main():
     ui_font_size = int(app_settings.get("ui_font_size", 17))
     _apply_global_fonts(root, ui_font_size)
 
-    # Start maximized on all platforms
-    try:
-        root.state("zoomed")  # Windows
-    except tk.TclError:
+    # Restore main window geometry if saved; otherwise start maximized
+    geom = app_settings.get("main_geometry")
+    if isinstance(geom, str) and geom:
         try:
-            root.attributes("-zoomed", True)  # Some X11/WM
+            root.geometry(geom)
+        except Exception:
+            pass
+    else:
+        try:
+            root.state("zoomed")  # Windows
         except tk.TclError:
             try:
-                sw = root.winfo_screenwidth()
-                sh = root.winfo_screenheight()
-                root.geometry(f"{sw}x{sh}+0+0")
-            except Exception:
-                pass
+                root.attributes("-zoomed", True)  # Some X11/WM
+            except tk.TclError:
+                try:
+                    sw = root.winfo_screenwidth()
+                    sh = root.winfo_screenheight()
+                    root.geometry(f"{sw}x{sh}+0+0")
+                except Exception:
+                    pass
 
     # Ensure DB
     root.db = AppDB(DB_FILE)

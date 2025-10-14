@@ -129,6 +129,23 @@ def _start_tray(master):
     def on_exit(icon, item=None):
         try:
             def _exit():
+                # Save main window geometry before exit
+                try:
+                    geom = master.geometry()
+                    settings = getattr(master, "app_settings", {}) or {}
+                    settings["main_geometry"] = geom
+                    try:
+                        import json
+                        with open("settings.json", "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        if isinstance(data, dict):
+                            data["main_geometry"] = geom
+                            with open("settings.json", "w", encoding="utf-8") as f:
+                                json.dump(data, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
                 _stop_tray(master)
                 try:
                     master.quit()
