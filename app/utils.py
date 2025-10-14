@@ -48,7 +48,7 @@ def center_on_screen(win: tk.Toplevel | tk.Tk):
 
 
 def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 0, steps: int = 0):
-    """Instant view swap (effects disabled for speed)."""
+    """Instant view swap (effects disabled for speed). Force window visible."""
     try:
         swap_callback()
     except Exception:
@@ -57,6 +57,12 @@ def fade_transition(root: tk.Tk, swap_callback, duration_ms: int = 0, steps: int
             swap_callback()
         except Exception:
             pass
+    # Ensure window is visible and fully opaque
+    try:
+        root.deiconify()
+        root.attributes("-alpha", 1.0)
+    except Exception:
+        pass
 
 
 def format_phone_mask(raw: str) -> str:
