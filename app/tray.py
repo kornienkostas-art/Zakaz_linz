@@ -30,7 +30,9 @@ def _get_exec_command() -> str:
                 pythonw = candidate
         except Exception:
             pass
-        script = os.path.abspath(__file__)
+        # Launch main.py from project root (parent of app/)
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+        script = os.path.join(base_dir, "main.py")
         return f'"{pythonw}" "{script}"'
     except Exception:
         # Last resort
