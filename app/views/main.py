@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, font
 
 from app.db import AppDB
 from app.utils import set_initial_geometry, fade_transition
@@ -27,17 +27,27 @@ class MainWindow:
         container = ttk.Frame(self.root)
         container.pack(fill="both", expand=True)
 
+        # Configure large button style for better visibility
+        try:
+            style = ttk.Style(self.root)
+            # Base font larger and bold
+            big_font = ("Segoe UI", 16, "bold")
+            # Fallback: if Segoe UI not available, Tk will substitute
+            style.configure("Big.TButton", font=big_font, padding=(24, 16))
+        except Exception:
+            pass
+
         # Main menu - only MKL, Meridian, Settings
         menu = ttk.Frame(container)
-        menu.pack(fill="both", expand=True, padx=36, pady=36)
+        menu.pack(fill="both", expand=True, padx=48, pady=48)
 
-        btn_opts = dict(width=36)
+        btn_opts = dict(width=28, style="Big.TButton")
         row = ttk.Frame(menu)
-        row.pack(pady=24)
+        row.pack(pady=32)
 
-        ttk.Button(row, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=16, ipady=12)
-        ttk.Button(row, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=16, ipady=12)
-        ttk.Button(row, text="Настройки…", command=self._open_settings, **btn_opts).pack(side="left", padx=16, ipady=12)
+        ttk.Button(row, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=20, ipady=8)
+        ttk.Button(row, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=20, ipady=8)
+        ttk.Button(row, text="Настройки…", command=self._open_settings, **btn_opts).pack(side="left", padx=20, ipady=8)
 
     def _refresh_stats(self):
         db = self.root.db
