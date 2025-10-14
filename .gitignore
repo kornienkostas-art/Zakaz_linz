@@ -1,27 +1,22 @@
-# Byte-compiled / cache
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
 
-# Virtual environments
+# Virtual env
 .venv/
 venv/
-env/
 
-# Distribution / packaging
+# Build / dist
 build/
 dist/
-*.egg-info/
+*.spec
 
-# Test/coverage
-.pytest_cache/
-.coverage
-htmlcov/
-
-# IDE/Editor settings
-.vscode/
-.idea/
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+
+# App data
+data.db
+settings.json
