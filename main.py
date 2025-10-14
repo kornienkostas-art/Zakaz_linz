@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from tkinter import font as tkfont
 
-from db import AppDB
+from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
 
