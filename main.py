@@ -59,6 +59,7 @@ def load_settings(path: str) -> dict:
                 "notify_days": [],
                 "notify_time": "09:00",
                 "notify_sound_enabled": True,
+                "notify_sound_alias": "SystemAsterisk",
             }
             for k, v in defaults.items():
                 data.setdefault(k, v)

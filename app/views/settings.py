@@ -98,14 +98,39 @@ class SettingsView(ttk.Frame):
         self.notify_sound_enabled_var = tk.BooleanVar(value=bool(self.settings.get("notify_sound_enabled", True)))
         ttk.Checkbutton(card, text="Включить звук (Windows)", variable=self.notify_sound_enabled_var).grid(row=14, column=1, sticky="w")
 
-        ttk.Separator(card).grid(row=15, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+        ttk.Label(card, text="Тип звука (Windows)", style="Subtitle.TLabel").grid(row=15, column=0, sticky="w", pady=(8, 0))
+        # Map display labels to winsound aliases
+        sound_options = [
+            ("Стандартный", "SystemAsterisk"),
+            ("Предупреждение", "SystemExclamation"),
+            ("Информация", "SystemDefault"),
+            ("Ошибка", "SystemHand"),
+            ("Вопрос", "SystemQuestion"),
+        ]
+        self.notify_sound_alias_var = tk.StringVar(value=(self.settings.get("notify_sound_alias") or "SystemAsterisk"))
+        sound_combo = ttk.Combobox(card, values=[opt[0] for opt in sound_options], state="readonly")
+        # Set initial selection by alias
+        try:
+            alias = self.notify_sound_alias_var.get()
+            for i, (_, a) in enumerate(sound_options):
+                if a == alias:
+                    sound_combo.current(i)
+                    break
+        except Exception:
+            pass
+        sound_combo.grid(row=15, column=1, sticky="w")
 
-        # Actions + test notification
+        ttk.Separator(card).grid(row=16, column=0, columnspan=2, sticky="ew", pady=(16, 16))
+
+        # Actions
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=16, column=0, columnspan=2, sticky="e")
-        ttk.Button(actions, text="Проверить уведомление Меридиан", style="Menu.TButton", command=self._test_notify).pack(side="left")
+        actions.grid(row=17, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
+
+        # Helper to map selected label to alias during save/apply
+        self._sound_options = sound_options
+        self._sound_combo = sound_combo
 
     def _choose_export_path(self):
         path = filedialog.askdirectory(title="Выберите папку экспорта")
@@ -126,6 +151,17 @@ class SettingsView(ttk.Frame):
         data["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
         data["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
         data["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
+        # Map selection to alias
+        try:
+            sel = self._sound_combo.get()
+            for label, alias in self._sound_options:
+                if label == sel:
+                    data["notify_sound_alias"] = alias
+                    break
+            else:
+                data["notify_sound_alias"] = (self.settings.get("notify_sound_alias") or "SystemAsterisk")
+        except Exception:
+            data["notify_sound_alias"] = (self.settings.get("notify_sound_alias") or "SystemAsterisk")
 
         # Persist to settings.json at project root
         try:
@@ -193,7 +229,15 @@ class SettingsView(ttk.Frame):
             self.settings["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
             self.settings["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
             self.settings["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
-
+            # Map selection to alias
+            try:
+                sel = self._sound_combo.get()
+                for label, alias in self._sound_options:
+                    if label == sel:
+                        self.settings["notify_sound_alias"] = alias
+                        break
+                else:
+                    self
             # Apply autostart immediately (Windows)
             try:
                 from app.tray import _windows_autostart_set
