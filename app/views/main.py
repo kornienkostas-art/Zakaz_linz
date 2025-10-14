@@ -86,43 +86,47 @@ class MainWindow:
         fade_transition(self.root, swap)
 
     def _open_settings(self):
-        # Prefer styled settings in separate window, fallback to simple
+        # Prefer fully rewritten, scrollable settings window; then styled; then simple
+        def _after_close():
+            try:
+                self._clear_root_frames()
+                MainWindow(self.root)
+            except Exception:
+                pass
+        try:
+            from app.views.settings_rewrite import SettingsRewriteWindow
+            win = SettingsRewriteWindow(self.root, on_close=_after_close)
+            try:
+                win.lift(); win.focus_force()
+            except Exception:
+                pass
+            return
+        except Exception:
+            pass
         try:
             from app.views.settings_window import StyledSettingsWindow
-            def _on_close():
-                try:
-                    self._clear_root_frames()
-                    MainWindow(self.root)
-                except Exception:
-                    pass
-            win = StyledSettingsWindow(self.root, on_close=_on_close)
+            win = StyledSettingsWindow(self.root, on_close=_after_close)
             try:
-                win.lift()
-                win.focus_force()
+                win.lift(); win.focus_force()
+            except Exception:
+                pass
+            return
+        except Exception:
+            pass
+        try:
+            from app.views.settings_simple import SettingsWindow
+            win = SettingsWindow(self.root, on_close=_after_close)
+            try:
+                win.lift(); win.focus_force()
             except Exception:
                 pass
         except Exception:
-            try:
-                from app.views.settings_simple import SettingsWindow
-                def _on_close_simple():
-                    try:
-                        self._clear_root_frames()
-                        MainWindow(self.root)
-                    except Exception:
-                        pass
-                win = SettingsWindow(self.root, on_close=_on_close_simple)
-                try:
-                    win.lift()
-                    win.focus_force()
-                except Exception:
-                    pass
-            except Exception:
-                # Fallback to previous settings view in root
-                def swap():
-                    self._clear_root_frames()
-                    from app.views.settings import SettingsView
-                    SettingsView(self.root, on_back=lambda: MainWindow(self.root))
-                fade_transition(self.root, swap)
+            # Fallback to previous settings view in root
+            def swap():
+                self._clear_root_frames()
+                from app.views.settings import SettingsView
+                SettingsView(self.root, on_back=lambda: MainWindow(self.root))
+            fade_transition(self.root, swap)
 
     def _clear_root_frames(self):
         try:
