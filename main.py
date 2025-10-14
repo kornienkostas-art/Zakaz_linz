@@ -13,19 +13,11 @@ DB_FILE = "data.db"
 
 def ensure_settings(path: str):
     if not os.path.exists(path):
-        # Defaults: UI scale, export path, and notifications
+        # Defaults: UI scale and export path
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         export_path = desktop if os.path.isdir(desktop) else os.getcwd()
-        defaults = {
-            "version": 1,
-            "ui_scale": 1.25,
-            "export_path": export_path,
-            "notify_enabled": True,
-            "notify_interval_minutes": 10,
-            "notify_age_hours": 24,
-        }
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(defaults, f, ensure_ascii=False, indent=2)
+            json.dump({"version": 1, "ui_scale": 1.25, "export_path": export_path}, f, ensure_ascii=False, indent=2)
 
 
 def load_settings(path: str) -> dict:

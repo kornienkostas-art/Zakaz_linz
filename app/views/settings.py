@@ -6,7 +6,7 @@ from app.utils import set_initial_geometry
 
 
 class SettingsView(ttk.Frame):
-    """Экран настроек: масштаб интерфейса, папка экспорта, уведомления."""
+    """Экран настроек: масштаб интерфейса и папка экспорта."""
 
     def __init__(self, master: tk.Tk, on_back):
         super().__init__(master, style="Card.TFrame", padding=0)
@@ -46,25 +46,11 @@ class SettingsView(ttk.Frame):
         entry.pack(side="left", fill="x", expand=True)
         ttk.Button(export_row, text="Обзор…", command=self._choose_export_path).pack(side="left", padx=(8, 0))
 
-        # Notifications
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(16, 16))
-        ttk.Label(card, text="Уведомления по заказам", style="Title.TLabel").grid(row=3, column=0, sticky="w")
-        self.notify_enabled_var = tk.BooleanVar(value=bool(self.settings.get("notify_enabled", True)))
-        ttk.Checkbutton(card, text="Включить уведомления", variable=self.notify_enabled_var).grid(row=3, column=1, sticky="w")
-
-        ttk.Label(card, text="Интервал проверки (мин.)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        self.notify_interval_var = tk.IntVar(value=int(self.settings.get("notify_interval_minutes", 10)))
-        ttk.Spinbox(card, from_=1, to=240, textvariable=self.notify_interval_var, width=10).grid(row=4, column=1, sticky="w", padx=(8, 0))
-
-        ttk.Label(card, text="Возраст заказа для напоминания (час.)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", pady=(8, 0))
-        self.notify_age_var = tk.IntVar(value=int(self.settings.get("notify_age_hours", 24)))
-        ttk.Spinbox(card, from_=1, to=168, textvariable=self.notify_age_var, width=10).grid(row=5, column=1, sticky="w", padx=(8, 0))
-
-        ttk.Separator(card).grid(row=6, column=0, columnspan=2, sticky="ew", pady=(16, 16))
 
         # Actions
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=7, column=0, columnspan=2, sticky="e")
+        actions.grid(row=3, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(actions, text="Применить", style="Menu.TButton", command=self._apply).pack(side="right", padx=(8, 0))
 
@@ -77,9 +63,6 @@ class SettingsView(ttk.Frame):
         data = dict(self.settings)
         data["ui_scale"] = float(self.ui_scale_var.get())
         data["export_path"] = self.export_var.get().strip()
-        data["notify_enabled"] = bool(self.notify_enabled_var.get())
-        data["notify_interval_minutes"] = int(self.notify_interval_var.get())
-        data["notify_age_hours"] = int(self.notify_age_var.get())
 
         # Persist to settings.json at project root
         try:
@@ -100,12 +83,9 @@ class SettingsView(ttk.Frame):
             self.master.tk.call("tk", "scaling", scale)
             # Save in-memory
             self.settings["ui_scale"] = scale
-            self.settings["notify_enabled"] = bool(self.notify_enabled_var.get())
-            self.settings["notify_interval_minutes"] = int(self.notify_interval_var.get())
-            self.settings["notify_age_hours"] = int(self.notify_age_var.get())
-            messagebox.showinfo("Настройки", "Изменения применены.")
+            messagebox.showinfo("Настройки", "Масштаб применён.")
         except Exception as e:
-            messagebox.showerror("Настройки", f"Не удалось применить:\n{e}")
+            messagebox.showerror("Настройки", f"Не удалось применить масштаб:\n{e}")
 
     def _go_back(self):
         try:
