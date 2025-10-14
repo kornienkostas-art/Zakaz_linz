@@ -199,16 +199,24 @@ def main():
 
     # Launch UI
     if app_settings.get("tray_enabled", True) and app_settings.get("start_in_tray", True):
-        # Start hidden in tray
+        # Initialize UI, then start hidden in tray
+        try:
+            MainWindow(root)
+            root.main_initialized = True
+        except Exception:
+            pass
         try:
             root.withdraw()
             _start_tray(root)
         except Exception:
+            # Fallback to visible UI
             MainWindow(root)
+            root.main_initialized = True
             root.mainloop()
             return
     else:
         MainWindow(root)
+        root.main_initialized = True
 
     root.mainloop()
 

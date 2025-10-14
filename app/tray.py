@@ -110,9 +110,19 @@ def _start_tray(master):
     settings = getattr(master, "app_settings", {})
     image = _create_tray_image(settings) or None
 
+    def _ensure_main():
+        try:
+            from app.views.main import MainWindow
+            # Initialize main window if not yet built
+            if not getattr(master, "main_initialized", False):
+                MainWindow(master)
+                master.main_initialized = True
+        except Exception:
+            pass
+
     def on_open(icon, item=None):
         try:
-            master.after(0, lambda: (_show_main_window(master), _stop_tray(master)))
+            master.after(0, lambda: (_ensure_main(), _show_main_window(master), _stop_tray(master)))
         except Exception:
             pass
 
