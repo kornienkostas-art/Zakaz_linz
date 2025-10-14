@@ -95,8 +95,10 @@ class MainWindow:
     def _clear_root_frames(self):
         try:
             for child in self.root.winfo_children():
-                if isinstance(child, ttk.Frame):
+                try:
                     child.destroy()
+                except Exception:
+                    pass
         except Exception:
             pass
 
