@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ui_scale": 1.25,
+  "ui_font_size": 17,
+  "export_path": "C:\\Users\\ReStart\\Desktop",
+  "tray_enabled": true,
+  "minimize_to_tray": true,
+  "start_in_tray": true,
+  "autostart_enabled": false,
+  "notify_enabled": false,
+  "notify_days": [],
+  "notify_time": "09:00",
+  "mkl_notify_enabled": false,
+  "mkl_notify_after_days": 3,
+  "mkl_notify_time": "09:00",
+  "notify_sound_enabled": true,
+  "notify_sound_alias": "SystemAsterisk",
+  "notify_sound_mode": "alias",
+  "notify_sound_file": "",
+  "main_geometry": "1920x1017+288+160"
+}
