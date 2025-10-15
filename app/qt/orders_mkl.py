@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QMessageBox,
     QFileDialog,
+    QScrollArea,
 )
 
 from app.db import AppDB
@@ -153,7 +154,13 @@ class OrdersMklPage(QWidget):
         self.db = db
         self.export_folder_getter = export_folder_getter
 
-        v = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        cont = QWidget()
+        v = QVBoxLayout(cont)
         v.setContentsMargins(12, 12, 12, 12)
         v.setSpacing(8)
 
@@ -200,6 +207,9 @@ class OrdersMklPage(QWidget):
             pass
 
         self.table.resizeColumnsToContents()
+
+        scroll.setWidget(cont)
+        root.addWidget(scroll)
 
         scroll.setWidget(cont)
         page_root.addWidget(scroll)
