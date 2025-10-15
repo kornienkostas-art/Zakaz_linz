@@ -12,9 +12,8 @@ class ProductsMeridianView(ttk.Frame):
         self.db = db
         self.on_back = on_back
 
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Единый менеджер геометрии: pack на верхнем уровне
+        self.pack(fill="both", expand=True)
 
         self._dataset: list[dict] = []
         self._build_ui()

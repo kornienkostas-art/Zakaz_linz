@@ -321,10 +321,8 @@ class MKLOrderEditorView(ttk.Frame):
         self.on_save = on_save
         self.is_new = initial is None
 
-        # Fill window
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Единый менеджер геометрии: pack на верхнем уровне
+        self.pack(fill="both", expand=True)
 
         # Load datasets
         self.clients = self.db.list_clients() if self.db else []

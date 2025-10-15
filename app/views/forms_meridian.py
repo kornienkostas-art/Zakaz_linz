@@ -337,9 +337,8 @@ class MeridianOrderEditorView(ttk.Frame):
         self.on_save = on_save
         self.is_new = initial is None
 
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Единый менеджер геометрии: pack на верхнем уровне
+        self.pack(fill="both", expand=True)
 
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
         self.items: list[dict] = []
