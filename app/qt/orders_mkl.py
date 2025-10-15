@@ -98,6 +98,8 @@ class OrdersMklModel(QAbstractTableModel):
 
 
 class OrderFormDialog(QDialog):
+    STATUS_OPTIONS = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
+
     def __init__(self, db: AppDB, parent=None, order: Optional[Dict[str, Any]] = None):
         super().__init__(parent)
         self.setWindowTitle("Заказ МКЛ")
@@ -123,7 +125,7 @@ class OrderFormDialog(QDialog):
 
         # Status combo box
         self.status = QComboBox()
-        self.status.addItems(["Не заказан", "Заказан"])
+        self.status.addItems(self.STATUS_OPTIONS)
         self.status.setCurrentText(self._order.get("status", "Не заказан"))
         layout.addRow("Статус", self.status)
 
@@ -140,6 +142,13 @@ class OrderFormDialog(QDialog):
                 le.setValidator(QRegularExpressionValidator(int_re))
         except Exception:
             pass
+
+        # Snap helpers on editing finished
+        self.sph.editingFinished.connect(lambda: self._snap_decimal(self.sph, -30.0, 30.0, 0.25))
+        self.cyl.editingFinished.connect(lambda: self._snap_decimal(self.cyl, -10.0, 10.0, 0.25))
+        self.ax.editingFinished.connect(lambda: self._snap_int(self.ax, 0, 180))
+        self.bc.editingFinished.connect(lambda: self._snap_decimal(self.bc, 8.0, 9.0, 0.1))
+        self.qty.editingFinished.connect(lambda: self._snap_int(self.qty, 1, 20))
 
         # Setup completers for FIO and Product from DB lists
         try:
@@ -182,6 +191,35 @@ class OrderFormDialog(QDialog):
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+
+    @staticmethod
+    def _snap_decimal(le: QLineEdit, min_v: float, max_v: float, step: float):
+        try:
+            text = (le.text() or "").replace(",", ".").strip()
+            if text == "":
+                return
+            v = float(text)
+        except Exception:
+            # reset into range
+            v = min_v
+        v = max(min_v, min(max_v, v))
+        # snap to step from min_v
+        steps = round((v - min_v) / step)
+        snapped = min_v + steps * step
+        snapped = max(min_v, min(max_v, snapped))
+        le.setText(f"{snapped:.2f}")
+
+    @staticmethod
+    def _snap_int(le: QLineEdit, min_v: int, max_v: int):
+        try:
+            text = (le.text() or "").strip()
+            if text == "":
+                return
+            v = int(float(text.replace(",", ".")))
+        except Exception:
+            v = min_v
+        v = max(min_v, min(max_v, v))
+        le.setText(str(v))
 
     def _on_accept(self):
         # minimal validation
