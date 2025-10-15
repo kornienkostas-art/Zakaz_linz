@@ -337,6 +337,17 @@ class MainWindow(QMainWindow):
         else:
             super().closeEvent(event)
 
+    def _quit_app(self):
+        # Сохранить настройки при выходе, корректно завершить приложение
+        try:
+            save_settings(SETTINGS_FILE, self.settings)
+        except Exception:
+            pass
+        try:
+            QApplication.instance().quit()
+        except Exception:
+            os._exit(0)
+
     def _on_nav_changed(self, row: int):
         self.pages.setCurrentIndex(max(0, row))
 
@@ -346,9 +357,8 @@ def main():
 
     app = QApplication(sys.argv)
 
-    # Apply application-wide attributes for DPI
-    try:
-        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    # Qt 6 уже включает HighDPI масштабирование и использование HiDPI-пиксмапов по умолчанию.
+    # ЯвнаяghDpiScaling, True)
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     except Exception:
         pass
