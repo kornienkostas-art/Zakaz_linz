@@ -30,11 +30,9 @@ DB_FILE = "data.db"
 
 
 def _windows_set_high_dpi_awareness():
-    try:
-        if os.name == "nt":
-            ctypes.windll.shcore.SetProcessDpiAwareness(1)
-    except Exception:
-        pass
+    # No-op: Qt 6 uses DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 by default.
+    # Explicit SetProcessDpiAwareness may fail or conflict; we rely on Qt defaults.
+    return
 
 
 def _desktop_path() -> str:
@@ -353,11 +351,10 @@ class MainWindow(QMainWindow):
 
 
 def main():
-    _windows_set_high_dpi_awareness()
-
+    # Rely on Qt 6 default DPI awareness (Per-Monitor v2)
     app = QApplication(sys.argv)
 
-    # Qt 6 уже включает HighDPI масштабирование и HiDPI-пиксмапы по умолчанию.
+    # Qt 6 уже включает HighDPIHiDPI-пиксмапы по умолчанию.
     # Дополнительных установок атрибутов не требуется.
 
     settings = load_settings(SETTINGS_FILE)
