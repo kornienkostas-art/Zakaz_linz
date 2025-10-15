@@ -86,47 +86,12 @@ class MainWindow:
         fade_transition(self.root, swap)
 
     def _open_settings(self):
-        # Prefer fully rewritten, scrollable settings window; then styled; then simple
-        def _after_close():
-            try:
-                self._clear_root_frames()
-                MainWindow(self.root)
-            except Exception:
-                pass
-        try:
-            from app.views.settings_rewrite import SettingsRewriteWindow
-            win = SettingsRewriteWindow(self.root, on_close=_after_close)
-            try:
-                win.lift(); win.focus_force()
-            except Exception:
-                pass
-            return
-        except Exception:
-            pass
-        try:
-            from app.views.settings_window import StyledSettingsWindow
-            win = StyledSettingsWindow(self.root, on_close=_after_close)
-            try:
-                win.lift(); win.focus_force()
-            except Exception:
-                pass
-            return
-        except Exception:
-            pass
-        try:
-            from app.views.settings_simple import SettingsWindow
-            win = SettingsWindow(self.root, on_close=_after_close)
-            try:
-                win.lift(); win.focus_force()
-            except Exception:
-                pass
-        except Exception:
-            # Fallback to previous settings view in root
-            def swap():
-                self._clear_root_frames()
-                from app.views.settings import SettingsView
-                SettingsView(self.root, on_back=lambda: MainWindow(self.root))
-            fade_transition(self.root, swap)
+        # Открывать настройки во встроенном виде (не отдельным окном)
+        def swap():
+            self._clear_root_frames()
+            from app.views.settings import SettingsView
+            SettingsView(self.root, on_back=lambda: MainWindow(self.root))
+        fade_transition(self.root, swap)
 
     def _clear_root_frames(self):
         try:

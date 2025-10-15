@@ -15,14 +15,14 @@ def _get_exec_command() -> str:
     """
     Return command string for autostart:
     - If running as packaged exe (sys.frozen): sys.executable
-    - Else: pythonw.exe + full path to main.py
+    - Else: pythonw.exe + full path to project main.py
     """
     import sys
     try:
         if getattr(sys, "frozen", False):
             return sys.executable
-        # Fallback: use pythonw.exe to avoid console
-        pythonw = sys.executable  # may be python.exe; try to find pythonw
+        # Prefer pythonw.exe to avoid console window on Windows
+        pythonw = sys.executable
         try:
             base = os.path.dirname(sys.executable)
             candidate = os.path.join(base, "pythonw.exe")
@@ -30,11 +30,16 @@ def _get_exec_command() -> str:
                 pythonw = candidate
         except Exception:
             pass
-        script = os.path.abspath(__file__)
-        return f'"{pythonw}" "{script}"'
+        # Resolve path to main.py at project root (../main.py from this file)
+        here = os.path.dirname(os.path.abspath(__file__))
+        main_script = os.path.normpath(os.path.join(here, "..", "main.py"))
+        if not os.path.isfile(main_script):
+            # Fallback: try current working directory
+            main_script = os.path.abspath("main.py")
+        return f'"{pythonw}" "{main_script}"'
     except Exception:
         # Last resort
-        return os.path.abspath(__file__)
+        return os.path.abspath("main.py")
 
 
 def _windows_autostart_set(enabled: bool):
