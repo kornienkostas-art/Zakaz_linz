@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QFileDialog,
     QMessageBox,
+    QScrollArea,
 )
 
 # App DB and pages
@@ -257,16 +258,19 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(ClientsPage(self.db))
         # Products page (МКЛ/Меридиан)
         self.pages.addWidget(ProductsPage(self.db))
-        # Settings page
-        self.pages.addWidget(
-            SettingsPage(
-                get_settings=lambda: self.settings,
-                save_settings=lambda s: save_settings(SETTINGS_FILE, s),
-                apply_font=lambda ff, fs: self._apply_font_live(ff, fs),
-                set_tray_enabled=lambda enabled: self._set_tray_enabled_live(enabled),
-                toggle_autostart=lambda on: self._toggle_autostart_live(on),
-            )
+        # Settings page (wrapped in scroll area for small window sizes)
+        settings_page = SettingsPage(
+            get_settings=lambda: self.settings,
+            save_settings=lambda s: save_settings(SETTINGS_FILE, s),
+            apply_font=lambda ff, fs: self._apply_font_live(ff, fs),
+            set_tray_enabled=lambda enabled: self._set_tray_enabled_live(enabled),
+            toggle_autostart=lambda on: self._toggle_autostart_live(on),
         )
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidget(settings_page)
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.pages.addWidget(settings_scroll)
 
         # Теперь подключаем обработчик и выбираем первую страницу
         self.nav.currentRowChanged.connect(self._on_nav_changed)
