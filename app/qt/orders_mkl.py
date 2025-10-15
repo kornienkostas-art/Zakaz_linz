@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QStringListModel
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QWidget,
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QFileDialog,
     QScrollArea,
+    QCompleter,
 )
 
 from app.db import AppDB
@@ -95,10 +96,11 @@ class OrdersMklModel(QAbstractTableModel):
 
 
 class OrderFormDialog(QDialog):
-    def __init__(self, parent=None, order: Optional[Dict[str, Any]] = None):
+    def __init__(self, db: AppDB, parent=None, order: Optional[Dict[str, Any]] = None):
         super().__init__(parent)
         self.setWindowTitle("Заказ МКЛ")
         self._order = order or {}
+        self._db = db
         layout = QFormLayout(self)
 
         def field(name: str, label: str, initial: str = "") -> QLineEdit:
@@ -118,6 +120,43 @@ class OrderFormDialog(QDialog):
         self.status = field("status", "Статус", self._order.get("status", "Не заказан"))
         self.date = field("date", "Дата", self._order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")))
         self.comment = field("comment", "Комментарий", self._order.get("comment", ""))
+
+        # Setup completers for FIO and Product from DB lists
+        try:
+            clients = self._db.list_clients() if self._db else []
+            products_mkl = self._db.list_products_mkl() if self._db else []
+
+            # FIO completer with contains match
+            fio_list = [c.get("fio", "") for c in clients if (c.get("fio", "") or "").strip()]
+            self._clients_by_fio = {c.get("fio", ""): c for c in clients}
+            fio_model = QStringListModel(fio_list)
+            fio_completer = QCompleter(fio_model, self)
+            fio_completer.setCaseSensitivity(Qt.CaseInsensitive)
+            try:
+                fio_completer.setFilterMode(Qt.MatchContains)
+            except Exception:
+                pass
+            self.fio.setCompleter(fio_completer)
+
+            def on_fio_activated(text: str):
+                c = self._clients_by_fio.get(text)
+                if c:
+                    self.phone.setText(c.get("phone", ""))
+
+            fio_completer.activated[str].connect(on_fio_activated)
+
+            # Product completer
+            prod_list = [p.get("name", "") for p in products_mkl if (p.get("name", "") or "").strip()]
+            prod_model = QStringListModel(prod_list)
+            prod_completer = QCompleter(prod_model, self)
+            prod_completer.setCaseSensitivity(Qt.CaseInsensitive)
+            try:
+                prod_completer.setFilterMode(Qt.MatchContains)
+            except Exception:
+                pass
+            self.product.setCompleter(prod_completer)
+        except Exception:
+            pass
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_accept)
@@ -219,7 +258,7 @@ class OrdersMklPage(QWidget):
         return self._model.get_row(idx.row())
 
     def _add(self):
-        dlg = OrderFormDialog(self)
+        dlg = OrderFormDialog(self.db, self)
         if dlg.exec():
             order = dlg.result_order()
             self.db.add_mkl_order(order)
@@ -230,7 +269,7 @@ class OrdersMklPage(QWidget):
         if not row:
             QMessageBox.information(self, "Редактирование", "Выберите запись.")
             return
-        dlg = OrderFormDialog(self, row)
+        dlg = OrderFormDialog(self.db, self, row)
         if dlg.exec():
             updated = dlg.result_order()
             self.db.update_mkl_order(row["id"], updated)
