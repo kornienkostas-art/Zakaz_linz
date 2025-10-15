@@ -306,7 +306,7 @@ class SettingsView(ttk.Frame):
             self.settings["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
             self.settings["notify_sound_mode"] = (self.notify_sound_mode_var.get() or "alias")
             self.settings["notify_sound_file"] = (self.notify_sound_file_var.get() or "").strip()
-            # Map selection to alias
+            # Map selection to alias (once)
             try:
                 sel = self._sound_combo.get()
                 for label, alias in self._sound_options:
@@ -317,18 +317,7 @@ class SettingsView(ttk.Frame):
                     self.settings["notify_sound_alias"] = (self.settings.get("notify_sound_alias") or "SystemAsterisk")
             except Exception:
                 self.settings["notify_sound_alias"] = (self.settings.get("notify_sound_alias") or "SystemAsterisk")
-            self.settings["notify_days"] = [i for i, v in enumerate(self.notify_days_vars) if bool(v.get())]
-            self.settings["notify_time"] = (self.notify_time_var.get() or "09:00").strip()
-            self.settings["notify_sound_enabled"] = bool(self.notify_sound_enabled_var.get())
-            # Map selection to alias
-            try:
-                sel = self._sound_combo.get()
-                for label, alias in self._sound_options:
-                    if label == sel:
-                        self.settings["notify_sound_alias"] = alias
-                        break
-                else:
-                    self
+
             # Apply autostart immediately (Windows)
             try:
                 from app.tray import _windows_autostart_set
