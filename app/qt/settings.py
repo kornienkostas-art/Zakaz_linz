@@ -1,6 +1,6 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, List
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTime
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QWidget,
@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QFormLayout,
     QApplication,
+    QGroupBox,
+    QTimeEdit,
+    QComboBox,
 )
 
 # Settings page allows changing UI-related options and app behavior.
@@ -38,6 +41,9 @@ class SettingsPage(QWidget):
         self._set_tray_enabled_cb = set_tray_enabled
         self._toggle_autostart_cb = toggle_autostart
 
+        # Days of week checkboxes for notifications
+        self._day_checks: List[QCheckBox] = []
+
         self._init_ui()
         self._load_to_controls()
 
@@ -50,6 +56,7 @@ class SettingsPage(QWidget):
         title.setStyleSheet("font-weight:600; font-size:16pt; color:#0F172A;")
         layout.addWidget(title)
 
+        # --- UI/Behavior form ---
         form = QFormLayout()
         form.setSpacing(10)
 
@@ -85,6 +92,71 @@ class SettingsPage(QWidget):
 
         layout.addLayout(form)
 
+        # --- Notifications group (Meridian + MKL) ---
+        notif_group = QGroupBox("Уведомления")
+        notif_layout = QVBoxLayout(notif_group)
+
+        # Meridian notifications
+        mer_box = QGroupBox("Меридиан")
+        mer_form = QFormLayout(mer_box)
+        self.notify_enabled = QCheckBox("Включить уведомления «Меридиан»")
+        mer_form.addRow(self.notify_enabled)
+
+        days_row = QHBoxLayout()
+        day_names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        self._day_checks = [QCheckBox(name) for name in day_names]
+        for cb in self._day_checks:
+            days_row.addWidget(cb)
+        mer_form.addRow(QLabel("Дни недели"), days_row)
+
+        self.notify_time = QTimeEdit()
+        self.notify_time.setDisplayFormat("HH:mm")
+        mer_form.addRow("Время", self.notify_time)
+
+        notif_layout.addWidget(mer_box)
+
+        # MKL notifications
+        mkl_box = QGroupBox("МКЛ")
+        mkl_form = QFormLayout(mkl_box)
+        self.mkl_notify_enabled = QCheckBox("Включить уведомления МКЛ (просроченные)")
+        mkl_form.addRow(self.mkl_notify_enabled)
+
+        self.mkl_notify_after_days = QSpinBox()
+        self.mkl_notify_after_days.setRange(0, 365)
+        mkl_form.addRow("Порог (дней)", self.mkl_notify_after_days)
+
+        self.mkl_notify_time = QTimeEdit()
+        self.mkl_notify_time.setDisplayFormat("HH:mm")
+        mkl_form.addRow("Время", self.mkl_notify_time)
+
+        notif_layout.addWidget(mkl_box)
+
+        # Sound settings
+        sound_box = QGroupBox("Звук уведомлений")
+        sound_form = QFormLayout(sound_box)
+        self.notify_sound_enabled = QCheckBox("Включить звук")
+        sound_form.addRow(self.notify_sound_enabled)
+
+        self.notify_sound_mode = QComboBox()
+        self.notify_sound_mode.addItems(["alias", "file"])
+        sound_form.addRow("Режим", self.notify_sound_mode)
+
+        self.notify_sound_alias = QLineEdit()
+        sound_form.addRow("Алиас (Windows)", self.notify_sound_alias)
+
+        snd_layout = QHBoxLayout()
+        self.notify_sound_file = QLineEdit()
+        self.notify_sound_file.setReadOnly(True)
+        btn_choose_sound = QPushButton("Выбрать WAV…")
+        btn_choose_sound.clicked.connect(self._choose_sound_file)
+        snd_layout.addWidget(self.notify_sound_file, 1)
+        snd_layout.addWidget(btn_choose_sound)
+        sound_form.addRow("Файл (WAV)", snd_layout)
+
+        notif_layout.addWidget(sound_box)
+
+        layout.addWidget(notif_group)
+
         # Actions
         actions = QHBoxLayout()
         btn_apply = QPushButton("Применить")
@@ -107,11 +179,45 @@ class SettingsPage(QWidget):
         self.start_in_tray.setChecked(bool(s.get("start_in_tray", False)))
         self.autostart_enabled.setChecked(bool(s.get("autostart_enabled", True)))
 
+        # Notifications (Meridian)
+        self.notify_enabled.setChecked(bool(s.get("notify_enabled", False)))
+        days = s.get("notify_days") or []
+        for i, cb in enumerate(self._day_checks):
+            cb.setChecked(i in days)
+        hh_mm = (s.get("notify_time", "09:00") or "09:00").split(":")
+        try:
+            hh = int(hh_mm[0]); mm = int(hh_mm[1])
+        except Exception:
+            hh, mm = 9, 0
+        self.notify_time.setTime(QTime(hh, mm))
+
+        # Notifications (MKL)
+        self.mkl_notify_enabled.setChecked(bool(s.get("mkl_notify_enabled", False)))
+        self.mkl_notify_after_days.setValue(int(s.get("mkl_notify_after_days", 3)))
+        hh_mm = (s.get("mkl_notify_time", "09:00") or "09:00").split(":")
+        try:
+            hh = int(hh_mm[0]); mm = int(hh_mm[1])
+        except Exception:
+            hh, mm = 9, 0
+        self.mkl_notify_time.setTime(QTime(hh, mm))
+
+        # Sound
+        self.notify_sound_enabled.setChecked(bool(s.get("notify_sound_enabled", True)))
+        self.notify_sound_mode.setCurrentText((s.get("notify_sound_mode") or "alias"))
+        self.notify_sound_alias.setText(s.get("notify_sound_alias", "SystemAsterisk"))
+        self.notify_sound_file.setText(s.get("notify_sound_file", ""))
+
     def _choose_export_folder(self):
         start_dir = self.export_folder.text() or ""
         folder = QFileDialog.getExistingDirectory(self, "Выберите папку экспорта", start_dir)
         if folder:
             self.export_folder.setText(folder)
+
+    def _choose_sound_file(self):
+        fname = QFileDialog.getOpenFileName(self, "Выберите WAV-файл", "", "WAV files (*.wav)")[0]
+        if fname:
+            self.notify_sound_file.setText(fname)
+            self.notify_sound_mode.setCurrentText("file")
 
     def _apply(self):
         # Apply font live
@@ -119,7 +225,6 @@ class SettingsPage(QWidget):
         fs = int(self.font_size.value())
         try:
             self._apply_font_cb(ff, fs)
-            # Also update application's default font immediately
             QApplication.instance().setFont(QFont(ff, pointSize=fs))
         except Exception:
             QMessageBox.warning(self, "Шрифт", "Не удалось применить шрифт/размер.")
@@ -137,10 +242,7 @@ class SettingsPage(QWidget):
         if not ok:
             QMessageBox.warning(self, "Автозапуск", "Не удалось применить автозапуск.")
 
-        # Minimize/start-in-tray do not require live actions, they affect next interactions.
-
-        # Update status
-        QMessageBox.information(self, "Применение", "Настройки применены.")
+        QMessageBox.information(self, "Применено", "Настройки применены.")
 
     def _save(self):
         s = self._get_settings()
@@ -153,8 +255,27 @@ class SettingsPage(QWidget):
         s["start_in_tray"] = bool(self.start_in_tray.isChecked())
         s["autostart_enabled"] = bool(self.autostart_enabled.isChecked())
 
+        # Notifications (Meridian)
+        s["notify_enabled"] = bool(self.notify_enabled.isChecked())
+        days = [i for i, cb in enumerate(self._day_checks) if cb.isChecked()]
+        s["notify_days"] = days
+        t = self.notify_time.time()
+        s["notify_time"] = f"{t.hour():02d}:{t.minute():02d}"
+
+        # Notifications (MKL)
+        s["mkl_notify_enabled"] = bool(self.mkl_notify_enabled.isChecked())
+        s["mkl_notify_after_days"] = int(self.mkl_notify_after_days.value())
+        t2 = self.mkl_notify_time.time()
+        s["mkl_notify_time"] = f"{t2.hour():02d}:{t2.minute():02d}"
+
+        # Sound
+        s["notify_sound_enabled"] = bool(self.notify_sound_enabled.isChecked())
+        s["notify_sound_mode"] = self.notify_sound_mode.currentText()
+        s["notify_sound_alias"] = self.notify_sound_alias.text().strip() or "SystemAsterisk"
+        s["notify_sound_file"] = self.notify_sound_file.text().strip()
+
         try:
             self._save_settings(s)
-            QMessageBox.information(self, "Сохранение", "Настройки сохранены.")
+            QMessageBox.information(self, "Сохранено", "Настройки сохранены.")
         except Exception:
             QMessageBox.warning(self, "Сохранение", "Не удалось сохранить настройки.")

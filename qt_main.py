@@ -74,6 +74,19 @@ def ensure_settings(path: str):
                     "minimize_to_tray": True,
                     "start_in_tray": False,
                     "autostart_enabled": True,
+                    # Notifications (Meridian)
+                    "notify_enabled": False,
+                    "notify_days": [],
+                    "notify_time": "09:00",
+                    # Notifications (MKL)
+                    "mkl_notify_enabled": False,
+                    "mkl_notify_after_days": 3,
+                    "mkl_notify_time": "09:00",
+                    # Sound
+                    "notify_sound_enabled": True,
+                    "notify_sound_mode": "alias",  # alias or file
+                    "notify_sound_alias": "SystemAsterisk",
+                    "notify_sound_file": "",
                 },
                 f,
                 ensure_ascii=False,
@@ -99,6 +112,19 @@ def load_settings(path: str) -> dict:
                 "minimize_to_tray": True,
                 "start_in_tray": False,
                 "autostart_enabled": True,
+                # Notifications (Meridian)
+                "notify_enabled": False,
+                "notify_days": [],
+                "notify_time": "09:00",
+                # Notifications (MKL)
+                "mkl_notify_enabled": False,
+                "mkl_notify_after_days": 3,
+                "mkl_notify_time": "09:00",
+                # Sound
+                "notify_sound_enabled": True,
+                "notify_sound_mode": "alias",
+                "notify_sound_alias": "SystemAsterisk",
+                "notify_sound_file": "",
             }
             for k, v in defaults.items():
                 data.setdefault(k, v)
@@ -446,6 +472,35 @@ class MainWindow(QMainWindow):
         hh, mm = self._parse_notify_time(s.get("notify_time", "09:00"))
         return (now_dt.hour == hh and now_dt.minute == mm)
 
+    def _play_notify_sound(self):
+        try:
+            s = self.settings
+            if not bool(s.get("notify_sound_enabled", True)):
+                return
+            if os.name == "nt":
+                import winsound
+                mode = (s.get("notify_sound_mode") or "alias")
+                if mode == "file":
+                    wav = (s.get("notify_sound_file") or "").strip()
+                    if wav:
+                        try:
+                            winsound.PlaySound(wav, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                        except Exception:
+                            winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                    else:
+                        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                else:
+                    alias = (s.get("notify_sound_alias") or "SystemAsterisk")
+                    try:
+                        winsound.PlaySound(alias, winsound.SND_ALIAS | winsound.SND_ASYNC)
+                    except Exception:
+                        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+            else:
+                # Fallback bell
+                QApplication.beep()
+        except Exception:
+            pass
+
     def _check_and_notify(self):
         from datetime import datetime, timedelta
 
@@ -462,6 +517,14 @@ class MainWindow(QMainWindow):
                     pending = []
                 if pending:
                     self._reveal_from_tray()
+                    self._play_notify_sound()
+                    if self.tray:
+                        self.tray.showMessage(
+                            "УссурОЧки.рф",
+                            f"Есть заказы «Меридиан» со статусом «Не заказан»: {len(pending)}",
+                            QSystemTrayIcon.Information,
+                            3000,
+                        )
                     try:
                         from app.qt.notify import show_meridian_notification
 
@@ -517,22 +580,36 @@ class MainWindow(QMainWindow):
                             except Exception:
                                 continue
                         if aged_pending:
-                            self._reveal_from_tray()
-                            try:
-                                from app.qt.notify import show_mkl_notification
+            self._reveal_from_tray()
+            self._play_notify_sound()
+            if self.tray:
+                self.tray.showMessage(
+                    "УссурОЧки.рф",
+                    f"Есть просроченные заказы МКЛ со статусом «Не заказан»: {len(aged_pending)}",
+                    QSystemTrayIcon.Information,
+                    3000,
+                )
+            try:
+                from app.qt.notify import show_mkl_notification
 
-                                def on_snooze_days(d: int):
-                                    self._scheduler["mkl_snoozed_until"] = now + timedelta(days=d)
+                def on_snooze_days(d: int):
+                    self._scheduler["mkl_snoozed_until"] = now + timedelta(days=d)
 
-                                def on_mark_ordered_mkl():
-                                    try:
-                                        for o in aged_pending:
-                                            self.db.update_mkl_order(
-                                                o["id"],
-                                                {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")},
-                                            )
-                                    except Exception:
-                                        pass
+                def on_mark_ordered_mkl():
+                    try:
+                        for o in aged_pending:
+                            self.db.update_mkl_order(
+                                o["id"],
+                                {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")},
+                            )
+                    except Exception:
+                        pass
+
+                show_mkl_notification(
+                    self, aged_pending, on_snooze_days=on_snooze_days, on_mark_ordered=on_mark_ordered_mkl
+                )
+            except Exception:
+                pass
 
                                 show_mkl_notification(
                                     self, aged_pending, on_snooze_days=on_snooze_days, on_mark_ordered=on_mark_ordered_mkl
