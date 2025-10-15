@@ -80,26 +80,17 @@ def _windows_autostart_get() -> bool:
 
 
 def _create_tray_image(settings: dict) -> Optional["Image.Image"]:
-    """Create tray image from logo path or generate a simple one.
+    """Create tray image from the best-suited asset.
 
-    Detection order:
-    1) settings["tray_logo_path"] if exists
-    2) Known assets in app/assets/: logo.png, android-chrome-192x192.png, apple-touch-icon.png,
-       favicon-32x32.png, favicon-16x16.png, favicon.ico
+    Heuristic:
+    - Prefer square PNG with alpha and size >= 128 (closest to 192 ideal)
+    - Fall back to ICO/other sizes
+    - Finally, generate a simple placeholder if nothing found
     """
     if Image is None:
         return None
 
-    def _first_existing(paths: list[str]) -> str | None:
-        for p in paths:
-            try:
-                if p and os.path.isfile(p):
-                    return p
-            except Exception:
-                continue
-        return None
-
-    # Candidate paths
+    # Candidate paths (explicit first)
     configured = (settings or {}).get("tray_logo_path") or ""
     candidates = [
         configured,
@@ -111,11 +102,62 @@ def _create_tray_image(settings: dict) -> Optional["Image.Image"]:
         os.path.join("app", "assets", "favicon.ico"),
     ]
 
-    path = _first_existing(candidates)
-    if path:
+    existing: list[str] = []
+    for p in candidates:
         try:
-            img = Image.open(path)
-            # Resize to typical tray icon size
+            if p and os.path.isfile(p):
+                existing.append(p)
+        except Exception:
+            continue
+
+    def _score(path: str) -> float:
+        # Higher is better
+        try:
+            with Image.open(path) as im:
+                w, h = im.size
+                ext = os.path.splitext(path)[1].lower()
+                score = 0.0
+                # Format preference: PNG > ICO > others
+                if ext == ".png":
+                    score += 3.0
+                elif ext == ".ico":
+                    score += 1.5
+                else:
+                    score += 0.5
+                # Prefer square
+                if w == h:
+                    score += 2.0
+                else:
+                    score -= 0.5
+                # Prefer alpha channel (RGBA/LA)
+                try:
+                    if im.mode in ("RGBA", "LA") or ("transparency" in im.info):
+                        score += 1.0
+                except Exception:
+                    pass
+                # Prefer size >= 128, and around 128..256 (ideal 192)
+                ideal = 192
+                long_side = max(w, h)
+                if long_side >= 128:
+                    score += 2.0
+                # penalize distance from ideal
+                score -= abs(long_side - ideal) / 256.0
+                return score
+        except Exception:
+            # If cannot open, but file exists — very low score
+            return -10.0
+
+    best_path = None
+    best_score = -1e9
+    for p in existing:
+        s = _score(p)
+        if s > best_score:
+            best_score = s
+            best_path = p
+
+    if best_path:
+        try:
+            img = Image.open(best_path)
             img = img.convert("RGBA")
             img = img.resize((128, 128), Image.LANCZOS)
             return img

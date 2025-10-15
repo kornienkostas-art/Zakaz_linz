@@ -170,16 +170,35 @@ def main():
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
 
-    # Set window icon from settings or known assets
+    # Set window icon from best asset (heuristic), fallback to order if Pillow not available
     try:
-        def _first_existing(paths: list[str]) -> str | None:
-            for p in paths:
-                try:
-                    if p and os.path.isfile(p):
-                        return p
-                except Exception:
-                    continue
-            return None
+        from PIL import Image
+        def _score(path: str) -> float:
+            try:
+                with Image.open(path) as im:
+                    w, h = im.size
+                    ext = os.path.splitext(path)[1].lower()
+                    score = 0.0
+                    if ext == ".png":
+                        score += 3.0
+                    elif ext == ".ico":
+                        score += 1.5
+                    else:
+                        score += 0.5
+                    if w == h:
+                        score += 2.0
+                    else:
+                        score -= 0.5
+                    if im.mode in ("RGBA", "LA") or ("transparency" in im.info):
+                        score += 1.0
+                    ideal = 192
+                    long_side = max(w, h)
+                    if long_side >= 128:
+                        score += 2.0
+                    score -= abs(long_side - ideal) / 256.0
+                    return score
+            except Exception:
+                return -10.0
 
         configured = (app_settings.get("tray_logo_path") or "").strip()
         candidates = [
@@ -191,18 +210,43 @@ def main():
             os.path.join("app", "assets", "favicon-16x16.png"),
             os.path.join("app", "assets", "favicon.ico"),
         ]
-        icon_path = _first_existing(candidates)
+        existing = [p for p in candidates if p and os.path.isfile(p)]
+        best = None
+        best_s = -1e9
+        for p in existing:
+            s = _score(p)
+            if s > best_s:
+                best_s = s
+                best = p
+        icon_path = best if best else (existing[0] if existing else None)
+    except Exception:
+        def _first_existing(paths: list[str]) -> str | None:
+            for p in paths:
+                try:
+                    if p and os.path.isfile(p):
+                        return p
+                except Exception:
+                    continue
+            return None
+        configured = (app_settings.get("tray_logo_path") or "").strip()
+        icon_path = _first_existing([
+            configured,
+            os.path.join("app", "assets", "logo.png"),
+            os.path.join("app", "assets", "android-chrome-192x192.png"),
+            os.path.join("app", "assets", "apple-touch-icon.png"),
+            os.path.join("app", "assets", "favicon-32x32.png"),
+            os.path.join("app", "assets", "favicon-16x16.png"),
+            os.path.join("app", "assets", "favicon.ico"),
+        ])
+
+    try:
         if icon_path:
-            try:
-                # Prefer PNG via PhotoImage; if ICO on Windows, use iconbitmap
-                if icon_path.lower().endswith(".ico") and os.name == "nt":
-                    root.iconbitmap(icon_path)
-                else:
-                    icon_img = tk.PhotoImage(file=icon_path)
-                    root.iconphoto(True, icon_img)
-                    root._app_icon_img = icon_img  # keep ref
-            except Exception:
-                pass
+            if icon_path.lower().endswith(".ico") and os.name == "nt":
+                root.iconbitmap(icon_path)
+            else:
+                icon_img = tk.PhotoImage(file=icon_path)
+                root.iconphoto(True, icon_img)
+                root._app_icon_img = icon_img  # keep ref
     except Exception:
         pass
     root.app_settings = app_settings
