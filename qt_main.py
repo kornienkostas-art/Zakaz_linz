@@ -30,6 +30,7 @@ from app.db import AppDB
 from app.qt.orders_mkl import OrdersMklPage
 from app.qt.clients import ClientsPage
 from app.qt.products import ProductsPage
+from app.qt.settings import SettingsPage
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -230,8 +231,16 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(ClientsPage(self.db))
         # Products page (МКЛ/Меридиан)
         self.pages.addWidget(ProductsPage(self.db))
-        # Settings (placeholder for now)
-        self.pages.addWidget(PlaceholderPage("Настройки"))
+        # Settings page
+        self.pages.addWidget(
+            SettingsPage(
+                get_settings=lambda: self.settings,
+                save_settings=lambda s: save_settings(SETTINGS_FILE, s),
+                apply_font=lambda ff, fs: self._apply_font_live(ff, fs),
+                set_tray_enabled=lambda enabled: self._set_tray_enabled_live(enabled),
+                toggle_autostart=lambda on: self._toggle_autostart_live(on),
+            )
+        )
 
         # Теперь подключаем обработчик и выбираем первую страницу
         self.nav.currentRowChanged.connect(self._on_nav_changed)
@@ -266,6 +275,16 @@ class MainWindow(QMainWindow):
             ff = self.settings.get("font_family", "Segoe UI")
             size_pt = int(self.settings.get("font_size_base_pt", 12))
             font = QFont(ff, pointSize=size_pt)
+            QApplication.instance().setFont(font)
+        except Exception:
+            pass
+
+    def _apply_font_live(self, ff: str, fs: int):
+        # Update settings and apply font immediately
+        try:
+            self.settings["font_family"] = ff
+            self.settings["font_size_base_pt"] = int(fs)
+            font = QFont(ff, pointSize=int(fs))
             QApplication.instance().setFont(font)
         except Exception:
             pass
@@ -339,6 +358,13 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "Автозапуск", "Не удалось изменить настройку автозапуска.")
 
+    def _toggle_autostart_live(self, on: bool) -> bool:
+        # Called from settings page
+        ok = _windows_autostart_set(on)
+        if ok:
+            self.settings["autostart_enabled"] = bool(on)
+        return ok
+
     def _choose_export_folder(self):
         start_dir = self.settings.get("export_path") or _desktop_path()
         folder = QFileDialog.getExistingDirectory(self, "Выберите папку экспорта", start_dir)
@@ -346,6 +372,18 @@ class MainWindow(QMainWindow):
             self.settings["export_path"] = folder
             save_settings(SETTINGS_FILE, self.settings)
             self.statusBar().showMessage(f"Папка экспорта: {folder}", 3000)
+
+    def _set_tray_enabled_live(self, enabled: bool):
+        # Enable/disable tray icon at runtime
+        try:
+            if enabled and self.tray is None:
+                self._init_tray()
+            elif not enabled and self.tray is not None:
+                self.tray.hide()
+                self.tray = None
+            self.settings["tray_enabled"] = bool(enabled)
+        except Exception:
+            pass
 
     def closeEvent(self, event):
         if bool(self.settings.get("tray_enabled", True)) and bool(self.settings.get("minimize_to_tray", True)):
