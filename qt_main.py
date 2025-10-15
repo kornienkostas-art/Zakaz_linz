@@ -385,7 +385,11 @@ class MainWindow(QMainWindow):
             self._show_main()
 
     def _show_main(self):
-        self.showNormal()
+        # Show maximized to utilize full screen by default
+        try:
+            self.showMaximized()
+        except Exception:
+            self.showNormal()
         self.raise_()
         self.activateWindow()
 
@@ -639,7 +643,10 @@ def main():
     if bool(settings.get("tray_enabled", True)) and bool(settings.get("start_in_tray", False)):
         win.hide()
     else:
-        win.show()
+        try:
+            win.showMaximized()
+        except Exception:
+            win.show()
 
     # Ensure clean exit tasks
     def _cleanup():

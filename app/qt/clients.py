@@ -122,9 +122,14 @@ class ClientsPage(QWidget):
         self.db = db
 
         v = QVBoxLayout(self)
+        v.setContentsMargins(12, 12, 12, 12)
+        v.setSpacing(8)
+
         top = QHBoxLayout()
+        top.setSpacing(8)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Поиск…")
+        self.search.setMinimumWidth(200)
         self.search.textChanged.connect(self._on_search)
         btn_add = QPushButton("Создать")
         btn_edit = QPushButton("Редактировать")
@@ -142,10 +147,23 @@ class ClientsPage(QWidget):
         self.table.setSelectionBehavior(QTableView.SelectRows)
         self.table.setSelectionMode(QTableView.SingleSelection)
         self.table.setSortingEnabled(True)
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(False)
         v.addWidget(self.table, 1)
 
         self._model = ClientsModel(self.db.list_clients())
         self.table.setModel(self._model)
+
+        # Header behavior
+        try:
+            from PySide6.QtWidgets import QHeaderView
+            h = self.table.horizontalHeader()
+            h.setSectionResizeMode(QHeaderView.Interactive)
+            h.setStretchLastSection(True)
+            h.setMinimumSectionSize(120)
+        except Exception:
+            pass
+
         self.table.resizeColumnsToContents()
 
     def _on_search(self, text: str):
