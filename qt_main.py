@@ -357,11 +357,8 @@ def main():
 
     app = QApplication(sys.argv)
 
-    # Qt 6 уже включает HighDPI масштабирование и использование HiDPI-пиксмапов по умолчанию.
-    # ЯвнаяghDpiScaling, True)
-        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-    except Exception:
-        pass
+    # Qt 6 уже включает HighDPI масштабирование и HiDPI-пиксмапы по умолчанию.
+    # Дополнительных установок атрибутов не требуется.
 
     settings = load_settings(SETTINGS_FILE)
 
