@@ -6,7 +6,7 @@ import ctypes
 import platform
 from typing import Optional
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QIcon, QAction, QFont
 from PySide6.QtWidgets import (
     QApplication,
@@ -270,6 +270,15 @@ class MainWindow(QMainWindow):
             if want != current:
                 _windows_autostart_set(want)
 
+        # Notifications scheduler (Meridian/MKL)
+        self._scheduler = {"snoozed_until": None, "mkl_snoozed_until": None}
+        self._timer = QTimer(self)
+        self._timer.setInterval(60_000)  # 1 minute
+        self._timer.timeout.connect(self._check_and_notify)
+        # First check shortly after start
+        QTimer.singleShot(3_000, self._check_and_notify)
+        self._timer.start()
+
     def _apply_font(self):
         try:
             ff = self.settings.get("font_family", "Segoe UI")
@@ -407,6 +416,131 @@ class MainWindow(QMainWindow):
 
     def _on_nav_changed(self, row: int):
         self.pages.setCurrentIndex(max(0, row))
+
+    def _reveal_from_tray(self):
+        # Bring window to front
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _parse_notify_time(self, s: str):
+        try:
+            parts = (s or "").strip().split(":")
+            hh = int(parts[0])
+            mm = int(parts[1]) if len(parts) > 1 else 0
+            return max(0, min(23, hh)), max(0, min(59, mm))
+        except Exception:
+            return 9, 0
+
+    def _should_notify_meridian(self, now_dt):
+        s = self.settings
+        if not bool(s.get("notify_enabled", False)):
+            return False
+        days = s.get("notify_days") or []
+        try:
+            wday = now_dt.weekday()  # Monday=0
+        except Exception:
+            wday = -1
+        if wday not in days:
+            return False
+        hh, mm = self._parse_notify_time(s.get("notify_time", "09:00"))
+        return (now_dt.hour == hh and now_dt.minute == mm)
+
+    def _check_and_notify(self):
+        from datetime import datetime, timedelta
+
+        now = datetime.now()
+
+        # Meridian snooze
+        until = self._scheduler.get("snoozed_until")
+        if not (until and now < until):
+            if self._should_notify_meridian(now):
+                try:
+                    orders = self.db.list_meridian_orders()
+                    pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
+                except Exception:
+                    pending = []
+                if pending:
+                    self._reveal_from_tray()
+                    try:
+                        from app.qt.notify import show_meridian_notification
+
+                        def on_snooze(minutes: int):
+                            self._scheduler["snoozed_until"] = now + timedelta(minutes=minutes)
+
+                        def on_mark_ordered():
+                            try:
+                                for o in pending:
+                                    self.db.update_meridian_order(
+                                        o["id"],
+                                        {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")},
+                                    )
+                            except Exception:
+                                pass
+
+                        show_meridian_notification(self, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
+                    except Exception:
+                        pass
+
+        # MKL notifications: daily check with age threshold
+        try:
+            s = self.settings
+            if bool(s.get("mkl_notify_enabled", False)):
+                hh, mm = self._parse_notify_time(s.get("mkl_notify_time", "09:00"))
+                if now.hour == hh and now.minute == mm:
+                    mkl_until = self._scheduler.get("mkl_snoozed_until")
+                    if not (mkl_until and now < mkl_until):
+                        days = int(s.get("mkl_notify_after_days", 3))
+                        threshold = now - timedelta(days=max(0, days))
+                        try:
+                            mkl_orders = self.db.list_mkl_orders()
+                        except Exception:
+                            mkl_orders = []
+                        aged_pending = []
+                        for o in mkl_orders:
+                            try:
+                                if (o.get("status", "") or "").strip() != "Не заказан":
+                                    continue
+                                ds = (o.get("date", "") or "").strip()
+                                dt = None
+                                for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d", "%d.%m.%Y %H:%M", "%d.%m.%Y"):
+                                    try:
+                                        from datetime import datetime as _dt
+                                        dt = _dt.strptime(ds, fmt)
+                                        break
+                                    except Exception:
+                                        continue
+                                if dt is None:
+                                    continue
+                                if dt <= threshold:
+                                    aged_pending.append(o)
+                            except Exception:
+                                continue
+                        if aged_pending:
+                            self._reveal_from_tray()
+                            try:
+                                from app.qt.notify import show_mkl_notification
+
+                                def on_snooze_days(d: int):
+                                    self._scheduler["mkl_snoozed_until"] = now + timedelta(days=d)
+
+                                def on_mark_ordered_mkl():
+                                    try:
+                                        for o in aged_pending:
+                                            self.db.update_mkl_order(
+                                                o["id"],
+                                                {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")},
+                                            )
+                                    except Exception:
+                                        pass
+
+                                show_mkl_notification(
+                                    self, aged_pending, on_snooze_days=on_snooze_days, on_mark_ordered=on_mark_ordered_mkl
+                                )
+                            except Exception:
+                                pass
+        except Exception:
+            pass
 
 
 def main():
