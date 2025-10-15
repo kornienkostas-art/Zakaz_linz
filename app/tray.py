@@ -15,14 +15,14 @@ def _get_exec_command() -> str:
     """
     Return command string for autostart:
     - If running as packaged exe (sys.frozen): sys.executable
-    - Else: pythonw.exe + full path to main.py
+    - Else: pythonw.exe + full path to project main.py
     """
     import sys
     try:
         if getattr(sys, "frozen", False):
             return sys.executable
-        # Fallback: use pythonw.exe to avoid console
-        pythonw = sys.executable  # may be python.exe; try to find pythonw
+        # Prefer pythonw.exe to avoid console window on Windows
+        pythonw = sys.executable
         try:
             base = os.path.dirname(sys.executable)
             candidate = os.path.join(base, "pythonw.exe")
@@ -30,11 +30,16 @@ def _get_exec_command() -> str:
                 pythonw = candidate
         except Exception:
             pass
-        script = os.path.abspath(__file__)
-        return f'"{pythonw}" "{script}"'
+        # Resolve path to main.py at project root (../main.py from this file)
+        here = os.path.dirname(os.path.abspath(__file__))
+        main_script = os.path.normpath(os.path.join(here, "..", "main.py"))
+        if not os.path.isfile(main_script):
+            # Fallback: try current working directory
+            main_script = os.path.abspath("main.py")
+        return f'"{pythonw}" "{main_script}"'
     except Exception:
         # Last resort
-        return os.path.abspath(__file__)
+        return os.path.abspath("main.py")
 
 
 def _windows_autostart_set(enabled: bool):
@@ -75,19 +80,117 @@ def _windows_autostart_get() -> bool:
 
 
 def _create_tray_image(settings: dict) -> Optional["Image.Image"]:
-    """Create tray image from logo path or generate a simple one."""
+    """Create tray image from the best-suited asset.
+
+    Heuristic:
+    - Prefer square PNG with alpha and size >= 128 (closest to 192 ideal)
+    - Fall back to ICO/other sizes
+    - Finally, generate a simple placeholder if nothing found
+
+    Also supports PyInstaller onefile by checking sys._MEIPASS.
+    """
     if Image is None:
         return None
-    path = (settings or {}).get("tray_logo_path") or ""
-    if path and os.path.isfile(path):
+
+    # Candidate paths (explicit first)
+    configured = (settings or {}).get("tray_logo_path") or ""
+    rel_candidates = [
+        configured,
+        os.path.join("app", "assets", "logo.png"),
+        os.path.join("app", "assets", "android-chrome-192x192.png"),
+        os.path.join("app", "assets", "apple-touch-icon.png"),
+        os.path.join("app", "assets", "favicon-32x32.png"),
+        os.path.join("app", "assets", "favicon-16x16.png"),
+        os.path.join("app", "assets", "favicon.ico"),
+    ]
+
+    # Resolve candidates against common bases (for PyInstaller onefile support)
+    bases: list[str] = []
+    try:
+        import sys
+        bases.extend([
+            os.getcwd(),
+            os.path.dirname(__file__),
+            os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd(),
+            getattr(sys, "_MEIPASS", None),
+        ])
+    except Exception:
+        pass
+    bases = [b for b in bases if b]
+
+    def _resolve(path_like: str) -> list[str]:
+        if not path_like:
+            return []
+        if os.path.isabs(path_like) and os.path.isfile(path_like):
+            return [path_like]
+        paths = []
+        for b in bases:
+            p = os.path.normpath(os.path.join(b, path_like))
+            try:
+                if os.path.isfile(p):
+                    paths.append(p)
+            except Exception:
+                continue
+        return paths
+
+    existing: list[str] = []
+    for rel in rel_candidates:
+        existing.extend(_resolve(rel))
+
+    def _score(path: str) -> float:
+        # Higher is better
         try:
-            img = Image.open(path)
-            # Resize to typical tray icon size
+            with Image.open(path) as im:
+                w, h = im.size
+                ext = os.path.splitext(path)[1].lower()
+                score = 0.0
+                # Format preference: PNG > ICO > others
+                if ext == ".png":
+                    score += 3.0
+                elif ext == ".ico":
+                    score += 1.5
+                else:
+                    score += 0.5
+                # Prefer square
+                if w == h:
+                    score += 2.0
+                else:
+                    score -= 0.5
+                # Prefer alpha channel (RGBA/LA)
+                try:
+                    if im.mode in ("RGBA", "LA") or ("transparency" in im.info):
+                        score += 1.0
+                except Exception:
+                    pass
+                # Prefer size >= 128, and around 128..256 (ideal 192)
+                ideal = 192
+                long_side = max(w, h)
+                if long_side >= 128:
+                    score += 2.0
+                # penalize distance from ideal
+                score -= abs(long_side - ideal) / 256.0
+                return score
+        except Exception:
+            # If cannot open, but file exists — very low score
+            return -10.0
+
+    best_path = None
+    best_score = -1e9
+    for p in existing:
+        s = _score(p)
+        if s > best_score:
+            best_score = s
+            best_path = p
+
+    if best_path:
+        try:
+            img = Image.open(best_path)
             img = img.convert("RGBA")
             img = img.resize((128, 128), Image.LANCZOS)
             return img
         except Exception:
             pass
+
     # Fallback: generate simple icon with text 'УО'
     img = Image.new("RGBA", (128, 128), (248, 250, 252, 255))  # bg #f8fafc
     draw = ImageDraw.Draw(img)
