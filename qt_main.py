@@ -211,9 +211,7 @@ class MainWindow(QMainWindow):
         self.nav.addItem(QListWidgetItem("Заказы «Меридиан»"))
         self.nav.addItem(QListWidgetItem("Справочники"))
         self.nav.addItem(QListWidgetItem("Настройки"))
-        self.nav.currentRowChanged.connect(self._on_nav_changed)
-        # Select first page by default
-        self.nav.setCurrentRow(0)
+        # Подключим обработчик навигации после инициализации страниц
 
         # Database connection (shared)
         self.db = AppDB(DB_FILE)
@@ -226,6 +224,10 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(PlaceholderPage("Заказы «Меридиан»"))
         self.pages.addWidget(PlaceholderPage("Справочники"))
         self.pages.addWidget(PlaceholderPage("Настройки"))
+
+        # Теперь подключаем обработчик и выбираем первую страницу
+        self.nav.currentRowChanged.connect(self._on_nav_changed)
+        self.nav.setCurrentRow(0)
 
         root_layout.addWidget(self.nav)
         root_layout.addWidget(self.pages, 1)
