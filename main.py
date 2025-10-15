@@ -164,7 +164,10 @@ def _init_theme(root: tk.Tk, settings: dict):
     """
     Try to initialize a modern ttk theme using ttkbootstrap.
     Falls back to standard ttk styling if the package is not installed.
+    Also defines style aliases used by views (Card.TFrame, Title.TLabel, Subtitle.TLabel,
+    Menu.TButton, Data.Treeview) so screens render consistently.
     """
+    style = None
     try:
         import ttkbootstrap as tb
         theme_name = (settings.get("dark_theme") if settings.get("use_dark_theme") else settings.get("theme")) or "flatly"
@@ -182,10 +185,29 @@ def _init_theme(root: tk.Tk, settings: dict):
     except Exception:
         # Fallback to plain ttk
         try:
-            root._ttk_style = ttk.Style(root)
+            style = ttk.Style(root)
+            root._ttk_style = style
         except Exception:
-            pass
+            style = None
         root._ttkbootstrap = False
+
+    # Define style aliases expected by views
+    try:
+        base_size = int(settings.get("ui_font_size", 17))
+        title_font = (None, base_size + 2, "bold")
+        subtitle_font = (None, base_size, "normal")
+
+        # Card frame: subtle background (if supported), padding
+        style.configure("Card.TFrame", padding=12)
+        # Title/subtitle labels
+        style.configure("Title.TLabel", font=title_font)
+        style.configure("Subtitle.TLabel", font=subtitle_font)
+        # Menu button: extra padding
+        style.configure("Menu.TButton", padding=(16, 10))
+        # Data.Treeview alias -> Treeview
+        style.configure("Data.Treeview")
+    except Exception:
+        pass
 
 def main():
     # High-DPI scaling for readability (Windows)
