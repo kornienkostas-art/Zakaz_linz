@@ -25,6 +25,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+# App DB and pages
+from app.db import AppDB
+from app.qt.orders_mkl import OrdersMklPage
+
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
 
@@ -208,10 +212,17 @@ class MainWindow(QMainWindow):
         self.nav.addItem(QListWidgetItem("Справочники"))
         self.nav.addItem(QListWidgetItem("Настройки"))
         self.nav.currentRowChanged.connect(self._on_nav_changed)
+        # Select first page by default
+        self.nav.setCurrentRow(0)
+
+        # Database connection (shared)
+        self.db = AppDB(DB_FILE)
 
         # Stacked pages
         self.pages = QStackedWidget()
-        self.pages.addWidget(PlaceholderPage("Заказы МКЛ"))
+        # Orders MKL page (real implementation)
+        self.pages.addWidget(OrdersMklPage(self.db, export_folder_getter=lambda: self.settings.get("export_path")))
+        # Placeholders for others (to be implemented)
         self.pages.addWidget(PlaceholderPage("Заказы «Меридиан»"))
         self.pages.addWidget(PlaceholderPage("Справочники"))
         self.pages.addWidget(PlaceholderPage("Настройки"))
