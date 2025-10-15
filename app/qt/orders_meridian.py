@@ -1,7 +1,8 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QStringListModel, QRegularExpression
+from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -16,6 +17,9 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QTabWidget,
     QSpinBox,
+    QCompleter,
+    QComboBox,
+    QMenu,
 )
 
 from app.db import AppDB
@@ -132,10 +136,11 @@ class ItemsModel(QAbstractTableModel):
 
 
 class ItemDialog(QDialog):
-    def __init__(self, parent=None, item: Optional[Dict[str, Any]] = None):
+    def __init__(self, db: AppDB, parent=None, item: Optional[Dict[str, Any]] = None):
         super().__init__(parent)
         self.setWindowTitle("Позиция заказа")
         self._item = item or {}
+        self._db = db
         layout = QFormLayout(self)
 
         def field_str(key: str, label: str, initial: str = "") -> QLineEdit:
@@ -150,6 +155,31 @@ class ItemDialog(QDialog):
         self.ax = field_str("ax", "AX", self._item.get("ax", ""))
         self.d = field_str("d", "D", self._item.get("d", ""))
         self.qty = field_str("qty", "Кол-во", self._item.get("qty", ""))
+
+        # Validators (soft): decimals for sph/cyl/ax/d; int for qty
+        try:
+            dec_re = QRegularExpression(r"^[-+]?\\d*(?:[\\.,]\\d+)?$")
+            int_re = QRegularExpression(r"^\\d+$")
+            for le in (self.sph, self.cyl, self.ax, self.d):
+                le.setValidator(QRegularExpressionValidator(dec_re))
+            self.qty.setValidator(QRegularExpressionValidator(int_re))
+        except Exception:
+            pass
+
+        # Product completer from products_meridian
+        try:
+            products_mer = self._db.list_products_meridian() if self._db else []
+            prod_list = [p.get("name", "") for p in products_mer if (p.get("name", "") or "").strip()]
+            prod_model = QStringListModel(prod_list)
+            prod_completer = QCompleter(prod_model, self)
+            prod_completer.setCaseSensitivity(Qt.CaseInsensitive)
+            try:
+                prod_completer.setFilterMode(Qt.MatchContains)
+            except Exception:
+                pass
+            self.product.setCompleter(prod_completer)
+        except Exception:
+            pass
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_accept)
@@ -189,7 +219,9 @@ class OrderDialog(QDialog):
         form = QFormLayout()
         form.setSpacing(8)
         self.title = QLineEdit(self._order.get("title", ""))
-        self.status = QLineEdit(self._order.get("status", "Не заказан"))
+        self.status = QComboBox()
+        self.status.addItems(["Не заказан", "Заказан"])
+        self.status.setCurrentText(self._order.get("status", "Не заказан"))
         self.date = QLineEdit(self._order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")))
         form.addRow("Название", self.title)
         form.addRow("Статус", self.status)
@@ -233,6 +265,12 @@ class OrderDialog(QDialog):
 
         self.items_table.resizeColumnsToContents()
 
+        # Double-click to edit item
+        try:
+            self.items_table.doubleClicked.connect(lambda _: self._edit_item())
+        except Exception:
+            pass
+
         # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_accept)
@@ -244,7 +282,7 @@ class OrderDialog(QDialog):
         return self._items_model.get_row(idx.row())
 
     def _add_item(self):
-        dlg = ItemDialog(self)
+        dlg = ItemDialog(self.db, self)
         if dlg.exec():
             self._items.append(dlg.result_item())
             self._items_model.set_items(self._items)
@@ -255,7 +293,7 @@ class OrderDialog(QDialog):
         if not row:
             QMessageBox.information(self, "Редактирование", "Выберите позицию.")
             return
-        dlg = ItemDialog(self, row)
+        dlg = ItemDialog(self.db, self, row)
         if dlg.exec():
             updated = dlg.result_item()
             # Replace in list
@@ -281,7 +319,7 @@ class OrderDialog(QDialog):
             return
         self._order = {
             "title": self.title.text().strip(),
-            "status": self.status.text().strip() or "Не заказан",
+            "status": self.status.currentText() or "Не заказан",
             "date": self.date.text().strip() or datetime.now().strftime("%Y-%m-%d %H:%M"),
         }
         self.accept()
@@ -313,14 +351,17 @@ class OrdersMeridianPage(QWidget):
         btn_edit = QPushButton("Редактировать")
         btn_del = QPushButton("Удалить")
         btn_export = QPushButton("Экспорт TXT")
+        btn_mark = QPushButton("Отметить «Заказан»")
         btn_add.clicked.connect(self._add)
         btn_edit.clicked.connect(self._edit)
         btn_del.clicked.connect(self._delete)
         btn_export.clicked.connect(self._export_txt)
+        btn_mark.clicked.connect(self._mark_ordered)
         top.addWidget(self.search, 1)
         top.addWidget(btn_add)
         top.addWidget(btn_edit)
         top.addWidget(btn_del)
+        top.addWidget(btn_mark)
         top.addWidget(btn_export)
         v.addLayout(top)
 
@@ -346,6 +387,19 @@ class OrdersMeridianPage(QWidget):
             pass
 
         self.table.resizeColumnsToContents()
+
+        # Double-click to edit
+        try:
+            self.table.doubleClicked.connect(lambda _: self._edit())
+        except Exception:
+            pass
+
+        # Context menu
+        try:
+            self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.table.customContextMenuRequested.connect(self._show_context_menu)
+        except Exception:
+            pass
 
     def _on_search(self, text: str):
         self._model.set_query(text)
@@ -384,6 +438,40 @@ class OrdersMeridianPage(QWidget):
         if QMessageBox.question(self, "Удаление", f"Удалить заказ ID={row['id']}?") == QMessageBox.Yes:
             self.db.delete_meridian_order(row["id"])
             self._refresh()
+
+    def _mark_ordered(self):
+        row = self._selected_order()
+        if not row:
+            QMessageBox.information(self, "Статус", "Выберите запись.")
+            return
+        try:
+            self.db.update_meridian_order(row["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+            self._refresh()
+        except Exception:
+            QMessageBox.warning(self, "Статус", "Не удалось обновить статус.")
+
+    def _show_context_menu(self, pos):
+        try:
+            menu = QMenu(self)
+            act_add = menu.addAction("Создать")
+            act_edit = menu.addAction("Редактировать")
+            act_del = menu.addAction("Удалить")
+            menu.addSeparator()
+            act_mark = menu.addAction("Отметить «Заказан»")
+            act_export = menu.addAction("Экспорт TXT")
+            action = menu.exec(self.table.viewport().mapToGlobal(pos))
+            if action == act_add:
+                self._add()
+            elif action == act_edit:
+                self._edit()
+            elif action == act_del:
+                self._delete()
+            elif action == act_mark:
+                self._mark_ordered()
+            elif action == act_export:
+                self._export_txt()
+        except Exception:
+            pass
 
     def _refresh(self):
         self._model.set_rows(self.db.list_meridian_orders())
