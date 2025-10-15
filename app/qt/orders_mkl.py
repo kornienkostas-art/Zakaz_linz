@@ -211,9 +211,6 @@ class OrdersMklPage(QWidget):
         scroll.setWidget(cont)
         root.addWidget(scroll)
 
-        scroll.setWidget(cont)
-        page_root.addWidget(scroll)
-
     def _on_search(self, text: str):
         self._model.set_query(text)
 
