@@ -8,6 +8,7 @@ from tkinter import font as tkfont
 from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
+from app.theme import apply_theme
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -306,6 +307,12 @@ def main():
     # Apply global font size
     ui_font_size = int(app_settings.get("ui_font_size", 17))
     _apply_global_fonts(root, ui_font_size)
+
+    # Apply modern theme
+    try:
+        apply_theme(root, app_settings)
+    except Exception:
+        pass
 
     # Restore main window geometry if saved; otherwise start maximized
     geom = app_settings.get("main_geometry")
