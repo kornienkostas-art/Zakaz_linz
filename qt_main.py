@@ -223,8 +223,9 @@ class MainWindow(QMainWindow):
         self.pages = QStackedWidget()
         # Orders MKL page (real implementation)
         self.pages.addWidget(OrdersMklPage(self.db, export_folder_getter=lambda: self.settings.get("export_path")))
-        # Meridian orders (placeholder for now)
-        self.pages.addWidget(PlaceholderPage("Заказы «Меридиан»"))
+        # Meridian orders (real implementation)
+        from app.qt.orders_meridian import OrdersMeridianPage
+        self.pages.addWidget(OrdersMeridianPage(self.db, export_folder_getter=lambda: self.settings.get("export_path")))
         # Clients page
         self.pages.addWidget(ClientsPage(self.db))
         # Products page (МКЛ/Меридиан)
