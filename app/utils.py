@@ -1,3 +1,4 @@
+import os
 import re
 import tkinter as tk
 
@@ -95,5 +96,59 @@ def format_phone_mask(raw: str) -> str:
         return (raw or "").strip()
 
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
+
+
+def _bases_for_assets() -> list[str]:
+    """Return base directories to look for bundled assets (supports PyInstaller onefile)."""
+    bases: list[str] = []
+    try:
+        import sys
+        bases.extend([
+            os.getcwd(),
+            os.path.dirname(__file__),
+            os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd(),
+            getattr(sys, "_MEIPASS", None),
+        ])
+    except Exception:
+        bases.extend([os.getcwd(), os.path.dirname(__file__)])
+    return [b for b in bases if b]
+
+
+def resolve_asset_path(rel_path: str) -> str | None:
+    """Resolve an asset path against several bases, return first existing."""
+    if not rel_path:
+        return None
+    if os.path.isabs(rel_path) and os.path.isfile(rel_path):
+        return rel_path
+    for base in _bases_for_assets():
+        p = os.path.normpath(os.path.join(base, rel_path))
+        try:
+            if os.path.isfile(p):
+                return p
+        except Exception:
+            continue
+    return None
+
+
+def load_icon_image(name: str, size: int = 24) -> tk.PhotoImage | None:
+    """
+    Try to load an icon PNG from app/assets/icons/{name}.png
+    If Pillow available, resize accurately; else try Tk PhotoImage.
+    """
+    rel = os.path.join("app", "assets", "icons", f"{name}.png")
+    path = resolve_asset_path(rel)
+    if not path:
+        return None
+    try:
+        from PIL import Image, ImageTk  # type: ignore
+        img = Image.open(path).convert("RGBA")
+        img = img.resize((size, size), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+    except Exception:
+        try:
+            # Tk PhotoImage loads PNG but scaling is limited; hope it's close to needed size
+            return tk.PhotoImage(file=path)
+        except Exception:
+            return None
 
 

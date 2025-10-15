@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, font
 
 from app.db import AppDB
-from app.utils import set_initial_geometry, fade_transition
+from app.utils import set_initial_geometry, fade_transition, resolve_asset_path
 
 
 class MainWindow:
@@ -23,31 +23,85 @@ class MainWindow:
         self._build_ui()
         self._refresh_stats()
 
+    def _try_load_logo(self, size=48):
+        # Try to load a square logo from assets; return PhotoImage or None
+        candidates = [
+            self.app_settings.get("tray_logo_path") or "",
+            "app/assets/android-chrome-192x192.png",
+            "app/assets/apple-touch-icon.png",
+            "app/assets/logo.png",
+            "app/assets/favicon-32x32.png",
+            "app/assets/favicon-16x16.png",
+        ]
+        path = None
+        for rel in candidates:
+            p = resolve_asset_path(rel)
+            if p:
+                path = p
+                break
+        if not path:
+            return None
+        # Prefer PIL for resize
+        try:
+            from PIL import Image, ImageTk  # type: ignore
+            img = Image.open(path).convert("RGBA")
+            img = img.resize((size, size), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+            # Keep ref
+            self._logo_img = photo
+            return photo
+        except Exception:
+            try:
+                photo = tk.PhotoImage(file=path)
+                self._logo_img = photo
+                return photo
+            except Exception:
+                return None
+
     def _build_ui(self):
+        # Try to use ttkbootstrap buttons if available
+        try:
+            from ttkbootstrap import Button as TBButton  # type: ignore
+            ButtonCls = TBButton
+            use_bootstyle = True
+        except Exception:
+            ButtonCls = ttk.Button
+            use_bootstyle = False
+
         container = ttk.Frame(self.root)
         container.pack(fill="both", expand=True)
 
-        # Configure large button style for better visibility
-        try:
-            style = ttk.Style(self.root)
-            # Base font larger and bold
-            big_font = ("Segoe UI", 16, "bold")
-            # Fallback: if Segoe UI not available, Tk will substitute
-            style.configure("Big.TButton", font=big_font, padding=(24, 16))
-        except Exception:
-            pass
+        # HEADER with logo + title
+        header = ttk.Frame(container, style="Header.TFrame")
+        header.pack(fill="x", padx=32, pady=(24, 8))
+        logo = self._try_load_logo(48)
+        if logo:
+            ttk.Label(header, image=logo, style="Header.TLabel").pack(side="left", padx=(8, 16))
+        title_block = ttk.Frame(header, style="Header.TFrame")
+        title_block.pack(side="left")
+        ttk.Label(title_block, text="УссурОЧки.рф", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(title_block, text="Заказы контактных линз • МКЛ и «Меридиан»", style="Subtitle.TLabel").pack(anchor="w")
 
-        # Main menu - only MKL, Meridian, Settings
-        menu = ttk.Frame(container)
-        menu.pack(fill="both", expand=True, padx=48, pady=48)
+        # TILES
+        tiles = ttk.Frame(container, style="Card.TFrame", padding=24)
+        tiles.pack(fill="both", expand=True, padx=32, pady=(8, 32))
+        # Make equal-size tiles
+        for i in range(3):
+            tiles.columnconfigure(i, weight=1)
 
-        btn_opts = dict(width=28, style="Big.TButton")
-        row = ttk.Frame(menu)
-        row.pack(pady=32)
+        # Create tile helper
+        def add_tile(col: int, text: str, command, bootstyle: str = "primary"):
+            frame = ttk.Frame(tiles, style="Card.TFrame", padding=16)
+            frame.grid(row=0, column=col, sticky="nsew", padx=12, pady=12)
+            # Big button fills tile
+            btn_kwargs = dict(text=text, command=command)
+            if use_bootstyle:
+                btn_kwargs["bootstyle"] = bootstyle  # type: ignore
+            ButtonCls(frame, **btn_kwargs).pack(fill="both", expand=True, ipady=18)
 
-        ttk.Button(row, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=20, ipady=8)
-        ttk.Button(row, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=20, ipady=8)
-        ttk.Button(row, text="Настройки…", command=self._open_settings, **btn_opts).pack(side="left", padx=20, ipady=8)
+        add_tile(0, "Заказы МКЛ", self._open_mkl, "primary")
+        add_tile(1, "Заказы «Меридиан»", self._open_meridian, "info")
+        add_tile(2, "Настройки", self._open_settings, "secondary")
 
     def _refresh_stats(self):
         # На главном экране счётчики скрыты; оставим заглушку для совместимости.

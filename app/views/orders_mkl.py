@@ -42,17 +42,51 @@ class MKLOrdersView(ttk.Frame):
         self._refresh_orders_view()
 
     def _build_toolbar(self):
+        # Try ttkbootstrap buttons with bootstyle
+        try:
+            from ttkbootstrap import Button as TBButton  # type: ignore
+            ButtonCls = TBButton
+            use_bootstyle = True
+        except Exception:
+            ButtonCls = ttk.Button
+            use_bootstyle = False
+
+        from app.utils import load_icon_image
+
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back).pack(side="left")
-        ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=self._open_clients).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt).pack(side="left", padx=(8, 0))
+        # Left: back
+        ButtonCls(toolbar, text="← Главное меню", command=self._go_back,
+                  **({"bootstyle": "success"} if use_bootstyle else {})).pack(side="left")
+
+        # Right aligned actions
+        actions = ttk.Frame(toolbar, style="Card.TFrame")
+        actions.pack(side="right")
+
+        def add_action(text, cmd, icon_name=None, bootstyle="primary"):
+            kw = {}
+            if use_bootstyle:
+                kw["bootstyle"] = bootstyle  # type: ignore
+            btn = ButtonCls(actions, text=text, command=cmd, **kw)
+            if icon_name:
+                img = load_icon_image(icon_name, 18)
+                if img:
+                    btn.configure(image=img, compound="left")
+                    # keep ref
+                    if not hasattr(self, "_icons"):
+                        self._icons = []
+                    self._icons.append(img)
+            btn.pack(side="left", padx=(8, 0))
+            return btn
+
+        add_action("Экспорт TXT", self._export_txt, "export", "secondary")
+        add_action("Товары", self._open_products, "products", "info")
+        add_action("Клиенты", self._open_clients, "clients", "info")
+        add_action("Сменить статус", self._change_status, "status", "warning")
+        add_action("Удалить", self._delete_order, "delete", "danger")
+        add_action("Редактировать", self._edit_order, "edit", "primary")
+        add_action("Новый заказ", self._new_order, "add", "success")
 
     def _go_back(self):
         try:

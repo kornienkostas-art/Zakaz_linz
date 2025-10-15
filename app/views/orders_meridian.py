@@ -33,25 +33,46 @@ class MeridianOrdersView(ttk.Frame):
         self._build_table()
 
     def _build_toolbar(self):
+        # Try ttkbootstrap
+        try:
+            from ttkbootstrap import Button as TBButton  # type: ignore
+            ButtonCls = TBButton
+            use_bootstyle = True
+        except Exception:
+            ButtonCls = ttk.Button
+            use_bootstyle = False
+        from app.utils import load_icon_image
+
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back)
+        ButtonCls(toolbar, text="← Главное меню", command=self._go_back,
+                  **({"bootstyle": "success"} if use_bootstyle else {})).pack(side="left")
 
-        btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
-        btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
-        btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
-        btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
-        btn_products = ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products)
-        btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
+        actions = ttk.Frame(toolbar, style="Card.TFrame")
+        actions.pack(side="right")
 
-        btn_back.pack(side="left")
-        btn_new_order.pack(side="left", padx=(8, 0))
-        btn_edit_order.pack(side="left", padx=(8, 0))
-        btn_delete_order.pack(side="left", padx=(8, 0))
-        btn_change_status.pack(side="left", padx=(8, 0))
-        btn_products.pack(side="left", padx=(8, 0))
-        btn_export.pack(side="left", padx=(8, 0))
+        def add_action(text, cmd, icon_name=None, bootstyle="primary"):
+            kw = {}
+            if use_bootstyle:
+                kw["bootstyle"] = bootstyle  # type: ignore
+            btn = ButtonCls(actions, text=text, command=cmd, **kw)
+            if icon_name:
+                img = load_icon_image(icon_name, 18)
+                if img:
+                    btn.configure(image=img, compound="left")
+                    if not hasattr(self, "_icons"):
+                        self._icons = []
+                    self._icons.append(img)
+            btn.pack(side="left", padx=(8, 0))
+            return btn
+
+        add_action("Экспорт TXT", self._export_txt, "export", "secondary")
+        add_action("Товары", self._open_products, "products", "info")
+        add_action("Сменить статус", self._change_status, "status", "warning")
+        add_action("Удалить", self._delete_order, "delete", "danger")
+        add_action("Редактировать", self._edit_order, "edit", "primary")
+        add_action("Новый заказ", self._new_order, "add", "success")
 
     def _go_back(self):
         try:
