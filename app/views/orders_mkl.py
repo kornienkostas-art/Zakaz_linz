@@ -31,6 +31,15 @@ class MKLOrdersView(ttk.Frame):
         self.on_back = on_back
         self.db: AppDB | None = getattr(self.master, "db", None)
 
+        # ttkbootstrap (optional)
+        self._tb = None
+        if getattr(self.master, "_ttkbootstrap", False):
+            try:
+                import ttkbootstrap as tb
+                self._tb = tb
+            except Exception:
+                self._tb = None
+
         # Используем pack для совместимости (в корне нельзя смешивать pack и grid)
         self.pack(fill="both", expand=True)
 
@@ -44,14 +53,25 @@ class MKLOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back).pack(side="left")
-        ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=self._open_clients).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products).pack(side="left", padx=(8, 0))
-        ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt).pack(side="left", padx=(8, 0))
+        if self._tb:
+            tb = self._tb
+            tb.Button(toolbar, text="← Главное меню", command=self._go_back, bootstyle="secondary").pack(side="left")
+            tb.Button(toolbar, text="Новый заказ", command=self._new_order, bootstyle="success").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Редактировать", command=self._edit_order, bootstyle="info").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Удалить", command=self._delete_order, bootstyle="danger").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Сменить статус", command=self._change_status, bootstyle="warning").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Клиенты", command=self._open_clients, bootstyle="secondary").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Товары", command=self._open_products, bootstyle="secondary").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Экспорт TXT", command=self._export_txt, bootstyle="outline-primary").pack(side="left", padx=(8, 0))
+        else:
+            ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back).pack(side="left")
+            ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Клиенты", style="Menu.TButton", command=self._open_clients).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt).pack(side="left", padx=(8, 0))
 
     def _go_back(self):
         try:
@@ -80,8 +100,8 @@ class MKLOrdersView(ttk.Frame):
         for col in columns:
             self.tree.heading(col, text=self.HEADERS[col], anchor="w")
             width = {
-                "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
-                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 140,
+                "fio": 220, "phone": 170, "product": 220, "sph": 80, "cyl": 80,
+                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 180, "comment_flag": 140,
             }[col]
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
@@ -162,7 +182,6 @@ class MKLOrdersView(ttk.Frame):
             from app.views.forms_mkl import MKLOrderEditorView
             from app.views.main import MainWindow
             def on_save(order: dict):
-                # Save to DB only; view will be recreated by on_back of editor
                 if self.db:
                     try:
                         self.db.add_mkl_order(order)
@@ -319,7 +338,6 @@ class MKLOrdersView(ttk.Frame):
             except Exception as e:
                 messagebox.showerror("База данных", f"Не удалось загрузить заказы МКЛ:\n{e}")
                 self.orders = []
-        # Clear and render
         for i in self.tree.get_children():
             self.tree.delete(i)
         for idx, item in enumerate(self.orders):
@@ -340,7 +358,6 @@ class MKLOrdersView(ttk.Frame):
             )
             tag = f"status_{item.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
-        # Auto-select the latest (first row since orders are DESC by id)
         try:
             children = self.tree.get_children()
             if children:

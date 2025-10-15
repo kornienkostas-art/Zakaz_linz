@@ -23,6 +23,15 @@ class MeridianOrdersView(ttk.Frame):
         self.master = master
         self.on_back = on_back
 
+        # ttkbootstrap (optional)
+        self._tb = None
+        if getattr(self.master, "_ttkbootstrap", False):
+            try:
+                import ttkbootstrap as tb
+                self._tb = tb
+            except Exception:
+                self._tb = None
+
         # Используем pack для совместимости (в корне нельзя смешивать pack и grid)
         self.pack(fill="both", expand=True)
 
@@ -35,22 +44,31 @@ class MeridianOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back)
+        if self._tb:
+            tb = self._tb
+            tb.Button(toolbar, text="← Главное меню", command=self._go_back, bootstyle="secondary").pack(side="left")
+            tb.Button(toolbar, text="Новый заказ", command=self._new_order, bootstyle="success").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Редактировать", command=self._edit_order, bootstyle="info").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Удалить", command=self._delete_order, bootstyle="danger").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Сменить статус", command=self._change_status, bootstyle="warning").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Товары", command=self._open_products, bootstyle="secondary").pack(side="left", padx=(8, 0))
+            tb.Button(toolbar, text="Экспорт TXT", command=self._export_txt, bootstyle="outline-primary").pack(side="left", padx=(8, 0))
+        else:
+            btn_back = ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back)
+            btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
+            btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
+            btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
+            btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
+            btn_products = ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products)
+            btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
 
-        btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
-        btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
-        btn_delete_order = ttk.Button(toolbar, text="Удалить", style="Menu.TButton", command=self._delete_order)
-        btn_change_status = ttk.Button(toolbar, text="Сменить статус", style="Menu.TButton", command=self._change_status)
-        btn_products = ttk.Button(toolbar, text="Товары", style="Menu.TButton", command=self._open_products)
-        btn_export = ttk.Button(toolbar, text="Экспорт TXT", style="Menu.TButton", command=self._export_txt)
-
-        btn_back.pack(side="left")
-        btn_new_order.pack(side="left", padx=(8, 0))
-        btn_edit_order.pack(side="left", padx=(8, 0))
-        btn_delete_order.pack(side="left", padx=(8, 0))
-        btn_change_status.pack(side="left", padx=(8, 0))
-        btn_products.pack(side="left", padx=(8, 0))
-        btn_export.pack(side="left", padx=(8, 0))
+            btn_back.pack(side="left")
+            btn_new_order.pack(side="left", padx=(8, 0))
+            btn_edit_order.pack(side="left", padx=(8, 0))
+            btn_delete_order.pack(side="left", padx=(8, 0))
+            btn_change_status.pack(side="left", padx=(8, 0))
+            btn_products.pack(side="left", padx=(8, 0))
+            btn_export.pack(side="left", padx=(8, 0))
 
     def _go_back(self):
         try:
@@ -77,7 +95,7 @@ class MeridianOrdersView(ttk.Frame):
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", style="Data.Treeview")
         for col in columns:
             self.tree.heading(col, text=self.HEADERS[col], anchor="w")
-            width = {"title": 360, "items_count": 100, "status": 140, "date": 160}[col]
+            width = {"title": 420, "items_count": 120, "status": 160, "date": 180}[col]
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
@@ -181,8 +199,6 @@ class MeridianOrdersView(ttk.Frame):
                 messagebox.showerror("База данных", f"Не удалось обновить статус заказа:\n{e}")
                 return
         self._refresh_orders_view()
-
-    
 
     def _new_order(self):
         def swap():
@@ -304,7 +320,6 @@ class MeridianOrdersView(ttk.Frame):
             values = (o.get("title", ""), items_count, o.get("status", ""), o.get("date", ""))
             tag = f"status_{o.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
-        # Auto-select the latest order (first row; list is DESC by id)
         try:
             children = self.tree.get_children()
             if children:
