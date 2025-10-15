@@ -170,15 +170,37 @@ def main():
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
 
-    # Set window icon from settings if provided
+    # Set window icon from settings or known assets
     try:
-        logo_path = (app_settings.get("tray_logo_path") or "").strip()
-        if logo_path and os.path.isfile(logo_path):
+        def _first_existing(paths: list[str]) -> str | None:
+            for p in paths:
+                try:
+                    if p and os.path.isfile(p):
+                        return p
+                except Exception:
+                    continue
+            return None
+
+        configured = (app_settings.get("tray_logo_path") or "").strip()
+        candidates = [
+            configured,
+            os.path.join("app", "assets", "logo.png"),
+            os.path.join("app", "assets", "android-chrome-192x192.png"),
+            os.path.join("app", "assets", "apple-touch-icon.png"),
+            os.path.join("app", "assets", "favicon-32x32.png"),
+            os.path.join("app", "assets", "favicon-16x16.png"),
+            os.path.join("app", "assets", "favicon.ico"),
+        ]
+        icon_path = _first_existing(candidates)
+        if icon_path:
             try:
-                icon_img = tk.PhotoImage(file=logo_path)
-                root.iconphoto(True, icon_img)
-                # keep reference to avoid GC
-                root._app_icon_img = icon_img
+                # Prefer PNG via PhotoImage; if ICO on Windows, use iconbitmap
+                if icon_path.lower().endswith(".ico") and os.name == "nt":
+                    root.iconbitmap(icon_path)
+                else:
+                    icon_img = tk.PhotoImage(file=icon_path)
+                    root.iconphoto(True, icon_img)
+                    root._app_icon_img = icon_img  # keep ref
             except Exception:
                 pass
     except Exception:

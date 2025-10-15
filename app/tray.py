@@ -80,11 +80,39 @@ def _windows_autostart_get() -> bool:
 
 
 def _create_tray_image(settings: dict) -> Optional["Image.Image"]:
-    """Create tray image from logo path or generate a simple one."""
+    """Create tray image from logo path or generate a simple one.
+
+    Detection order:
+    1) settings["tray_logo_path"] if exists
+    2) Known assets in app/assets/: logo.png, android-chrome-192x192.png, apple-touch-icon.png,
+       favicon-32x32.png, favicon-16x16.png, favicon.ico
+    """
     if Image is None:
         return None
-    path = (settings or {}).get("tray_logo_path") or ""
-    if path and os.path.isfile(path):
+
+    def _first_existing(paths: list[str]) -> str | None:
+        for p in paths:
+            try:
+                if p and os.path.isfile(p):
+                    return p
+            except Exception:
+                continue
+        return None
+
+    # Candidate paths
+    configured = (settings or {}).get("tray_logo_path") or ""
+    candidates = [
+        configured,
+        os.path.join("app", "assets", "logo.png"),
+        os.path.join("app", "assets", "android-chrome-192x192.png"),
+        os.path.join("app", "assets", "apple-touch-icon.png"),
+        os.path.join("app", "assets", "favicon-32x32.png"),
+        os.path.join("app", "assets", "favicon-16x16.png"),
+        os.path.join("app", "assets", "favicon.ico"),
+    ]
+
+    path = _first_existing(candidates)
+    if path:
         try:
             img = Image.open(path)
             # Resize to typical tray icon size
@@ -93,6 +121,7 @@ def _create_tray_image(settings: dict) -> Optional["Image.Image"]:
             return img
         except Exception:
             pass
+
     # Fallback: generate simple icon with text 'УО'
     img = Image.new("RGBA", (128, 128), (248, 250, 252, 255))  # bg #f8fafc
     draw = ImageDraw.Draw(img)
