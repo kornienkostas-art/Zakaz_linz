@@ -28,6 +28,8 @@ from PySide6.QtWidgets import (
 # App DB and pages
 from app.db import AppDB
 from app.qt.orders_mkl import OrdersMklPage
+from app.qt.clients import ClientsPage
+from app.qt.products import ProductsPage
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -209,7 +211,8 @@ class MainWindow(QMainWindow):
         self.nav.setFixedWidth(220)
         self.nav.addItem(QListWidgetItem("Заказы МКЛ"))
         self.nav.addItem(QListWidgetItem("Заказы «Меридиан»"))
-        self.nav.addItem(QListWidgetItem("Справочники"))
+        self.nav.addItem(QListWidgetItem("Клиенты"))
+        self.nav.addItem(QListWidgetItem("Товары"))
         self.nav.addItem(QListWidgetItem("Настройки"))
         # Подключим обработчик навигации после инициализации страниц
 
@@ -220,9 +223,13 @@ class MainWindow(QMainWindow):
         self.pages = QStackedWidget()
         # Orders MKL page (real implementation)
         self.pages.addWidget(OrdersMklPage(self.db, export_folder_getter=lambda: self.settings.get("export_path")))
-        # Placeholders for others (to be implemented)
+        # Meridian orders (placeholder for now)
         self.pages.addWidget(PlaceholderPage("Заказы «Меридиан»"))
-        self.pages.addWidget(PlaceholderPage("Справочники"))
+        # Clients page
+        self.pages.addWidget(ClientsPage(self.db))
+        # Products page (МКЛ/Меридиан)
+        self.pages.addWidget(ProductsPage(self.db))
+        # Settings (placeholder for now)
         self.pages.addWidget(PlaceholderPage("Настройки"))
 
         # Теперь подключаем обработчик и выбираем первую страницу
