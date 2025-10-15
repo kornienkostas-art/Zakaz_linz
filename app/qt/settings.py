@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QTimeEdit,
     QComboBox,
+    QSizePolicy,
 )
 
 # Settings page allows changing UI-related options and app behavior.
@@ -50,7 +51,7 @@ class SettingsPage(QWidget):
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(16)
 
         title = QLabel("Настройки")
         title.setStyleSheet("font-weight:600; font-size:16pt; color:#0F172A;")
@@ -58,21 +59,29 @@ class SettingsPage(QWidget):
 
         # --- UI/Behavior form ---
         form = QFormLayout()
-        form.setSpacing(10)
+        form.setSpacing(12)
+        form.setLabelAlignment(Qt.AlignRight)
+        form.setFormAlignment(Qt.AlignTop)
+        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
 
         # Font family
         self.font_family = QLineEdit()
+        self.font_family.setPlaceholderText("Segoe UI")
+        self.font_family.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         form.addRow("Шрифт (семейство)", self.font_family)
 
         # Base font size (pt)
         self.font_size = QSpinBox()
         self.font_size.setRange(8, 24)
+        self.font_size.setFixedWidth(100)
         form.addRow("Размер шрифта (pt)", self.font_size)
 
         # Export folder
         exp_layout = QHBoxLayout()
+        exp_layout.setSpacing(8)
         self.export_folder = QLineEdit()
         self.export_folder.setReadOnly(True)
+        self.export_folder.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         btn_choose_export = QPushButton("Выбрать…")
         btn_choose_export.clicked.connect(self._choose_export_folder)
         exp_layout.addWidget(self.export_folder, 1)
@@ -94,11 +103,17 @@ class SettingsPage(QWidget):
 
         # --- Notifications group (Meridian + MKL) ---
         notif_group = QGroupBox("Уведомления")
+        notif_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         notif_layout = QVBoxLayout(notif_group)
+        notif_layout.setSpacing(12)
+        notif_layout.setContentsMargins(12, 12, 12, 12)
 
         # Meridian notifications
         mer_box = QGroupBox("Меридиан")
         mer_form = QFormLayout(mer_box)
+        mer_form.setSpacing(8)
+        mer_form.setLabelAlignment(Qt.AlignRight)
+
         self.notify_enabled = QCheckBox("Включить уведомления «Меридиан»")
         mer_form.addRow(self.notify_enabled)
 
@@ -111,6 +126,7 @@ class SettingsPage(QWidget):
 
         self.notify_time = QTimeEdit()
         self.notify_time.setDisplayFormat("HH:mm")
+        self.notify_time.setFixedWidth(120)
         mer_form.addRow("Время", self.notify_time)
 
         notif_layout.addWidget(mer_box)
@@ -118,15 +134,20 @@ class SettingsPage(QWidget):
         # MKL notifications
         mkl_box = QGroupBox("МКЛ")
         mkl_form = QFormLayout(mkl_box)
+        mkl_form.setSpacing(8)
+        mkl_form.setLabelAlignment(Qt.AlignRight)
+
         self.mkl_notify_enabled = QCheckBox("Включить уведомления МКЛ (просроченные)")
         mkl_form.addRow(self.mkl_notify_enabled)
 
         self.mkl_notify_after_days = QSpinBox()
         self.mkl_notify_after_days.setRange(0, 365)
+        self.mkl_notify_after_days.setFixedWidth(120)
         mkl_form.addRow("Порог (дней)", self.mkl_notify_after_days)
 
         self.mkl_notify_time = QTimeEdit()
         self.mkl_notify_time.setDisplayFormat("HH:mm")
+        self.mkl_notify_time.setFixedWidth(120)
         mkl_form.addRow("Время", self.mkl_notify_time)
 
         notif_layout.addWidget(mkl_box)
@@ -134,19 +155,26 @@ class SettingsPage(QWidget):
         # Sound settings
         sound_box = QGroupBox("Звук уведомлений")
         sound_form = QFormLayout(sound_box)
+        sound_form.setSpacing(8)
+        sound_form.setLabelAlignment(Qt.AlignRight)
+
         self.notify_sound_enabled = QCheckBox("Включить звук")
         sound_form.addRow(self.notify_sound_enabled)
 
         self.notify_sound_mode = QComboBox()
         self.notify_sound_mode.addItems(["alias", "file"])
+        self.notify_sound_mode.setFixedWidth(140)
         sound_form.addRow("Режим", self.notify_sound_mode)
 
         self.notify_sound_alias = QLineEdit()
+        self.notify_sound_alias.setPlaceholderText("SystemAsterisk")
         sound_form.addRow("Алиас (Windows)", self.notify_sound_alias)
 
         snd_layout = QHBoxLayout()
+        snd_layout.setSpacing(8)
         self.notify_sound_file = QLineEdit()
         self.notify_sound_file.setReadOnly(True)
+        self.notify_sound_file.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         btn_choose_sound = QPushButton("Выбрать WAV…")
         btn_choose_sound.clicked.connect(self._choose_sound_file)
         snd_layout.addWidget(self.notify_sound_file, 1)
@@ -159,10 +187,12 @@ class SettingsPage(QWidget):
 
         # Actions
         actions = QHBoxLayout()
+        actions.setSpacing(8)
         btn_apply = QPushButton("Применить")
         btn_apply.clicked.connect(self._apply)
         btn_save = QPushButton("Сохранить")
         btn_save.clicked.connect(self._save)
+        actions.addStretch(1)
         actions.addWidget(btn_apply)
         actions.addWidget(btn_save)
         layout.addLayout(actions)
