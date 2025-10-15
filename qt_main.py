@@ -441,7 +441,12 @@ class MainWindow(QMainWindow):
             os._exit(0)
 
     def _on_nav_changed(self, row: int):
-        self.pages.setCurrentIndex(max(0, row))
+        # Guard against early signal before pages are initialized
+        try:
+            if hasattr(self, "pages") and self.pages is not None:
+                self.pages.setCurrentIndex(max(0, int(row)))
+        except Exception:
+            pass
 
     def _reveal_from_tray(self):
         # Bring window to front
