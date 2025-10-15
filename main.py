@@ -29,6 +29,7 @@ def ensure_settings(path: str):
                     "minimize_to_tray": True,
                     "start_in_tray": True,
                     "autostart_enabled": False,
+                    "tray_logo_path": "app/assets/logo.png",
                     # Meridian notifications
                     "notify_enabled": False,
                     "notify_days": [],
@@ -64,6 +65,7 @@ def load_settings(path: str) -> dict:
                 "minimize_to_tray": True,
                 "start_in_tray": True,
                 "autostart_enabled": False,
+                "tray_logo_path": "app/assets/logo.png",
                 # Meridian notifications
                 "notify_enabled": False,
                 "notify_days": [],
@@ -167,6 +169,20 @@ def main():
 
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
+
+    # Set window icon from settings if provided
+    try:
+        logo_path = (app_settings.get("tray_logo_path") or "").strip()
+        if logo_path and os.path.isfile(logo_path):
+            try:
+                icon_img = tk.PhotoImage(file=logo_path)
+                root.iconphoto(True, icon_img)
+                # keep reference to avoid GC
+                root._app_icon_img = icon_img
+            except Exception:
+                pass
+    except Exception:
+        pass
     root.app_settings = app_settings
     ui_scale = float(app_settings.get("ui_scale", 1.25))
     try:
