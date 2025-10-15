@@ -154,9 +154,14 @@ class OrdersMklPage(QWidget):
         self.export_folder_getter = export_folder_getter
 
         v = QVBoxLayout(self)
+        v.setContentsMargins(12, 12, 12, 12)
+        v.setSpacing(8)
+
         top = QHBoxLayout()
+        top.setSpacing(8)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Поиск…")
+        self.search.setMinimumWidth(200)
         self.search.textChanged.connect(self._on_search)
         btn_add = QPushButton("Создать")
         btn_edit = QPushButton("Редактировать")
@@ -177,11 +182,27 @@ class OrdersMklPage(QWidget):
         self.table.setSelectionBehavior(QTableView.SelectRows)
         self.table.setSelectionMode(QTableView.SingleSelection)
         self.table.setSortingEnabled(True)
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(False)
         v.addWidget(self.table, 1)
 
         self._model = OrdersMklModel(self.db.list_mkl_orders())
         self.table.setModel(self._model)
+
+        # Header behavior for small windows
+        header = self.table.horizontalHeader()
+        try:
+            from PySide6.QtWidgets import QHeaderView
+            header.setSectionResizeMode(QHeaderView.Interactive)
+            header.setStretchLastSection(True)
+            header.setMinimumSectionSize(100)
+        except Exception:
+            pass
+
         self.table.resizeColumnsToContents()
+
+        scroll.setWidget(cont)
+        page_root.addWidget(scroll)
 
     def _on_search(self, text: str):
         self._model.set_query(text)

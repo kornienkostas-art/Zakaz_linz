@@ -182,9 +182,12 @@ class OrderDialog(QDialog):
         self._order = order or {}
         self._items = items[:] if items else []
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
 
         # Order fields
         form = QFormLayout()
+        form.setSpacing(8)
         self.title = QLineEdit(self._order.get("title", ""))
         self.status = QLineEdit(self._order.get("status", "Не заказан"))
         self.date = QLineEdit(self._order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")))
@@ -195,6 +198,7 @@ class OrderDialog(QDialog):
 
         # Items section
         items_top = QHBoxLayout()
+        items_top.setSpacing(8)
         btn_add = QPushButton("Добавить позицию")
         btn_edit = QPushButton("Редактировать позицию")
         btn_del = QPushButton("Удалить позицию")
@@ -210,10 +214,23 @@ class OrderDialog(QDialog):
         self.items_table.setSelectionBehavior(QTableView.SelectRows)
         self.items_table.setSelectionMode(QTableView.SingleSelection)
         self.items_table.setSortingEnabled(True)
+        self.items_table.setAlternatingRowColors(True)
+        self.items_table.setWordWrap(False)
         layout.addWidget(self.items_table, 1)
 
         self._items_model = ItemsModel(self._items)
         self.items_table.setModel(self._items_model)
+
+        # Header behavior
+        try:
+            from PySide6.QtWidgets import QHeaderView
+            h = self.items_table.horizontalHeader()
+            h.setSectionResizeMode(QHeaderView.Interactive)
+            h.setStretchLastSection(True)
+            h.setMinimumSectionSize(100)
+        except Exception:
+            pass
+
         self.items_table.resizeColumnsToContents()
 
         # Buttons
@@ -283,9 +300,14 @@ class OrdersMeridianPage(QWidget):
         self.export_folder_getter = export_folder_getter
 
         v = QVBoxLayout(self)
+        v.setContentsMargins(12, 12, 12, 12)
+        v.setSpacing(8)
+
         top = QHBoxLayout()
+        top.setSpacing(8)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Поиск…")
+        self.search.setMinimumWidth(200)
         self.search.textChanged.connect(self._on_search)
         btn_add = QPushButton("Создать")
         btn_edit = QPushButton("Редактировать")
@@ -306,10 +328,23 @@ class OrdersMeridianPage(QWidget):
         self.table.setSelectionBehavior(QTableView.SelectRows)
         self.table.setSelectionMode(QTableView.SingleSelection)
         self.table.setSortingEnabled(True)
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(False)
         v.addWidget(self.table, 1)
 
         self._model = OrdersMeridianModel(self.db.list_meridian_orders())
         self.table.setModel(self._model)
+
+        # Header behavior
+        try:
+            from PySide6.QtWidgets import QHeaderView
+            h = self.table.horizontalHeader()
+            h.setSectionResizeMode(QHeaderView.Interactive)
+            h.setStretchLastSection(True)
+            h.setMinimumSectionSize(120)
+        except Exception:
+            pass
+
         self.table.resizeColumnsToContents()
 
     def _on_search(self, text: str):

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QDialogButtonBox,
     QMessageBox,
+    QScrollArea,
 )
 
 from app.db import AppDB
@@ -82,7 +83,11 @@ class _ProductDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Товар")
         self._name = name
-        layout = QFormLayout(self)
+
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        cont = QWidget()
+        layout = QFormLayout(cont)
         self.name_edit = QLineEdit(name)
         layout.addRow("Название", self.name_edit)
 
@@ -90,6 +95,10 @@ class _ProductDialog(QDialog):
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+
+        scroll.setWidget(cont)
+        root = QVBoxLayout(self)
+        root.addWidget(scroll)
 
     def _on_accept(self):
         name = self.name_edit.text().strip()
@@ -115,10 +124,16 @@ class ProductsPage(QWidget):
 
         # MKL tab
         self._mkltab = QWidget()
-        mkll = QVBoxLayout(self._mkltab)
+        mkll_root = QVBoxLayout(self._mkltab)
+        mkll_scroll = QScrollArea()
+        mkll_scroll.setWidgetResizable(True)
+        mkll_cont = QWidget()
+        mkll = QVBoxLayout(mkll_cont)
         mkltop = QHBoxLayout()
+        mkltop.setSpacing(8)
         self.mkls = QLineEdit()
         self.mkls.setPlaceholderText("Поиск…")
+        self.mkls.setMinimumWidth(200)
         self.mkls.textChanged.connect(lambda t: self._mkllist_query(t))
         mkl_add = QPushButton("Создать")
         mkl_edit = QPushButton("Редактировать")
@@ -135,17 +150,36 @@ class ProductsPage(QWidget):
         self.mkltable.setSelectionBehavior(QTableView.SelectRows)
         self.mkltable.setSelectionMode(QTableView.SingleSelection)
         self.mkltable.setSortingEnabled(True)
+        self.mkltable.setAlternatingRowColors(True)
+        self.mkltable.setWordWrap(False)
         mkll.addWidget(self.mkltable, 1)
         self._mklmodel = _ProductsModel(self.db.list_products_mkl())
         self.mkltable.setModel(self._mklmodel)
+        # Header behavior
+        try:
+            from PySide6.QtWidgets import QHeaderView
+            h = self.mkltable.horizontalHeader()
+            h.setSectionResizeMode(QHeaderView.Interactive)
+            h.setStretchLastSection(True)
+            h.setMinimumSectionSize(120)
+        except Exception:
+            pass
         self.mkltable.resizeColumnsToContents()
+        mkll_scroll.setWidget(mkll_cont)
+        mkll_root.addWidget(mkll_scroll)
 
         # Meridian tab
         self._mertab = QWidget()
-        merl = QVBoxLayout(self._mertab)
+        merl_root = QVBoxLayout(self._mertab)
+        merl_scroll = QScrollArea()
+        merl_scroll.setWidgetResizable(True)
+        merl_cont = QWidget()
+        merl = QVBoxLayout(merl_cont)
         mertop = QHBoxLayout()
+        mertop.setSpacing(8)
         self.mers = QLineEdit()
         self.mers.setPlaceholderText("Поиск…")
+        self.mers.setMinimumWidth(200)
         self.mers.textChanged.connect(lambda t: self._merlist_query(t))
         mer_add = QPushButton("Создать")
         mer_edit = QPushButton("Редактировать")
@@ -162,10 +196,23 @@ class ProductsPage(QWidget):
         self.mertable.setSelectionBehavior(QTableView.SelectRows)
         self.mertable.setSelectionMode(QTableView.SingleSelection)
         self.mertable.setSortingEnabled(True)
+        self.mertable.setAlternatingRowColors(True)
+        self.mertable.setWordWrap(False)
         merl.addWidget(self.mertable, 1)
         self._mermodel = _ProductsModel(self.db.list_products_meridian())
         self.mertable.setModel(self._mermodel)
+        # Header behavior
+        try:
+            from PySide6.QtWidgets import QHeaderView
+            h = self.mertable.horizontalHeader()
+            h.setSectionResizeMode(QHeaderView.Interactive)
+            h.setStretchLastSection(True)
+            h.setMinimumSectionSize(120)
+        except Exception:
+            pass
         self.mertable.resizeColumnsToContents()
+        merl_scroll.setWidget(merl_cont)
+        merl_root.addWidget(merl_scroll)
 
         self.tabs.addTab(self._mkltab, "МКЛ")
         self.tabs.addTab(self._mertab, "Меридиан")
