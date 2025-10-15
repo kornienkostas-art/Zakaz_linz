@@ -172,8 +172,9 @@ def main():
 
     # Set crisp window icon (optimize for title bar): prefer 32x32 or ICO on Windows
     try:
+        import sys
         configured = (app_settings.get("tray_logo_path") or "").strip()
-        candidates = [
+        rel_candidates = [
             configured,
             os.path.join("app", "assets", "favicon.ico"),                  # often contains 16/32 px
             os.path.join("app", "assets", "favicon-32x32.png"),
@@ -182,7 +183,32 @@ def main():
             os.path.join("app", "assets", "apple-touch-icon.png"),
             os.path.join("app", "assets", "logo.png"),
         ]
-        existing = [p for p in candidates if p and os.path.isfile(p)]
+        bases = [
+            os.getcwd(),
+            os.path.dirname(__file__),
+            os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd(),
+            getattr(sys, "_MEIPASS", None),
+        ]
+        bases = [b for b in bases if b]
+
+        def _resolve(path_like: str) -> list[str]:
+            if not path_like:
+                return []
+            if os.path.isabs(path_like) and os.path.isfile(path_like):
+                return [path_like]
+            paths = []
+            for b in bases:
+                p = os.path.normpath(os.path.join(b, path_like))
+                try:
+                    if os.path.isfile(p):
+                        paths.append(p)
+                except Exception:
+                    continue
+            return paths
+
+        existing = []
+        for rel in rel_candidates:
+            existing.extend(_resolve(rel))
 
         # On Windows, prefer .ico directly for the title bar if available
         icon_path = None
@@ -235,8 +261,8 @@ def main():
                     with Image.open(src) as im:
                         im = im.convert("RGBA")
                         im = im.resize((32, 32), Image.LANCZOS)
-                        # Ensure assets dir exists
-                        out_dir = os.path.join("app", "assets")
+                        # Ensure assets dir exists (works both dev and onefile temp)
+                        out_dir = os.path.join(os.getcwd(), "app", "assets")
                         try:
                             os.makedirs(out_dir, exist_ok=True)
                         except Exception:

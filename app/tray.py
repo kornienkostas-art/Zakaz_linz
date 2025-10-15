@@ -86,13 +86,15 @@ def _create_tray_image(settings: dict) -> Optional["Image.Image"]:
     - Prefer square PNG with alpha and size >= 128 (closest to 192 ideal)
     - Fall back to ICO/other sizes
     - Finally, generate a simple placeholder if nothing found
+
+    Also supports PyInstaller onefile by checking sys._MEIPASS.
     """
     if Image is None:
         return None
 
     # Candidate paths (explicit first)
     configured = (settings or {}).get("tray_logo_path") or ""
-    candidates = [
+    rel_candidates = [
         configured,
         os.path.join("app", "assets", "logo.png"),
         os.path.join("app", "assets", "android-chrome-192x192.png"),
@@ -102,13 +104,38 @@ def _create_tray_image(settings: dict) -> Optional["Image.Image"]:
         os.path.join("app", "assets", "favicon.ico"),
     ]
 
+    # Resolve candidates against common bases (for PyInstaller onefile support)
+    bases: list[str] = []
+    try:
+        import sys
+        bases.extend([
+            os.getcwd(),
+            os.path.dirname(__file__),
+            os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd(),
+            getattr(sys, "_MEIPASS", None),
+        ])
+    except Exception:
+        pass
+    bases = [b for b in bases if b]
+
+    def _resolve(path_like: str) -> list[str]:
+        if not path_like:
+            return []
+        if os.path.isabs(path_like) and os.path.isfile(path_like):
+            return [path_like]
+        paths = []
+        for b in bases:
+            p = os.path.normpath(os.path.join(b, path_like))
+            try:
+                if os.path.isfile(p):
+                    paths.append(p)
+            except Exception:
+                continue
+        return paths
+
     existing: list[str] = []
-    for p in candidates:
-        try:
-            if p and os.path.isfile(p):
-                existing.append(p)
-        except Exception:
-            continue
+    for rel in rel_candidates:
+        existing.extend(_resolve(rel))
 
     def _score(path: str) -> float:
         # Higher is better
