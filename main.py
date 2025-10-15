@@ -30,6 +30,10 @@ def ensure_settings(path: str):
                     "start_in_tray": True,
                     "autostart_enabled": False,
                     "tray_logo_path": "app/assets/logo.png",
+                    # Modern theme (ttkbootstrap). If not installed, falls back to standard ttk.
+                    "theme": "flatly",       # light theme
+                    "dark_theme": "darkly",  # dark theme
+                    "use_dark_theme": False,
                     # Meridian notifications
                     "notify_enabled": False,
                     "notify_days": [],
@@ -49,7 +53,6 @@ def ensure_settings(path: str):
                 indent=2,
             )
 
-
 def load_settings(path: str) -> dict:
     ensure_settings(path)
     try:
@@ -66,6 +69,10 @@ def load_settings(path: str) -> dict:
                 "start_in_tray": True,
                 "autostart_enabled": False,
                 "tray_logo_path": "app/assets/logo.png",
+                # Modern theme (ttkbootstrap)
+                "theme": "flatly",
+                "dark_theme": "darkly",
+                "use_dark_theme": False,
                 # Meridian notifications
                 "notify_enabled": False,
                 "notify_days": [],
@@ -86,14 +93,12 @@ def load_settings(path: str) -> dict:
     except Exception:
         return {}
 
-
 def save_settings(path: str, data: dict):
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
-
 
 def _apply_global_fonts(root: tk.Tk, size: int):
     # Update Tk named fonts used by ttk
@@ -107,7 +112,8 @@ def _apply_global_fonts(root: tk.Tk, size: int):
                 pass
         # Increase row height for Treeview to fit larger font
         try:
-            style = ttk.Style(root)
+            # Use existing style object if initialized (ttkbootstrap or plain ttk)
+            style = getattr(root, "_ttk_style", None) or ttk.Style(root)
             style.configure("Treeview", rowheight=size + 12)
             style.configure("Treeview.Heading", font=(None, size))
             style.configure("TButton", font=(None, size))
@@ -118,7 +124,6 @@ def _apply_global_fonts(root: tk.Tk, size: int):
             pass
     except Exception:
         pass
-
 
 def _handle_close(root: tk.Tk):
     settings = getattr(root, "app_settings", {}) or {}
@@ -139,7 +144,6 @@ def _handle_close(root: tk.Tk):
     except Exception:
         pass
 
-
 def _bind_minimize_to_tray(root: tk.Tk):
     # Intercept minimize (iconify) and move to tray
     def on_unmap(event):
@@ -156,6 +160,32 @@ def _bind_minimize_to_tray(root: tk.Tk):
     except Exception:
         pass
 
+def _init_theme(root: tk.Tk, settings: dict):
+    """
+    Try to initialize a modern ttk theme using ttkbootstrap.
+    Falls back to standard ttk styling if the package is not installed.
+    """
+    try:
+        import ttkbootstrap as tb
+        theme_name = (settings.get("dark_theme") if settings.get("use_dark_theme") else settings.get("theme")) or "flatly"
+        style = tb.Style(theme=theme_name)
+        # Keep reference to style on root for later use
+        root._ttk_style = style
+        root._ttkbootstrap = True
+        # Slightly increase default paddings for a more spacious layout
+        try:
+            style.configure("TFrame", padding=12)
+            style.configure("TNotebook.Tab", padding=(16, 10))
+            style.configure("TButton", padding=(16, 10))
+        except Exception:
+            pass
+    except Exception:
+        # Fallback to plain ttk
+        try:
+            root._ttk_style = ttk.Style(root)
+        except Exception:
+            pass
+        root._ttkbootstrap = False
 
 def main():
     # High-DPI scaling for readability (Windows)
@@ -169,6 +199,10 @@ def main():
 
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
+    root.app_settings = app_settings
+
+    # Initialize modern theme if available
+    _init_theme(root, app_settings)
 
     # Set crisp window icon (optimize for title bar): prefer 32x32 or ICO on Windows
     try:
@@ -296,7 +330,6 @@ def main():
                     pass
     except Exception:
         pass
-    root.app_settings = app_settings
     ui_scale = float(app_settings.get("ui_scale", 1.25))
     try:
         root.tk.call("tk", "scaling", ui_scale)

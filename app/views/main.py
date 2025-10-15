@@ -20,6 +20,13 @@ class MainWindow:
         # Load settings dict (set in main.py)
         self.app_settings = getattr(self.root, "app_settings", {})
 
+        # Optional ttkbootstrap usage
+        try:
+            import ttkbootstrap as tb
+            self._tb = tb
+        except Exception:
+            self._tb = None
+
         self._build_ui()
         self._refresh_stats()
 
@@ -27,9 +34,9 @@ class MainWindow:
         container = ttk.Frame(self.root)
         container.pack(fill="both", expand=True)
 
-        # Configure large button style for better visibility
+        # Configure large button style for better visibility (fallback when bootstrap not available)
         try:
-            style = ttk.Style(self.root)
+            style = getattr(self.root, "_ttk_style", None) or ttk.Style(self.root)
             # Base font larger and bold
             big_font = ("Segoe UI", 16, "bold")
             # Fallback: if Segoe UI not available, Tk will substitute
@@ -41,13 +48,20 @@ class MainWindow:
         menu = ttk.Frame(container)
         menu.pack(fill="both", expand=True, padx=48, pady=48)
 
-        btn_opts = dict(width=28, style="Big.TButton")
         row = ttk.Frame(menu)
         row.pack(pady=32)
 
-        ttk.Button(row, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=20, ipady=8)
-        ttk.Button(row, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=20, ipady=8)
-        ttk.Button(row, text="Настройки…", command=self._open_settings, **btn_opts).pack(side="left", padx=20, ipady=8)
+        if self._tb:
+            # Use ttkbootstrap buttons with semantic styles
+            tb = self._tb
+            tb.Button(row, text="Заказы МКЛ", command=self._open_mkl, width=28, bootstyle="success").pack(side="left", padx=20)
+            tb.Button(row, text="Заказы Меридиан", command=self._open_meridian, width=28, bootstyle="info").pack(side="left", padx=20)
+            tb.Button(row, text="Настройки…", command=self._open_settings, width=28, bootstyle="secondary").pack(side="left", padx=20)
+        else:
+            btn_opts = dict(width=28, style="Big.TButton")
+            ttk.Button(row, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(side="left", padx=20, ipady=8)
+            ttk.Button(row, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(side="left", padx=20, ipady=8)
+            ttk.Button(row, text="Настройки…", command=self._open_settings, **btn_opts).pack(side="left", padx=20, ipady=8)
 
     def _refresh_stats(self):
         # На главном экране счётчики скрыты; оставим заглушку для совместимости.
