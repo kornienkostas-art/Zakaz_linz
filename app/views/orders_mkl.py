@@ -31,9 +31,8 @@ class MKLOrdersView(ttk.Frame):
         self.on_back = on_back
         self.db: AppDB | None = getattr(self.master, "db", None)
 
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Используем pack для совместимости (в корне нельзя смешивать pack и grid)
+        self.pack(fill="both", expand=True)
 
         self.orders: list[dict] = []
 

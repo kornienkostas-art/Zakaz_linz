@@ -23,9 +23,8 @@ class MeridianOrdersView(ttk.Frame):
         self.master = master
         self.on_back = on_back
 
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Используем pack для совместимости (в корне нельзя смешивать pack и grid)
+        self.pack(fill="both", expand=True)
 
         self.orders: list[dict] = []
 
