@@ -170,83 +170,104 @@ def main():
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
 
-    # Set window icon from best asset (heuristic), fallback to order if Pillow not available
+    # Set crisp window icon (optimize for title bar): prefer 32x32 or ICO on Windows
     try:
-        from PIL import Image
-        def _score(path: str) -> float:
-            try:
-                with Image.open(path) as im:
-                    w, h = im.size
-                    ext = os.path.splitext(path)[1].lower()
-                    score = 0.0
-                    if ext == ".png":
-                        score += 3.0
-                    elif ext == ".ico":
-                        score += 1.5
-                    else:
-                        score += 0.5
-                    if w == h:
-                        score += 2.0
-                    else:
-                        score -= 0.5
-                    if im.mode in ("RGBA", "LA") or ("transparency" in im.info):
-                        score += 1.0
-                    ideal = 192
-                    long_side = max(w, h)
-                    if long_side >= 128:
-                        score += 2.0
-                    score -= abs(long_side - ideal) / 256.0
-                    return score
-            except Exception:
-                return -10.0
-
         configured = (app_settings.get("tray_logo_path") or "").strip()
         candidates = [
             configured,
-            os.path.join("app", "assets", "logo.png"),
-            os.path.join("app", "assets", "android-chrome-192x192.png"),
-            os.path.join("app", "assets", "apple-touch-icon.png"),
+            os.path.join("app", "assets", "favicon.ico"),                  # often contains 16/32 px
             os.path.join("app", "assets", "favicon-32x32.png"),
             os.path.join("app", "assets", "favicon-16x16.png"),
-            os.path.join("app", "assets", "favicon.ico"),
+            os.path.join("app", "assets", "android-chrome-192x192.png"),
+            os.path.join("app", "assets", "apple-touch-icon.png"),
+            os.path.join("app", "assets", "logo.png"),
         ]
         existing = [p for p in candidates if p and os.path.isfile(p)]
-        best = None
-        best_s = -1e9
-        for p in existing:
-            s = _score(p)
-            if s > best_s:
-                best_s = s
-                best = p
-        icon_path = best if best else (existing[0] if existing else None)
-    except Exception:
-        def _first_existing(paths: list[str]) -> str | None:
-            for p in paths:
-                try:
-                    if p and os.path.isfile(p):
-                        return p
-                except Exception:
-                    continue
-            return None
-        configured = (app_settings.get("tray_logo_path") or "").strip()
-        icon_path = _first_existing([
-            configured,
-            os.path.join("app", "assets", "logo.png"),
-            os.path.join("app", "assets", "android-chrome-192x192.png"),
-            os.path.join("app", "assets", "apple-touch-icon.png"),
-            os.path.join("app", "assets", "favicon-32x32.png"),
-            os.path.join("app", "assets", "favicon-16x16.png"),
-            os.path.join("app", "assets", "favicon.ico"),
-        ])
 
-    try:
+        # On Windows, prefer .ico directly for the title bar if available
+        icon_path = None
+        if os.name == "nt":
+            for p in existing:
+                if p.lower().endswith(".ico"):
+                    icon_path = p
+                    break
+
         if icon_path:
-            if icon_path.lower().endswith(".ico") and os.name == "nt":
+            try:
                 root.iconbitmap(icon_path)
-            else:
-                icon_img = tk.PhotoImage(file=icon_path)
-                root.iconphoto(True, icon_img)
-                root._app_icon_img = icon_img  # keep ref
+            except Exception:
+                icon_path = None
+
+        if not icon_path:
+            # Create a 32x32 PNG for the title bar using Pillow if possible
+            try:
+                from PIL import Image
+                src = None
+                # Choose best source for downscale: square PNG with alpha and size >= 32
+                def _score_src(path: str) -> float:
+                    try:
+                        with Image.open(path) as im:
+                            w, h = im.size
+                            ext = os.path.splitext(path)[1].lower()
+                            score = 0.0
+                            if ext == ".png": score += 3.0
+                            if w == h: score += 2.0
+                            if im.mode in ("RGBA", "LA") or ("transparency" in im.info): score += 1.0
+                            long_side = max(w, h)
+                            ideal = 48  # 32..48 for title looks crisp
+                            if long_side >= 32: score += 1.5
+                            score -= abs(long_side - ideal) / 128.0
+                            return score
+                    except Exception:
+                        return -10.0
+                best = None
+                best_s = -1e9
+                for p in existing:
+                    if p.lower().endswith(".ico"):
+                        continue
+                    s = _score_src(p)
+                    if s > best_s:
+                        best_s = s
+                        best = p
+                src = best if best else (existing[0] if existing else None)
+
+                if src:
+                    with Image.open(src) as im:
+                        im = im.convert("RGBA")
+                        im = im.resize((32, 32), Image.LANCZOS)
+                        # Ensure assets dir exists
+                        out_dir = os.path.join("app", "assets")
+                        try:
+                            os.makedirs(out_dir, exist_ok=True)
+                        except Exception:
+                            pass
+                        out_path = os.path.join(out_dir, "_window_icon_32.png")
+                        try:
+                            im.save(out_path, format="PNG")
+                            icon_img = tk.PhotoImage(file=out_path)
+                            root.iconphoto(True, icon_img)
+                            root._app_icon_img = icon_img  # keep ref to prevent GC
+                        except Exception:
+                            # fallback: try direct PhotoImage from src
+                            try:
+                                icon_img = tk.PhotoImage(file=src)
+                                root.iconphoto(True, icon_img)
+                                root._app_icon_img = icon_img
+                            except Exception:
+                                pass
+            except Exception:
+                # Last resort: try first existing as-is
+                try:
+                    if existing:
+                        any_path = existing[0]
+                        if any_path.lower().endswith(".ico") and os.name == "nt":
+                            root.iconbitmap(any_path)
+                        else:
+                            icon_img = tk.PhotoImage(file=any_path)
+                            root.iconphoto(True, icon_img)
+                            root._app_icon_img = icon_img
+                except Exception:
+                    pass
     except Exception:
         pass
     root.app_settings = app_settings
