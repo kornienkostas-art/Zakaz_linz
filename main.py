@@ -31,6 +31,7 @@ def ensure_settings(path: str):
                     "start_in_tray": True,
                     "autostart_enabled": False,
                     "tray_logo_path": "app/assets/logo.png",
+                    "theme_name": "flatly",
                     # Meridian notifications
                     "notify_enabled": False,
                     "notify_days": [],
@@ -67,6 +68,7 @@ def load_settings(path: str) -> dict:
                 "start_in_tray": True,
                 "autostart_enabled": False,
                 "tray_logo_path": "app/assets/logo.png",
+                "theme_name": "flatly",
                 # Meridian notifications
                 "notify_enabled": False,
                 "notify_days": [],
@@ -307,6 +309,14 @@ def main():
     # Apply global font size
     ui_font_size = int(app_settings.get("ui_font_size", 17))
     _apply_global_fonts(root, ui_font_size)
+
+    # Initialize ttkbootstrap theme (modern look)
+    try:
+        from ttkbootstrap import Style  # type: ignore
+        theme_name = (app_settings.get("theme_name") or "flatly")
+        Style(theme=theme_name, master=root)
+    except Exception:
+        pass
 
     # Apply modern theme
     try:
