@@ -1,8 +1,8 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QStringListModel
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QStringListModel, QRegularExpression
+from PySide6.QtGui import QAction, QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QScrollArea,
     QCompleter,
+    QComboBox,
+    QMenu,
 )
 
 from app.db import AppDB
@@ -111,15 +113,33 @@ class OrderFormDialog(QDialog):
 
         self.fio = field("fio", "ФИО", self._order.get("fio", ""))
         self.phone = field("phone", "Телефон", self._order.get("phone", ""))
+
         self.product = field("product", "Товар", self._order.get("product", ""))
         self.sph = field("sph", "SPH", self._order.get("sph", ""))
         self.cyl = field("cyl", "CYL", self._order.get("cyl", ""))
         self.ax = field("ax", "AX", self._order.get("ax", ""))
         self.bc = field("bc", "BC", self._order.get("bc", ""))
         self.qty = field("qty", "Кол-во", self._order.get("qty", ""))
-        self.status = field("status", "Статус", self._order.get("status", "Не заказан"))
+
+        # Status combo box
+        self.status = QComboBox()
+        self.status.addItems(["Не заказан", "Заказан"])
+        self.status.setCurrentText(self._order.get("status", "Не заказан"))
+        layout.addRow("Статус", self.status)
+
         self.date = field("date", "Дата", self._order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")))
         self.comment = field("comment", "Комментарий", self._order.get("comment", ""))
+
+        # Validators for numeric fields (soft validation)
+        try:
+            num_re = QRegularExpression(r"^[-+]?\\d*(?:[\\.,]\\d+)?$")
+            int_re = QRegularExpression(r"^\\d+$")
+            for le in (self.sph, self.cyl, self.bc):
+                le.setValidator(QRegularExpressionValidator(num_re))
+            for le in (self.ax, self.qty):
+                le.setValidator(QRegularExpressionValidator(int_re))
+        except Exception:
+            pass
 
         # Setup completers for FIO and Product from DB lists
         try:
@@ -177,7 +197,7 @@ class OrderFormDialog(QDialog):
             "ax": self.ax.text().strip(),
             "bc": self.bc.text().strip(),
             "qty": self.qty.text().strip(),
-            "status": self.status.text().strip() or "Не заказан",
+            "status": self.status.currentText() or "Не заказан",
             "date": self.date.text().strip() or datetime.now().strftime("%Y-%m-%d %H:%M"),
             "comment": self.comment.text().strip(),
         }
@@ -213,14 +233,17 @@ class OrdersMklPage(QWidget):
         btn_edit = QPushButton("Редактировать")
         btn_del = QPushButton("Удалить")
         btn_export = QPushButton("Экспорт TXT")
+        btn_mark = QPushButton("Отметить «Заказан»")
         btn_add.clicked.connect(self._add)
         btn_edit.clicked.connect(self._edit)
         btn_del.clicked.connect(self._delete)
         btn_export.clicked.connect(self._export_txt)
+        btn_mark.clicked.connect(self._mark_ordered)
         top.addWidget(self.search, 1)
         top.addWidget(btn_add)
         top.addWidget(btn_edit)
         top.addWidget(btn_del)
+        top.addWidget(btn_mark)
         top.addWidget(btn_export)
         v.addLayout(top)
 
@@ -246,6 +269,19 @@ class OrdersMklPage(QWidget):
             pass
 
         self.table.resizeColumnsToContents()
+
+        # Double-click to edit
+        try:
+            self.table.doubleClicked.connect(lambda _: self._edit())
+        except Exception:
+            pass
+
+        # Context menu
+        try:
+            self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.table.customContextMenuRequested.connect(self._show_context_menu)
+        except Exception:
+            pass
 
         scroll.setWidget(cont)
         root.addWidget(scroll)
@@ -283,6 +319,40 @@ class OrdersMklPage(QWidget):
         if QMessageBox.question(self, "Удаление", f"Удалить запись ID={row['id']}?") == QMessageBox.Yes:
             self.db.delete_mkl_order(row["id"])
             self._refresh()
+
+    def _mark_ordered(self):
+        row = self._selected_order()
+        if not row:
+            QMessageBox.information(self, "Статус", "Выберите запись.")
+            return
+        try:
+            self.db.update_mkl_order(row["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+            self._refresh()
+        except Exception:
+            QMessageBox.warning(self, "Статус", "Не удалось обновить статус.")
+
+    def _show_context_menu(self, pos):
+        try:
+            menu = QMenu(self)
+            act_add = menu.addAction("Создать")
+            act_edit = menu.addAction("Редактировать")
+            act_del = menu.addAction("Удалить")
+            menu.addSeparator()
+            act_mark = menu.addAction("Отметить «Заказан»")
+            act_export = menu.addAction("Экспорт TXT")
+            action = menu.exec(self.table.viewport().mapToGlobal(pos))
+            if action == act_add:
+                self._add()
+            elif action == act_edit:
+                self._edit()
+            elif action == act_del:
+                self._delete()
+            elif action == act_mark:
+                self._mark_ordered()
+            elif action == act_export:
+                self._export_txt()
+        except Exception:
+            pass
 
     def _refresh(self):
         self._model.set_rows(self.db.list_mkl_orders())
