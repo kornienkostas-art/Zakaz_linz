@@ -315,6 +315,52 @@ class MKLOrderEditorView(ttk.Frame):
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
+    # Helpers for combobox values and filtering (OrderForm)
+    def _client_values(self):
+        values = []
+        for c in self.clients:
+            fio = c.get("fio", "")
+            phone = format_phone_mask(c.get("phone", ""))
+            values.append(f"{fio} — {phone}".strip(" —"))
+        return values
+
+    def _product_values(self):
+        return [p.get("name", "") for p in self.products]
+
+    def _filter_clients(self):
+        term = self.client_var.get().strip().lower()
+        values = self._client_values()
+        if term:
+            values = [v for v in values if term in v.lower()]
+        try:
+            self.client_combo["values"] = values
+        except Exception:
+            pass
+
+    def _filter_products(self):
+        term = self.product_var.get().strip().lower()
+        values = self._product_values()
+        if term:
+            values = [v for v in values if term in v.lower()]
+        try:
+            self.product_combo["values"] = values
+        except Exception:
+            pass
+
+    def _bind_clear_shortcuts(self, widget):
+        def clear():
+            try:
+                widget.delete(0, "end")
+            except Exception:
+                try:
+                    widget.set("")
+                except Exception:
+                    pass
+        try:
+            widget.bind("<Delete>", lambda e: clear())
+        except Exception:
+            pass
+
     def _go_back(self):
         try:
             self.destroy()
