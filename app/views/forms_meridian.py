@@ -197,6 +197,22 @@ class MeridianItemForm(tk.Toplevel):
         )
         self.sph_entry.grid(row=3, column=0, sticky="ew")
         self.sph_entry.configure(postcommand=lambda: (self.sph_entry.set("+0.00") if (self.sph_var.get() or "").strip()=="" else None))
+        # Up/Down step by 0.25
+        def _step_combo(combo: ttk.Combobox, max_abs: float, delta: float):
+            try:
+                txt = (combo.get() or "").strip().replace(",", ".")
+                val = float(txt) if txt else 0.0
+            except Exception:
+                val = 0.0
+            val = round(val * 4) / 4
+            new_val = max(-max_abs, min(max_abs, val + delta))
+            combo.set(f"{new_val:+.2f}")
+            try:
+                combo.event_generate("<<ComboboxSelected>>")
+            except Exception:
+                pass
+        self.sph_entry.bind("<Up>", lambda e: (_step_combo(self.sph_entry, 30.0, +0.25), "break"))
+        self.sph_entry.bind("<Down>", lambda e: (_step_combo(self.sph_entry, 30.0, -0.25), "break"))
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
 
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
@@ -207,6 +223,8 @@ class MeridianItemForm(tk.Toplevel):
         )
         self.cyl_entry.grid(row=3, column=1, sticky="ew")
         self.cyl_entry.configure(postcommand=lambda: (self.cyl_entry.set("+0.00") if (self.cyl_var.get() or "").strip()=="" else None))
+        self.cyl_entry.bind("<Up>", lambda e: (_step_combo(self.cyl_entry, 10.0, +0.25), "break"))
+        self.cyl_entry.bind("<Down>", lambda e: (_step_combo(self.cyl_entry, 10.0, -0.25), "break"))
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))

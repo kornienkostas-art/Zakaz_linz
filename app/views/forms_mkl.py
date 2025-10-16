@@ -434,6 +434,28 @@ class MKLOrderEditorView(ttk.Frame):
                 except Exception:
                     pass
 
+        # Increment/decrement by 0.25 with Up/Down, clamp to ranges
+        def _step_combo(combo: ttk.Combobox, max_abs: float, delta: float):
+            try:
+                txt = (combo.get() or "").strip().replace(",", ".")
+                val = float(txt) if txt else 0.0
+            except Exception:
+                val = 0.0
+            # snap to 0.25 grid before stepping
+            val = round(val * 4) / 4
+            new_val = val + delta
+            new_val = max(-max_abs, min(max_abs, new_val))
+            combo.set(f"{new_val:+.2f}")
+            try:
+                combo.event_generate("<<ComboboxSelected>>")
+            except Exception:
+                pass
+
+        self.sph_entry.bind("<Up>", lambda e: (_step_combo(self.sph_entry, 30.0, +0.25), "break"))
+        self.sph_entry.bind("<Down>", lambda e: (_step_combo(self.sph_entry, 30.0, -0.25), "break"))
+        self.cyl_entry.bind("<Up>", lambda e: (_step_combo(self.cyl_entry, 10.0, +0.25), "break"))
+        self.cyl_entry.bind("<Down>", lambda e: (_step_combo(self.cyl_entry, 10.0, -0.25), "break"))
+
         self.sph_entry.configure(postcommand=lambda: _center_on_open(self.sph_entry))
         self.cyl_entry.configure(postcommand=lambda: _center_on_open(self.cyl_entry))
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
