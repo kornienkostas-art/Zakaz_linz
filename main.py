@@ -8,7 +8,7 @@ from tkinter import font as tkfont
 from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
-from app.utils import install_crosslayout_shortcuts
+from app.utils import install_crosslayout_shortcuts, apply_builtins_fresh_style
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -312,6 +312,12 @@ def main():
     # Apply global font size
     ui_font_size = int(app_settings.get("ui_font_size", 17))
     _apply_global_fonts(root, ui_font_size)
+
+    # Apply a fresh built-in ttk style without external assets
+    try:
+        apply_builtins_fresh_style(root)
+    except Exception:
+        pass
 
     # Restore main window geometry if saved; otherwise start maximized
     geom = app_settings.get("main_geometry")

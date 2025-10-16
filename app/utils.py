@@ -200,3 +200,152 @@ def install_crosslayout_shortcuts(root: tk.Tk):
         pass
 
 
+def apply_builtins_fresh_style(root: tk.Tk):
+    """
+    Refresh look-and-feel using only built-in ttk features (no external assets).
+    Safe to call once after fonts/scaling are applied.
+    """
+    from tkinter import ttk
+    from tkinter import font as tkfont
+    import sys
+
+    style = ttk.Style(root)
+
+    # Theme: vista on Windows, clam elsewhere
+    try:
+        preferred = "vista" if sys.platform.startswith("win") else "clam"
+        if preferred in style.theme_names():
+            style.theme_use(preferred)
+    except Exception:
+        pass
+
+    # Palette
+    bg = "#F7F8FA"
+    fg = "#2E2E2E"
+    acc = "#3A7BD5"
+    acc_hover = "#2F6CBF"
+    acc_active = "#265B9F"
+    sel_bg = "#DCEBFF"
+    border = "#E6E8EB"
+
+    try:
+        root.configure(bg=bg)
+    except Exception:
+        pass
+
+    # Buttons
+    try:
+        style.configure(
+            "TButton",
+            padding=(16, 10),
+            foreground=fg,
+            background=acc,
+            bordercolor=acc,
+            focusthickness=1,
+            focuscolor=acc,
+        )
+        style.map(
+            "TButton",
+            background=[("active", acc_active), ("pressed", acc_active), ("hover", acc_hover)],
+            bordercolor=[("focus", acc)],
+            foreground=[("disabled", "#9AA0A6")],
+        )
+        # Keep existing Big.TButton, just ensure padding
+        style.configure("Big.TButton", padding=(24, 14))
+    except Exception:
+        pass
+
+    # Labels
+    try:
+        style.configure("TLabel", background=bg, foreground=fg)
+        style.configure("Heading.TLabel", background=bg, foreground=fg)
+    except Exception:
+        pass
+
+    # Entry
+    try:
+        style.configure(
+            "TEntry",
+            padding=6,
+            fieldbackground="white",
+            bordercolor=border,
+            lightcolor=acc,
+            darkcolor=border,
+            foreground=fg,
+        )
+    except Exception:
+        pass
+
+    # Combobox
+    try:
+        style.configure(
+            "TCombobox",
+            padding=6,
+            fieldbackground="white",
+            foreground=fg,
+            bordercolor=border,
+            arrowsize=18,
+        )
+    except Exception:
+        pass
+
+    # Notebook
+    try:
+        style.configure("TNotebook", background=bg, borderwidth=0)
+        style.configure(
+            "TNotebook.Tab",
+            padding=(16, 10),
+            background=bg,
+            foreground="#4A4A4A",
+            bordercolor=border,
+        )
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", "white"), ("active", "white")],
+            foreground=[("selected", fg)],
+        )
+    except Exception:
+        pass
+
+    # Treeview
+    try:
+        base_size = tkfont.nametofont("TkDefaultFont").cget("size")
+        style.configure(
+            "Treeview",
+            background="white",
+            fieldbackground="white",
+            foreground=fg,
+            rowheight=max(24, int(base_size) + 12),
+            bordercolor=border,
+            lightcolor=border,
+            darkcolor=border,
+        )
+        style.configure(
+            "Treeview.Heading",
+            background="#FAFBFC",
+            foreground="#333333",
+            relief="flat",
+            font=(None, int(base_size) + 1),
+            bordercolor=border,
+        )
+        style.map(
+            "Treeview",
+            background=[("selected", sel_bg)],
+            foreground=[("selected", fg)],
+            bordercolor=[("focus", acc)],
+        )
+    except Exception:
+        pass
+
+    # Scrollbar
+    try:
+        style.configure("Vertical.TScrollbar", gripcount=0, background=bg, bordercolor=border, troughcolor=bg)
+        style.configure("Horizontal.TScrollbar", gripcount=0, background=bg, bordercolor=border, troughcolor=bg)
+        try:
+            style.element_create("plain.field", "from", "clam")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
