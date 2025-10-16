@@ -24,8 +24,12 @@ class MainWindow:
         self._refresh_stats()
 
     def _build_ui(self):
+        # Use grid on root to avoid mixing geometry managers
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
         container = ttk.Frame(self.root)
-        container.pack(fill="both", expand=True)
+        container.grid(row=0, column=0, sticky="nsew")
 
         # Configure large button style for better visibility
         try:

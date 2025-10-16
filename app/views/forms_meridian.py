@@ -213,7 +213,7 @@ class MeridianItemForm(tk.Toplevel):
                 var.set("+0.00")
 
         for cb in (self.sph_combo, self.cyl_combo):
-            cb.bind("<Button-1>", lambda e, v=self.sph_var if e.widget is self.sph_combo else self.cyl_var: _ensure_zero_on_open(v))
+            cb.bind("<Button-1>", lambda e: _ensure_zero_on_open(self.sph_var if e.widget is self.sph_combo else self.cyl_var))
 
         # Прокрутка колесом: вверх +0.25, вниз -0.25
         def _wheel_step(var: tk.StringVar, min_v: float, max_v: float, step: float, delta_up: bool):
