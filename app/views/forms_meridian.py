@@ -161,6 +161,29 @@ class MeridianItemForm(tk.Toplevel):
         self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
 
         self._build_ui()
+        # Быстрые +/- для SPH/CYL через клавиши (локальные биндинги)
+        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+        if hasattr(self, "sph_entry") and hasattr(self, "cyl_entry"):
+            for seq in ("<KeyPress-plus>", "<KeyPress-KP_Add>", "<KeyPress-=>"):
+                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, +1), "break"))
+                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, +1), "break"))
+            for seq in ("<KeyPress-minus>", "<KeyPress-KP_Subtract>"):
+                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, -1), "break"))
+                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, -1), "break"))
 
     def _product_values(self) -> list[str]:
         return [p.get("name", "") for p in self.products]
