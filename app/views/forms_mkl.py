@@ -68,6 +68,13 @@ class OrderForm(tk.Toplevel):
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
+    def _go_back(self):
+        """统一处理 закрытие модального окна формы МКЛ."""
+        try:
+            self.destroy()
+        except Exception:
+            pass
+
     
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
