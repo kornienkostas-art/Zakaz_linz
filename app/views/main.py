@@ -37,7 +37,7 @@ class MainWindow:
         except Exception:
             pass
 
-        # Main menu - vertical stack: MKL, Meridian, Prices, Settings
+        # Main menu - vertical stack: MKL, Meridian, Prices, Astig Calc, Settings
         menu = ttk.Frame(container)
         menu.pack(fill="both", expand=True, padx=48, pady=48)
 
@@ -45,6 +45,7 @@ class MainWindow:
         ttk.Button(menu, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(fill="x", pady=10)
         ttk.Button(menu, text="Заказы Меридиан", command=self._open_meridian, **btn_opts).pack(fill="x", pady=10)
         ttk.Button(menu, text="Прайсы", command=self._open_prices, **btn_opts).pack(fill="x", pady=10)
+        ttk.Button(menu, text="Пересчёт астигматических линз", command=self._open_astig, **btn_opts).pack(fill="x", pady=10)
         ttk.Button(menu, text="Настройки…", command=self._open_settings, **btn_opts).pack(fill="x", pady=10)
 
     def _refresh_stats(self):
@@ -88,6 +89,13 @@ class MainWindow:
             self._clear_root_frames()
             from app.views.prices import PricesView
             PricesView(self.root, on_back=lambda: MainWindow(self.root))
+        fade_transition(self.root, swap)
+
+    def _open_astig(self):
+        def swap():
+            self._clear_root_frames()
+            from app.views.astig_calc import AstigCalcView
+            AstigCalcView(self.root, on_back=lambda: MainWindow(self.root))
         fade_transition(self.root, swap)
 
     def _open_settings(self):
