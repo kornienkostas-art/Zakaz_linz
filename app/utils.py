@@ -175,14 +175,36 @@ def install_copy_paste_bindings(root: tk.Tk):
         for seq in ("<Control-ф>", "<Control-Ф>"):
             root.bind_all(seq, _sel_all)
 
-        # Fallback handler based on key press with Control state bit
+        # Fallback handler based on key press with Control state bit and physical keycodes
         def _on_keypress(e):
             try:
-                ctrl = bool(e.state & 0x4)  # Control mask
+                ctrl = bool(e.state & 0x4)  # Control mask on Windows/Linux
             except Exception:
                 ctrl = False
             if not ctrl:
                 return
+
+            # Prefer physical virtual-key codes when available (Windows):
+            # A=65, C=67, V=86, X=88
+            try:
+                kc = int(getattr(e, "keycode", 0))
+            except Exception:
+                kc = 0
+
+            if kc in (67,):           # 'C' key
+                _copy(e)
+                return
+            if kc in (86,):           # 'V' key
+                _paste(e)
+                return
+            if kc in (88,):           # 'X' key
+                _cut(e)
+                return
+            if kc in (65,):           # 'A' key
+                _sel_all(e)
+                return
+
+            # Fallback to keysym mapping (covers macOS/Linux variations)
             ks = (getattr(e, "keysym", "") or "")
             if ks in ("c", "C", "с", "С"):
                 _copy(e)
