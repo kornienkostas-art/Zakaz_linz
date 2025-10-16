@@ -104,7 +104,11 @@ def install_copy_paste_bindings(root: tk.Tk):
 
     - Ctrl/Cmd + C/V/X/A
     - Ctrl + Insert (Copy), Shift + Insert (Paste)
-    - Cyrillic equivalents: Ctrl + 'с','в','ч','а' (lower/upper)
+    - Cyrillic equivalents based on physical key positions:
+      * Copy: Ctrl + 'с' (C key on RU)
+      * Paste: Ctrl + 'м' (V key on RU)
+      * Cut: Ctrl + 'ч' (X key on RU)
+      * Select all: Ctrl + 'ф' (A key on RU)
     """
     try:
         # Map shortcut to a virtual event generation on the focused widget
@@ -160,22 +164,37 @@ def install_copy_paste_bindings(root: tk.Tk):
         for seq in ("<Command-a>", "<Command-A>"):
             root.bind_all(seq, _sel_all)
 
-        # Cyrillic letter equivalents: 'с' (es), 'в' (ve), 'ч' (che), 'а' (a)
-        cyr_copy = ("<Control-с>", "<Control-С>")
-        cyr_paste = ("<Control-в>", "<Control-В>")
-        cyr_cut = ("<Control-ч>", "<Control-Ч>")
-        cyr_all = ("<Control-а>", "<Control-А>")
-        for seq in cyr_copy:
+        # Cyrillic letter equivalents by physical key mapping:
+        # C->с, V->м, X->ч, A->ф
+        for seq in ("<Control-с>", "<Control-С>"):
             root.bind_all(seq, _copy)
-        for seq in cyr_paste:
+        for seq in ("<Control-м>", "<Control-М>"):
             root.bind_all(seq, _paste)
-        for seq in cyr_cut:
+        for seq in ("<Control-ч>", "<Control-Ч>"):
             root.bind_all(seq, _cut)
-        for seq in cyr_all:
+        for seq in ("<Control-ф>", "<Control-Ф>"):
             root.bind_all(seq, _sel_all)
 
-        # Also bind to Toplevels created later via 'bindtags' on root
-        # Tk will propagate bind_all to future widgets, so no extra work needed.
+        # Fallback handler based on key press with Control state bit
+        def _on_keypress(e):
+            try:
+                ctrl = bool(e.state & 0x4)  # Control mask
+            except Exception:
+                ctrl = False
+            if not ctrl:
+                return
+            ks = (getattr(e, "keysym", "") or "")
+            if ks in ("c", "C", "с", "С"):
+                _copy(e)
+            elif ks in ("v", "V", "м", "М"):
+                _paste(e)
+            elif ks in ("x", "X", "ч", "Ч"):
+                _cut(e)
+            elif ks in ("a", "A", "ф", "Ф"):
+                _sel_all(e)
+
+        root.bind_all("<KeyPress>", _on_keypress)
+        # Tk will propagate bind_all to future widgets.
     except Exception:
         # Avoid breaking startup if platform doesn't support some sequences
         pass

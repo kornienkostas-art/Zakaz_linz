@@ -28,7 +28,7 @@ def ensure_settings(path: str):
                     "export_path": export_path,
                     "tray_enabled": True,
                     "minimize_to_tray": True,
-                    "start_in_tray": True,
+                    "start_in_tray": False,  # start visible by default
                     "autostart_enabled": False,
                     "tray_logo_path": "app/assets/logo.png",
                     # Meridian notifications
@@ -64,7 +64,7 @@ def load_settings(path: str) -> dict:
                 "ui_font_size": 17,
                 "tray_enabled": True,
                 "minimize_to_tray": True,
-                "start_in_tray": True,
+                "start_in_tray": False,  # start visible by default
                 "autostart_enabled": False,
                 "tray_logo_path": "app/assets/logo.png",
                 # Meridian notifications
