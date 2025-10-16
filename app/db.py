@@ -103,6 +103,18 @@ class AppDB:
             );
             """
         )
+
+        # Prices table
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS prices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                path TEXT NOT NULL
+            );
+            """
+        )
+
         self.conn.commit()
 
     # --- Clients ---
@@ -327,4 +339,22 @@ class AppDB:
     def delete_meridian_order(self, order_id: int):
         # Items will be cascaded
         self.conn.execute("DELETE FROM meridian_orders WHERE id=?;", (order_id,))
+        self.conn.commit()
+
+    # --- Prices ---
+    def list_prices(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name, path FROM prices ORDER BY name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "path": r["path"]} for r in rows]
+
+    def add_price(self, name: str, path: str) -> int:
+        cur = self.conn.execute("INSERT INTO prices (name, path) VALUES (?, ?);", (name, path))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_price(self, price_id: int, name: str, path: str):
+        self.conn.execute("UPDATE prices SET name=?, path=? WHERE id=?;", (name, path, price_id))
+        self.conn.commit()
+
+    def delete_price(self, price_id: int):
+        self.conn.execute("DELETE FROM prices WHERE id=?;", (price_id,))
         self.conn.commit()
