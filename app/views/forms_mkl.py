@@ -426,11 +426,12 @@ class MKLOrderEditorView(ttk.Frame):
         self.cyl_entry = ttk.Combobox(card, textvariable=self.cyl_var, values=cyl_values)
         self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
 
-        def _center_on_open(combo: ttk.Combobox):
+        def _center_on_open(combo: ttk.Combobox, values: list[str]):
+            # Если поле пустое, при открытии списка ставим выделение на 0.00
             if (combo.get() or "").strip() == "":
                 try:
-                    combo.set("+0.00")
-                    combo.selection_range(0, tk.END)
+                    idx = values.index("+0.00")
+                    combo.current(idx)
                 except Exception:
                     pass
 
@@ -456,8 +457,9 @@ class MKLOrderEditorView(ttk.Frame):
         self.cyl_entry.bind("<Up>", lambda e: (_step_combo(self.cyl_entry, 10.0, +0.25), "break"))
         self.cyl_entry.bind("<Down>", lambda e: (_step_combo(self.cyl_entry, 10.0, -0.25), "break"))
 
-        self.sph_entry.configure(postcommand=lambda: _center_on_open(self.sph_entry))
-        self.cyl_entry.configure(postcommand=lambda: _center_on_open(self.cyl_entry))
+        # При открытии дропдауна прокрутка сфокусируется на 0.00
+        self.sph_entry.configure(postcommand=lambda: _center_on_open(self.sph_entry, sph_values))
+        self.cyl_entry.configure(postcommand=lambda: _center_on_open(self.cyl_entry, cyl_values))
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 

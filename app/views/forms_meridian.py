@@ -196,7 +196,8 @@ class MeridianItemForm(tk.Toplevel):
             values=_centered_signed_values(30.0),
         )
         self.sph_entry.grid(row=3, column=0, sticky="ew")
-        self.sph_entry.configure(postcommand=lambda: (self.sph_entry.set("+0.00") if (self.sph_var.get() or "").strip()=="" else None))
+        # При открытии списка и пустом поле центрируемся на 0.00 через current()
+        self.sph_entry.configure(postcommand=lambda: (self.sph_entry.current(_centered_signed_values(30.0).index("+0.00")) if (self.sph_var.get() or "").strip()=="" else None))
         # Up/Down step by 0.25
         def _step_combo(combo: ttk.Combobox, max_abs: float, delta: float):
             try:
@@ -222,7 +223,7 @@ class MeridianItemForm(tk.Toplevel):
             values=_centered_signed_values(10.0),
         )
         self.cyl_entry.grid(row=3, column=1, sticky="ew")
-        self.cyl_entry.configure(postcommand=lambda: (self.cyl_entry.set("+0.00") if (self.cyl_var.get() or "").strip()=="" else None))
+        self.cyl_entry.configure(postcommand=lambda: (self.cyl_entry.current(_centered_signed_values(10.0).index("+0.00")) if (self.cyl_var.get() or "").strip()=="" else None))
         self.cyl_entry.bind("<Up>", lambda e: (_step_combo(self.cyl_entry, 10.0, +0.25), "break"))
         self.cyl_entry.bind("<Down>", lambda e: (_step_combo(self.cyl_entry, 10.0, -0.25), "break"))
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
