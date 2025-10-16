@@ -69,6 +69,96 @@ class OrderForm(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
 
     
+    # --- Steppers, wheel and clipboard helpers (OrderForm) ---
+    def _step_value(self, cur: str, step: float, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        def _parse_num(s: str):
+            s = (s or "").replace(",", ".").strip()
+            if not s:
+                return 0.0
+            try:
+                return float(s)
+            except Exception:
+                return 0.0
+        v = _parse_num(cur) + step
+        v = max(lo, min(hi, v))
+        if round_to:
+            v = round(v / round_to) * round_to
+        return (f"{v:+.2f}" if signed else str(int(round(v))))
+    
+    def _normalize_value(self, cur: str, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        return self._step_value(cur, 0.0, lo, hi, round_to, signed)
+    
+    def _bind_spin_for_entry(self, entry: ttk.Entry, step: float, lo: float, hi: float, round_to: float, signed: bool):
+        def on_wheel(event):
+            delta = 0
+            if event.num == 4:
+                delta = +1
+            elif event.num == 5:
+                delta = -1
+            else:
+                delta = +1 if event.delta > 0 else -1
+            cur = entry.get()
+            new = self._step_value(cur, delta * step, lo, hi, round_to, signed)
+            try:
+                entry.delete(0, "end"); entry.insert(0, new)
+            except Exception:
+                pass
+            return "break"
+        entry.bind("<MouseWheel>", on_wheel)
+        entry.bind("<Button-4>", on_wheel)
+        entry.bind("<Button-5>", on_wheel)
+    
+        def on_key(event):
+            if (event.state & 0x4) != 0:  # Ctrl
+                if event.keysym in ("Up", "KP_Up"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, signed))
+                    return "break"
+                if event.keysym in ("Down", "KP_Down"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, signed))
+                    return "break"
+            return None
+        entry.bind("<KeyPress>", on_key)
+    
+        entry.bind("<FocusOut>", lambda e: (entry.delete(0, "end"), entry.insert(0, self._normalize_value(entry.get(), lo, hi, round_to, signed))))
+    
+    def _paste_from_clipboard(self):
+        try:
+            text = self.clipboard_get()
+        except Exception:
+            return
+        if not text:
+            return
+        import re
+        s = text.replace(",", ".")
+        # Try labels
+        def pick(label):
+            m = re.search(label + r"\s*([+\-]?\d+(?:\.\d+)?)", s, re.I)
+            return m.group(1) if m else None
+        sph = pick(r"Sph") or None
+        cyl = pick(r"Cyl") or None
+        ax = None
+        m = re.search(r"(?:Ax|Axis|x|×)\s*(\d{1,3})", s, re.I)
+        if m:
+            ax = m.group(1)
+        if not (sph and cyl and ax):
+            nums = re.findall(r"[+\-]?\d+(?:\.\d+)?", s)
+            if len(nums) >= 3:
+                sph = sph or nums[0]
+                cyl = cyl or nums[1]
+                ax = ax or nums[2]
+        def norm_s(v, lo, hi, step, signed):
+            try:
+                f = float(str(v).strip())
+            except Exception:
+                f = 0.0
+            f = max(lo, min(hi, f))
+            if step:
+                f = round(f / step) * step
+            return (f"{f:+.2f}" if signed else str(int(round(f))))
+        if sph: self.sph_var.set(norm_s(sph, -30.0, 30.0, 0.25, True))
+        if cyl: self.cyl_var.set(norm_s(cyl, -10.0, 10.0, 0.25, True))
+        if ax:  self.ax_var.set(norm_s(ax, 0.0, 180.0, 1.0, False))
+    
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
