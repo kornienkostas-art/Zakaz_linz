@@ -673,6 +673,5 @@ class MKLOrderEditorView(ttk.Frame):
         cb = getattr(self, "on_save", None)
         if callable(cb):
             cb(order)
-        self.destroy()
-
+        self._canc_code
 
