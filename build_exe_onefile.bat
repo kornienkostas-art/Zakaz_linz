@@ -2,40 +2,62 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 REM Build a single-file Windows EXE (portable) using PyInstaller.
-REM Uses `python -m PyInstaller` to avoid PATH issues.
+REM Tries Windows 'py' launcher first, then falls back to 'python'.
 
-REM 1) Ensure Python is available
-python --version >NUL 2>&1
-if errorlevel 1 (
-  echo [ERROR] Python is not available in PATH.
-  echo Install Python 3.10+ and try again.
-  pause
-  exit /b 1
+REM 0) Pick a Python interpreter (pref: 3.11/3.10 via py launcher)
+set "PYEXE="
+for %%V in (3.11 3.10 3) do (
+  where py >NUL 2>&1
+  if not errorlevel 1 (
+    py -%%V --version >NUL 2>&1
+    if not errorlevel 1 (
+      set "PYEXE=py -%%V"
+      goto :have_python
+    )
+  )
+)
+where python >NUL 2>&1
+if not errorlevel 1 (
+  python --version >NUL 2>&1
+  if not errorlevel 1 (
+    set "PYEXE=python"
+    goto :have_python
+  )
 )
 
-REM 2) Upgrade pip (optional)
-python -m pip install --upgrade pip
+echo [ERROR] Python is not available.
+echo Install Python 3.10+ from https://www.python.org/downloads/windows/
+echo or enable the Windows 'py' launcher, then re-run this script.
+pause
+exit /b 1
 
-REM 3) Install PyInstaller
-python -m pip install --upgrade pyinstaller
+:have_python
+echo Using interpreter: %PYEXE%
+echo.
 
-REM 4) Install runtime dependencies
+REM 1) Upgrade pip (optional)
+%PYEXE% -m pip install --upgrade pip
+
+REM 2) Install PyInstaller
+%PYEXE% -m pip install --upgrade pyinstaller
+
+REM 3) Install runtime dependencies
 if exist requirements.txt (
-  python -m pip install -r requirements.txt
+  %PYEXE% -m pip install -r requirements.txt
 )
 
-REM 5) Clean previous artifacts
+REM 4) Clean previous artifacts
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 if exist __pycache__ rmdir /s /q __pycache__
 
-REM 6) Build
+REM 5) Build
 REM --onefile: produce a single exe
 REM --windowed: no console window
 REM --icon: use application icon
 REM --add-data: include assets and default settings into the bundle
 set ADD_DATA=--add-data "app\assets;app\assets" --add-data "settings.json;."
-python -m PyInstaller --clean --noconfirm ^
+%PYEXE% -m PyInstaller --clean --noconfirm ^
   --onefile ^
   --windowed ^
   --name "UssurochkiRF" ^
@@ -54,7 +76,7 @@ echo.
 echo [OK] One-file build completed.
 echo     EXE: dist\UssurochkiRF.exe
 echo.
-echo Note: When running the one-file EXE, it will unpack to a temp folder on first start.
+echo Note: Running the one-file EXE unpacks to a temporary folder on first start.
 echo.
 pause
 
