@@ -175,7 +175,7 @@ def main():
         pass
 
     # Load settings and apply UI scale
-   FILE)
+    app_settings = load_settings(SETTINGS_FILE)
 
     # Set crisp window icon (optimize for title bar): prefer 32x32 or ICO on Windows
     try:
