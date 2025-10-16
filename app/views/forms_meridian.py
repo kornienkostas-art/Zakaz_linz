@@ -153,6 +153,7 @@ class MeridianItemForm(tk.Toplevel):
         self.on_save = on_save
         self.products = products or []
         self.product_var = tk.StringVar(value=(initial or {}).get("product", ""))
+        # По умолчанию поля пустые; при открытии списка подсветим 0.00 (для SPH/CYL)
         self.sph_var = tk.StringVar(value=(initial or {}).get("sph", ""))
         self.cyl_var = tk.StringVar(value=(initial or {}).get("cyl", ""))
         self.ax_var = tk.StringVar(value=(initial or {}).get("ax", ""))
@@ -184,6 +185,17 @@ class MeridianItemForm(tk.Toplevel):
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        def _fmt_val(v: float) -> str:
+            v = round(v, 2)
+            if abs(v) < 1e-9:
+                return "0"
+            s = f"{v:.2f}".replace(".", ",")
+            s = s.rstrip("0").rstrip(",")
+            return s
+        def _centered_display_values(max_abs: float, step: float = 0.25) -> list[str]:
+            neg = [-(i * step) for i in range(int(max_abs / step), 0, -1)]
+            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
+            return [_fmt_val(v) for v in neg] + ["0"] + [_fmt_val(v) for v in pos]
         self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
         self.sph_entry.grid(row=3, column=0, sticky="ew")
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")

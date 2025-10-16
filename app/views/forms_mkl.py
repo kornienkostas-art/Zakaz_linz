@@ -37,6 +37,7 @@ class OrderForm(tk.Toplevel):
         # Vars
         self.client_var = tk.StringVar()
         self.product_var = tk.StringVar()
+        # По умолчанию поля пустые; при открытии списка подсветим 0.00
         self.sph_var = tk.StringVar(value="")
         self.cyl_var = tk.StringVar(value="")
         self.ax_var = tk.StringVar(value="")
@@ -67,12 +68,7 @@ class OrderForm(tk.Toplevel):
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
-    def _go_back(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
-
+    
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -96,7 +92,7 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: entries
+        # Row 4: plain entries (без выпадающих списков)
         self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
@@ -305,12 +301,6 @@ class OrderForm(tk.Toplevel):
             self.destroy()
 
 
-def _go_back(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
-
 class MKLOrderEditorView(ttk.Frame):
     """Встроенная форма создания/редактирования заказа МКЛ, как отдельный вид внутри главного окна."""
     def __init__(self, master: tk.Tk, db: Optional[AppDB], on_back, on_save, initial: dict | None = None):
@@ -333,6 +323,7 @@ class MKLOrderEditorView(ttk.Frame):
         # Vars
         self.client_var = tk.StringVar()
         self.product_var = tk.StringVar()
+        # По умолчанию поля пустые; при открытии списка подсветим 0.00
         self.sph_var = tk.StringVar(value="")
         self.cyl_var = tk.StringVar(value="")
         self.ax_var = tk.StringVar(value="")
@@ -385,7 +376,7 @@ class MKLOrderEditorView(ttk.Frame):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: entries
+        # Row 4: plain entries (без выпадающих списков)
         self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
