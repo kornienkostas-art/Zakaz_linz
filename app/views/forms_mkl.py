@@ -97,41 +97,62 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: comboboxes with centered 0.00 (минусы сверху, плюсы снизу)
-        def _centered_signed_values(max_abs: float) -> list[str]:
-            # e.g. for step 0.25: -max..-0.25, +0.00, +0.25..+max
-            step = 0.25
-            neg = [-(i * step) for i in range(1, int(max_abs / step) + 1)]
-            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
-            values = [f"{v:+.2f}" for v in neg] + ["+0.00"] + [f"{v:+.2f}" for v in pos]
-            return values
+        # Row 4: comboboxes с центром на 0, формат с запятой и без плюса
+        def _fmt_val(v: float) -> str:
+            v = round(v, 2)
+            if abs(v) < 1e-9:
+                return "0"
+            s = f"{v:.2f}".replace(".", ",")
+            s = s.rstrip("0").rstrip(",")
+            return s
 
-        sph_values = _centered_signed_values(30.0)
-        cyl_values = _centered_signed_values(10.0)
+        def _centered_display_values(max_abs: float, step: float = 0.25) -> list[str]:
+            neg = [-(i * step) for i in range(int(max_abs / step), 0, -1)]
+            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
+            return [_fmt_val(v) for v in neg] + ["0"] + [_fmt_val(v) for v in pos]
+
+        sph_values = _centered_display_values(30.0)
+        cyl_values = _centered_display_values(10.0)
 
         self.sph_entry = ttk.Combobox(card, textvariable=self.sph_var, values=sph_values)
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.cyl_entry = ttk.Combobox(card, textvariable=self.cyl_var, values=cyl_values)
         self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
 
-        # При открытии списка, если поле пустое — подсвечиваем 0.00
-        def _center_on_open(combo: ttk.Combobox):
+        def _center_on_open(combo: ttk.Combobox, values: list[str]):
             if (combo.get() or "").strip() == "":
                 try:
-                    combo.set("+0.00")
-                    combo.selection_range(0, tk.END)
+                    idx = values.index("0")
+                    combo.current(idx)
                 except Exception:
                     pass
 
-        self.sph_entry.configure(postcommand=lambda: _center_on_open(self.sph_entry))
-        self.cyl_entry.configure(postcommand=lambda: _center_on_open(self.cyl_entry))
+        # Increment/decrement by 0.25 with Up/Down, clamp to ranges, display with comma
+        def _step_combo(combo: ttk.Combobox, max_abs: float, delta: float):
+            try:
+                txt = (combo.get() or "").strip().replace(",", ".")
+                val = float(txt) if txt else 0.0
+            except Exception:
+                val = 0.0
+            val = round(val * 4) / 4
+            new_val = max(-max_abs, min(max_abs, val + delta))
+            combo.set(_fmt_val(new_val))
+            try:
+                combo.event_generate("<<ComboboxSelected>>")
+            except Exception:
+                pass
 
-        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
-        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
-        self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
-        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
-        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
-        self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+        self.sph_entry.bind("<Up>", lambda e: (_step_combo(self.sph_entry, 30.0, +0.25), "break"))
+        self.sph_entry.bind("<Down>", lambda e: (_step_combo(self.sph_entry, 30.0, -0.25), "break"))
+        self.cyl_entry.bind("<Up>", lambda e: (_step_combo(self.cyl_entry, 10.0, +0.25), "break"))
+        self.cyl_entry.bind("<Down>", lambda e: (_step_combo(self.cyl_entry, 10.0, -0.25), "break"))
+
+        # При открытии дропдауна позиционируем на 0
+        self.sph_entry.configure(postcommand=lambda: _center_on_open(self.sph_entry, sph_values))
+        self.cyl_entry.configure(postcommand=lambda: _center_on_open(self.cyl_entry, cyl_values))
+        # Преобразуем ввод с точкой/запятой к шагу 0.25 и отображаем с запятой
+        self.sph_entry.bind("<FocusOut>", lambda e: (self._apply_snap_for("sph"), self.sph_var.set(_fmt_val(float((self.sph_var.get() or "0").replace(",", "."))))))
+        self.cyl_entry.bind("<FocusOut>", lambda e: (self._apply_snap_for("cyl"), self.cyl_var.set(_fmt_val(float((self.cyl_var.get() or "0").replace(",", "."))))))
 
         # Row 5: labels
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))

@@ -185,20 +185,25 @@ class MeridianItemForm(tk.Toplevel):
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        def _centered_signed_values(max_abs: float) -> list[str]:
-            step = 0.25
-            neg = [-(i * step) for i in range(1, int(max_abs / step) + 1)]
+        def _fmt_val(v: float) -> str:
+            v = round(v, 2)
+            if abs(v) < 1e-9:
+                return "0"
+            s = f"{v:.2f}".replace(".", ",")
+            s = s.rstrip("0").rstrip(",")
+            return s
+        def _centered_display_values(max_abs: float, step: float = 0.25) -> list[str]:
+            neg = [-(i * step) for i in range(int(max_abs / step), 0, -1)]
             pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
-            return [f"{v:+.2f}" for v in neg] + ["+0.00"] + [f"{v:+.2f}" for v in pos]
+            return [_fmt_val(v) for v in neg] + ["0"] + [_fmt_val(v) for v in pos]
         self.sph_entry = ttk.Combobox(
             card,
             textvariable=self.sph_var,
-            values=_centered_signed_values(30.0),
+            values=_centered_display_values(30.0),
         )
         self.sph_entry.grid(row=3, column=0, sticky="ew")
-        # При открытии списка и пустом поле центрируемся на 0.00 через current()
-        self.sph_entry.configure(postcommand=lambda: (self.sph_entry.current(_centered_signed_values(30.0).index("+0.00")) if (self.sph_var.get() or "").strip()=="" else None))
-        # Up/Down step by 0.25
+        self.sph_entry.configure(postcommand=lambda: (self.sph_entry.current(_centered_display_values(30.0).index("0")) if (self.sph_var.get() or "").strip()=="" else None))
+        # Up/Down step by 0.25 with comma formatting
         def _step_combo(combo: ttk.Combobox, max_abs: float, delta: float):
             try:
                 txt = (combo.get() or "").strip().replace(",", ".")
@@ -207,26 +212,26 @@ class MeridianItemForm(tk.Toplevel):
                 val = 0.0
             val = round(val * 4) / 4
             new_val = max(-max_abs, min(max_abs, val + delta))
-            combo.set(f"{new_val:+.2f}")
+            combo.set(_fmt_val(new_val))
             try:
                 combo.event_generate("<<ComboboxSelected>>")
             except Exception:
                 pass
         self.sph_entry.bind("<Up>", lambda e: (_step_combo(self.sph_entry, 30.0, +0.25), "break"))
         self.sph_entry.bind("<Down>", lambda e: (_step_combo(self.sph_entry, 30.0, -0.25), "break"))
-        self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+        self.sph_entry.bind("<FocusOut>", lambda e: (self._apply_snap_for("sph"), self.sph_var.set(_fmt_val(float((self.sph_var.get() or "0").replace(",", "."))))))
 
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
         self.cyl_entry = ttk.Combobox(
             card,
             textvariable=self.cyl_var,
-            values=_centered_signed_values(10.0),
+            values=_centered_display_values(10.0),
         )
         self.cyl_entry.grid(row=3, column=1, sticky="ew")
-        self.cyl_entry.configure(postcommand=lambda: (self.cyl_entry.current(_centered_signed_values(10.0).index("+0.00")) if (self.cyl_var.get() or "").strip()=="" else None))
+        self.cyl_entry.configure(postcommand=lambda: (self.cyl_entry.current(_centered_display_values(10.0).index("0")) if (self.cyl_var.get() or "").strip()=="" else None))
         self.cyl_entry.bind("<Up>", lambda e: (_step_combo(self.cyl_entry, 10.0, +0.25), "break"))
         self.cyl_entry.bind("<Down>", lambda e: (_step_combo(self.cyl_entry, 10.0, -0.25), "break"))
-        self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+        self.cyl_entry.bind("<FocusOut>", lambda e: (self._apply_snap_for("cyl"), self.cyl_var.set(_fmt_val(float((self.cyl_var.get() or "0").replace(",", "."))))))
 
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
         self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
