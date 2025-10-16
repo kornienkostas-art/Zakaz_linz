@@ -12,6 +12,12 @@ class MainWindow:
 
         # Geometry
         set_initial_geometry(self.root, min_w=1100, min_h=760)
+        # Use grid geometry manager consistently on root
+        try:
+            self.root.columnconfigure(0, weight=1)
+            self.root.rowconfigure(0, weight=1)
+        except Exception:
+            pass
 
         # Ensure DB exists on root (created in main.py), but allow fallback
         if not hasattr(self.root, "db") or not isinstance(self.root.db, AppDB):
@@ -25,7 +31,11 @@ class MainWindow:
 
     def _build_ui(self):
         container = ttk.Frame(self.root)
-        container.pack(fill="both", expand=True)
+        try:
+            container.grid(row=0, column=0, sticky="nsew")
+        except Exception:
+            # Fallback
+            container.pack(fill="both", expand=True)
 
         # Configure large button style for better visibility
         try:
@@ -38,8 +48,8 @@ class MainWindow:
             pass
 
         # Main menu - vertical stack: MKL, Meridian, Prices, Astig Calc, Settings
-        menu = ttk.Frame(container)
-        menu.pack(fill="both", expand=True, padx=48, pady=48)
+        menu = ttk.Frame(container, padding=(48, 48))
+        menu.pack(fill="both", expand=True)
 
         btn_opts = dict(width=30, style="Big.TButton")
         ttk.Button(menu, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(fill="x", pady=10)
