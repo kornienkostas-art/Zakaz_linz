@@ -2,13 +2,14 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 REM Build a single-file Windows EXE (portable) using PyInstaller.
-REM This does not require the .spec file and bundles required assets.
+REM Uses `python -m PyInstaller` to avoid PATH issues.
 
 REM 1) Ensure Python is available
 python --version >NUL 2>&1
 if errorlevel 1 (
   echo [ERROR] Python is not available in PATH.
   echo Install Python 3.10+ and try again.
+  pause
   exit /b 1
 )
 
@@ -16,11 +17,11 @@ REM 2) Upgrade pip (optional)
 python -m pip install --upgrade pip
 
 REM 3) Install PyInstaller
-pip install --upgrade pyinstaller
+python -m pip install --upgrade pyinstaller
 
 REM 4) Install runtime dependencies
 if exist requirements.txt (
-  pip install -r requirements.txt
+  python -m pip install -r requirements.txt
 )
 
 REM 5) Clean previous artifacts
@@ -34,7 +35,7 @@ REM --windowed: no console window
 REM --icon: use application icon
 REM --add-data: include assets and default settings into the bundle
 set ADD_DATA=--add-data "app\assets;app\assets" --add-data "settings.json;."
-pyinstaller --clean --noconfirm ^
+python -m PyInstaller --clean --noconfirm ^
   --onefile ^
   --windowed ^
   --name "UssurochkiRF" ^
@@ -43,7 +44,9 @@ pyinstaller --clean --noconfirm ^
   main.py
 
 if errorlevel 1 (
-  echo [ERROR] Build failed.
+  echo.
+  echo [ERROR] Build failed. See the messages above.
+  pause
   exit /b 1
 )
 
@@ -53,5 +56,6 @@ echo     EXE: dist\UssurochkiRF.exe
 echo.
 echo Note: When running the one-file EXE, it will unpack to a temp folder on first start.
 echo.
+pause
 
 endlocal
