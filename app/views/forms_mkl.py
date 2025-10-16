@@ -68,12 +68,7 @@ class OrderForm(tk.Toplevel):
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
-    def _go_back(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
-
+    
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -305,12 +300,6 @@ class OrderForm(tk.Toplevel):
         except Exception:
             self.destroy()
 
-
-def _go_back(self):
-        try:
-            self.destroy()
-        except Exception:
-            pass
 
 class MKLOrderEditorView(ttk.Frame):
     """Встроенная форма создания/редактирования заказа МКЛ, как отдельный вид внутри главного окна."""
