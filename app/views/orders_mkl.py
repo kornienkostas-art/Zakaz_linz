@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition, format_phone_mask, center_on_screen
+from app.utils import fade_transition, format_phone_mask
 from app.db import AppDB  # type hint only
 
 
@@ -256,12 +256,6 @@ class MKLOrdersView(ttk.Frame):
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=dialog.destroy).pack(side="right", padx=(8, 0))
 
         dialog.columnconfigure(0, weight=1)
-        # Центрируем диалог по экрану
-        try:
-            dialog.update_idletasks()
-            center_on_screen(dialog)
-        except Exception:
-            pass
 
     def _export_txt(self):
         groups: dict[str, list[dict]] = {}
