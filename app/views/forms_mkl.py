@@ -7,6 +7,7 @@ from typing import Optional
 from app.db import AppDB
 from app.utils import set_initial_geometry
 from app.utils import format_phone_mask  # used for displaying client phones
+from app.utils import create_tooltip
 
 
 class OrderForm(tk.Toplevel):
@@ -137,18 +138,32 @@ class OrderForm(tk.Toplevel):
         sph_row = ttk.Frame(card, style="Card.TFrame")
         sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         sph_row.columnconfigure(1, weight=1)
-        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, -1))
+        btn_sph_dec.grid(row=0, column=0, sticky="w")
         self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
         self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+        btn_sph_inc = ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, +1))
+        btn_sph_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_sph_dec, "SPH: уменьшить на 0.25. Диапазон: −30.00…+30.00")
+            create_tooltip(btn_sph_inc, "SPH: увеличить на 0.25. Диапазон: −30.00…+30.00")
+        except Exception:
+            pass
 
         cyl_row = ttk.Frame(card, style="Card.TFrame")
         cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
         cyl_row.columnconfigure(1, weight=1)
-        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, -1))
+        btn_cyl_dec.grid(row=0, column=0, sticky="w")
         self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
         self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+        btn_cyl_inc = ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, +1))
+        btn_cyl_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_cyl_dec, "CYL: уменьшить на 0.25. Диапазон: −10.00…+10.00")
+            create_tooltip(btn_cyl_inc, "CYL: увеличить на 0.25. Диапазон: −10.00…+10.00")
+        except Exception:
+            pass
 
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
@@ -457,18 +472,32 @@ class MKLOrderEditorView(ttk.Frame):
         sph_row = ttk.Frame(card, style="Card.TFrame")
         sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         sph_row.columnconfigure(1, weight=1)
-        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1))
+        btn_sph_dec.grid(row=0, column=0, sticky="w")
         self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
         self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+        btn_sph_inc = ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1))
+        btn_sph_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_sph_dec, "SPH: уменьшить на 0.25. Диапазон: −30.00…+30.00")
+            create_tooltip(btn_sph_inc, "SPH: увеличить на 0.25. Диапазон: −30.00…+30.00")
+        except Exception:
+            pass
 
         cyl_row = ttk.Frame(card, style="Card.TFrame")
         cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
         cyl_row.columnconfigure(1, weight=1)
-        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1))
+        btn_cyl_dec.grid(row=0, column=0, sticky="w")
         self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
         self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+        btn_cyl_inc = ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1))
+        btn_cyl_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_cyl_dec, "CYL: уменьшить на 0.25. Диапазон: −10.00…+10.00")
+            create_tooltip(btn_cyl_inc, "CYL: увеличить на 0.25. Диапазон: −10.00…+10.00")
+        except Exception:
+            pass
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
