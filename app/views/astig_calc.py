@@ -112,10 +112,7 @@ class AstigCalcView(ttk.Frame):
         self._render_initial_example()
 
     def _render_initial_example(self):
-        example = (
-            "Результат:\n"
-            "тут будет писаться результат"
-        )
+        example = "Результат:"
         try:
             self.result_text.delete("1.0", "end")
             self.result_text.insert("1.0", example)
