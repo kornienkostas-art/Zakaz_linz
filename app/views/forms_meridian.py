@@ -153,10 +153,11 @@ class MeridianItemForm(tk.Toplevel):
         self.on_save = on_save
         self.products = products or []
         self.product_var = tk.StringVar(value=(initial or {}).get("product", ""))
-        self.sph_var = tk.StringVar(value=(initial or {}).get("sph", ""))
-        self.cyl_var = tk.StringVar(value=(initial or {}).get("cyl", ""))
+        # Defaults: SPH 0.00, CYL 0.00, D 70 if not provided
+        self.sph_var = tk.StringVar(value=(initial or {}).get("sph", "0.00"))
+        self.cyl_var = tk.StringVar(value=(initial or {}).get("cyl", "0.00"))
         self.ax_var = tk.StringVar(value=(initial or {}).get("ax", ""))
-        self.d_var = tk.StringVar(value=(initial or {}).get("d", ""))
+        self.d_var = tk.StringVar(value=(initial or {}).get("d", "70"))
         self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
 
         self._build_ui()
@@ -190,6 +191,8 @@ class MeridianItemForm(tk.Toplevel):
             values=[f"{v:+.2f}" for v in [round(-30.0 + i * 0.25, 2) for i in range(0, int((30.0 - (-30.0)) / 0.25) + 1)]],
         )
         self.sph_entry.grid(row=3, column=0, sticky="ew")
+        if not (self.sph_var.get() or "").strip():
+            self.sph_entry.set("+0.00")
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
 
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
@@ -199,6 +202,8 @@ class MeridianItemForm(tk.Toplevel):
             values=[f"{v:+.2f}" for v in [round(-10.0 + i * 0.25, 2) for i in range(0, int((10.0 - (-10.0)) / 0.25) + 1)]],
         )
         self.cyl_entry.grid(row=3, column=1, sticky="ew")
+        if not (self.cyl_var.get() or "").strip():
+            self.cyl_entry.set("+0.00")
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))

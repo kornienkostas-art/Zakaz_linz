@@ -37,10 +37,11 @@ class OrderForm(tk.Toplevel):
         # Vars
         self.client_var = tk.StringVar()
         self.product_var = tk.StringVar()
-        self.sph_var = tk.StringVar(value="")
-        self.cyl_var = tk.StringVar(value="")
+        # Defaults: Sph/Cyl start at 0.00, BC at 8.6
+        self.sph_var = tk.StringVar(value="0.00")
+        self.cyl_var = tk.StringVar(value="0.00")
         self.ax_var = tk.StringVar(value="")
-        self.bc_var = tk.StringVar(value="")
+        self.bc_var = tk.StringVar(value="8.6")
         self.qty_var = tk.IntVar(value=1)
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
 
