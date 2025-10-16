@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 from app.db import AppDB  # type hint only
 
@@ -31,14 +31,15 @@ class ProductsView(ttk.Frame):
         table_card.pack(fill="both", expand=True)
 
         header = ttk.Label(table_card, text="Товары", style="Title.TLabel")
-        header.grid(row=0, column=0, sticky="w", columnspan=2)
-        ttk.Separator(table_card).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 12))
+        header.grid(row=0, column=0, sticky="w", columnspan=3)
+        ttk.Separator(table_card).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 12))
 
         bar = ttk.Frame(table_card, style="Card.TFrame")
-        bar.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        bar.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
         ttk.Button(bar, text="Добавить", style="Menu.TButton", command=self._add).pack(side="left")
         ttk.Button(bar, text="Редактировать", style="Menu.TButton", command=self._edit).pack(side="left", padx=(8, 0))
         ttk.Button(bar, text="Удалить", style="Menu.TButton", command=self._delete).pack(side="left", padx=(8, 0))
+        ttk.Button(bar, text="Импорт из PDF (WEIYA)", style="Menu.TButton", command=self._import_from_pdf).pack(side="left", padx=(16, 0))
 
         columns = ("name",)
         self.tree = ttk.Treeview(table_card, columns=columns, show="headings", style="Data.Treeview")
@@ -131,6 +132,80 @@ class ProductsView(ttk.Frame):
             except Exception as e:
                 messagebox.showerror("База данных", f"Не удалось удалить товар:\n{e}")
             self._reload()
+
+    def _import_from_pdf(self):
+        # По умолчанию пытаемся использовать файл из корня проекта
+        import os, re
+        default_path = os.path.join(os.getcwd(), "прайс WEIYA нал.pdf")
+        pdf_path = default_path if os.path.isfile(default_path) else None
+        if not pdf_path:
+            # Диалог выбора
+            pdf_path = filedialog.askopenfilename(
+                parent=self,
+                title="Выберите PDF прайс (WEIYA)",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+            )
+        if not pdf_path:
+            return
+
+        try:
+            import pdfplumber
+        except Exception:
+            messagebox.showerror("Импорт", "Не найден модуль pdfplumber. Установите зависимости из requirements.txt.")
+            return
+
+        def _normalize_name(s: str) -> str:
+            s = s.replace("\n", " ").replace("\r", " ")
+            s = re.sub(r"\s+", " ", s)
+            s = s.strip(" –—-·•\t ")
+            return s.strip()
+
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                added = 0
+                skipped = 0
+                # Список уже существующих наименований, чтобы не плодить дубли
+                existing = set(x.get("name", "") for x in (self.db.list_products() if self.db else []))
+                for page in pdf.pages:
+                    words = page.extract_words(keep_blank_chars=False, use_text_flow=True)
+                    # группируем по строкам
+                    lines: dict[tuple[int, int], list[dict]] = {}
+                    for w in words:
+                        y_key = (int(round(w.get("top", 0))), int(round(w.get("bottom", 0))))
+                        lines.setdefault(y_key, []).append(w)
+                    for _, ws in sorted(lines.items(), key=lambda kv: kv[0][0]):
+                        if not ws:
+                            continue
+                        ws_sorted = sorted(ws, key=lambda d: d.get("x0", 0.0))
+                        left_x0 = ws_sorted[0].get("x0", 0.0)
+                        group = [w for w in ws_sorted if (w.get("x0", 0.0) - left_x0) <= 20.0]
+                        text = " ".join(w.get("text", "") for w in group)
+                        name = _normalize_name(text)
+                        if len(name) < 3:
+                            continue
+                        # фильтруем явные заголовки/служебные
+                        bad_prefixes = (
+                            "ПРАЙС", "Прайс", "WEIYA", "WeiYa", "Тел.", "Список", "Цена",
+                            "Позиции", "Код", "№", "Описание", "Диаметр", "Диоптрии",
+                        )
+                        if any(name.startswith(p) for p in bad_prefixes):
+                            continue
+                        if re.fullmatch(r"[№#]?\s*\d{1,4}", name):
+                            continue
+                        if name in existing:
+                            skipped += 1
+                            continue
+                        try:
+                            if self.db:
+                                self.db.add_product(name)
+                                existing.add(name)
+                                added += 1
+                        except Exception:
+                            continue
+                self._reload()
+                messagebox.showinfo("Импорт", f"Импорт завершён.\nДобавлено: {added}\nПропущено (дубликаты/мусор): {skipped}")
+        except Exception as e:
+            messagebox.showerror("Импорт", f"Не удалось импортировать из PDF:\n{e}")
 
 
 class ProductForm(tk.Toplevel):
