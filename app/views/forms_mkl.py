@@ -92,32 +92,60 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+
+        # Row 4: enhanced numeric inputs with +/- and колесо мыши
+        sph_box = ttk.Frame(card)
+        sph_box.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_box.columnconfigure(1, weight=1)
+        ttk.Button(sph_box, text="−", width=3, command=lambda: self._nudge("sph", -0.25)).grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_box, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(sph_box, text="+", width=3, command=lambda: self._nudge("sph", +0.25)).grid(row=0, column=2, sticky="e")
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+        self._bind_mouse_wheel(self.sph_entry, step=0.25, field="sph")
+
+        cyl_box = ttk.Frame(card)
+        cyl_box.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_box.columnconfigure(1, weight=1)
+        ttk.Button(cyl_box, text="−", width=3, command=lambda: self._nudge("cyl", -0.25)).grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_box, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(cyl_box, text="+", width=3, command=lambda: self._nudge("cyl", +0.25)).grid(row=0, column=2, sticky="e")
         cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+        self._bind_mouse_wheel(self.cyl_entry, step=0.25, field="cyl")
 
         # Row 5: labels
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
         ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
-        # Row 6: entries
-        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=6, column=0, sticky="ew", padx=(0, 8))
-        self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
-        self.bc_entry.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+
+        # Row 6: enhanced inputs
+        ax_box = ttk.Frame(card)
+        ax_box.grid(row=6, column=0, sticky="ew", padx=(0, 8))
+        ax_box.columnconfigure(1, weight=1)
+        ttk.Button(ax_box, text="−", width=3, command=lambda: self._nudge_int("ax", -1, 0, 180, wrap=True)).grid(row=0, column=0, sticky="w")
+        self.ax_entry = ttk.Entry(ax_box, textvariable=self.ax_var)
+        self.ax_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(ax_box, text="+", width=3, command=lambda: self._nudge_int("ax", +1, 0, 180, wrap=True)).grid(row=0, column=2, sticky="e")
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
+        self._bind_mouse_wheel(self.ax_entry, step=1, field="ax", integer=True, min_v=0, max_v=180, wrap=True)
+
+        bc_box = ttk.Frame(card)
+        bc_box.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        bc_box.columnconfigure(1, weight=1)
+        ttk.Button(bc_box, text="−", width=3, command=lambda: self._nudge("bc", -0.1, min_v=8.0, max_v=9.0)).grid(row=0, column=0, sticky="w")
+        self.bc_entry = ttk.Entry(bc_box, textvariable=self.bc_var)
+        self.bc_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(bc_box, text="+", width=3, command=lambda: self._nudge("bc", +0.1, min_v=8.0, max_v=9.0)).grid(row=0, column=2, sticky="e")
         bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 8.0, 9.0)), "%P")
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
+        self._bind_mouse_wheel(self.bc_entry, step=0.1, field="bc", min_v=8.0, max_v=9.0)
 
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
@@ -126,13 +154,13 @@ class OrderForm(tk.Toplevel):
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=8, column=0, sticky="w")
 
+        footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
+        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
+
         # Comment field
         ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
         self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
         self.comment_entry.grid(row=8, column=1, sticky="ew")
-
-        footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
-        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
         btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
@@ -175,6 +203,67 @@ class OrderForm(tk.Toplevel):
                 except Exception:
                     pass
         widget.bind("<Delete>", lambda e: clear())
+
+    # Mouse wheel and nudge helpers for convenient input
+    def _bind_mouse_wheel(self, entry: ttk.Entry, step: float, field: str, integer: bool = False, min_v: float | None = None, max_v: float | None = None, wrap: bool = False):
+        try:
+            def on_wheel(event):
+                delta = 0
+                if hasattr(event, "delta") and event.delta:
+                    delta = 1 if event.delta > 0 else -1
+                else:
+                    # X11 uses Button-4/5
+                    delta = +1 if getattr(event, "num", 0) == 4 else -1
+                if integer:
+                    self._nudge_int(field, delta * int(step), int(min_v or 0), int(max_v or 0), wrap=wrap)
+                else:
+                    self._nudge(field, delta * step, min_v=min_v, max_v=max_v)
+                return "break"
+            # Windows/Mac
+            entry.bind("<MouseWheel>", on_wheel, add="+")
+            # Linux/X11
+            entry.bind("<Button-4>", on_wheel, add="+")
+            entry.bind("<Button-5>", on_wheel, add="+")
+        except Exception:
+            pass
+
+    def _nudge(self, field: str, delta: float, min_v: float | None = None, max_v: float | None = None):
+        var = {"sph": self.sph_var, "cyl": self.cyl_var, "bc": self.bc_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").replace(",", ".").strip()
+        try:
+            val = float(txt) if txt != "" else 0.0
+        except ValueError:
+            val = 0.0
+        val += delta
+        if min_v is not None:
+            val = max(min_v, val)
+        if max_v is not None:
+            val = min(max_v, val)
+        # Snap by step
+        step = 0.25 if field in {"sph", "cyl"} else 0.1
+        snapped = round(round((val - (min_v or 0.0)) / step) * step + (min_v or 0.0), 2)
+        var.set(f"{snapped:.2f}".replace(".", ","))
+
+    def _nudge_int(self, field: str, delta: int, min_v: int, max_v: int, wrap: bool = False):
+        var = {"ax": self.ax_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").strip()
+        try:
+            val = int(float(txt.replace(",", "."))) if txt != "" else 0
+        except ValueError:
+            val = 0
+        val += delta
+        if wrap:
+            if val < min_v:
+                val = max_v
+            elif val > max_v:
+                val = min_v
+        else:
+            val = max(min_v, min(max_v, val))
+        var.set(str(val))
 
     # Validation
     def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
@@ -292,13 +381,10 @@ class OrderForm(tk.Toplevel):
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "comment": (self.comment_var.get() or "").strip(),
         }
-        if callable(self.on_save):
-            self.on_save(order)
-        # Close via unified back handler
-        try:
-            self._go_back()
-        except Exception:
-            self.destroy()
+        cb = getattr(self, "on_save", None)
+        if callable(cb):
+            cb(order)
+        self._go_back()
 
 
 class MKLOrderEditorView(ttk.Frame):
@@ -376,32 +462,58 @@ class MKLOrderEditorView(ttk.Frame):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        # Row 4: entries with +/- and колесо
+        sph_box = ttk.Frame(card)
+        sph_box.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_box.columnconfigure(1, weight=1)
+        ttk.Button(sph_box, text="−", width=3, command=lambda: self._nudge("sph", -0.25)).grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_box, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(sph_box, text="+", width=3, command=lambda: self._nudge("sph", +0.25)).grid(row=0, column=2, sticky="e")
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+        self._bind_mouse_wheel(self.sph_entry, step=0.25, field="sph")
+
+        cyl_box = ttk.Frame(card)
+        cyl_box.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_box.columnconfigure(1, weight=1)
+        ttk.Button(cyl_box, text="−", width=3, command=lambda: self._nudge("cyl", -0.25)).grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_box, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(cyl_box, text="+", width=3, command=lambda: self._nudge("cyl", +0.25)).grid(row=0, column=2, sticky="e")
         cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+        self._bind_mouse_wheel(self.cyl_entry, step=0.25, field="cyl")
 
         # Row 5: labels
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
         ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
-        # Row 6: entries
-        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=6, column=0, sticky="ew", padx=(0, 8))
-        self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
-        self.bc_entry.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        # Row 6: enhanced inputs
+        ax_box = ttk.Frame(card)
+        ax_box.grid(row=6, column=0, sticky="ew", padx=(0, 8))
+        ax_box.columnconfigure(1, weight=1)
+        ttk.Button(ax_box, text="−", width=3, command=lambda: self._nudge_int("ax", -1, 0, 180, wrap=True)).grid(row=0, column=0, sticky="w")
+        self.ax_entry = ttk.Entry(ax_box, textvariable=self.ax_var)
+        self.ax_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(ax_box, text="+", width=3, command=lambda: self._nudge_int("ax", +1, 0, 180, wrap=True)).grid(row=0, column=2, sticky="e")
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
+        self._bind_mouse_wheel(self.ax_entry, step=1, field="ax", integer=True, min_v=0, max_v=180, wrap=True)
+
+        bc_box = ttk.Frame(card)
+        bc_box.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        bc_box.columnconfigure(1, weight=1)
+        ttk.Button(bc_box, text="−", width=3, command=lambda: self._nudge("bc", -0.1, min_v=8.0, max_v=9.0)).grid(row=0, column=0, sticky="w")
+        self.bc_entry = ttk.Entry(bc_box, textvariable=self.bc_var)
+        self.bc_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(bc_box, text="+", width=3, command=lambda: self._nudge("bc", +0.1, min_v=8.0, max_v=9.0)).grid(row=0, column=2, sticky="e")
         bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 8.0, 9.0)), "%P")
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
+        self._bind_mouse_wheel(self.bc_entry, step=0.1, field="bc", min_v=8.0, max_v=9.0)
 
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
@@ -466,6 +578,67 @@ class MKLOrderEditorView(ttk.Frame):
                 except Exception:
                     pass
         widget.bind("<Delete>", lambda e: clear())
+
+    # Mouse wheel and nudge helpers for convenient input
+    def _bind_mouse_wheel(self, entry: ttk.Entry, step: float, field: str, integer: bool = False, min_v: float | None = None, max_v: float | None = None, wrap: bool = False):
+        try:
+            def on_wheel(event):
+                delta = 0
+                if hasattr(event, "delta") and event.delta:
+                    delta = 1 if event.delta > 0 else -1
+                else:
+                    # X11 uses Button-4/5
+                    delta = +1 if getattr(event, "num", 0) == 4 else -1
+                if integer:
+                    self._nudge_int(field, delta * int(step), int(min_v or 0), int(max_v or 0), wrap=wrap)
+                else:
+                    self._nudge(field, delta * step, min_v=min_v, max_v=max_v)
+                return "break"
+            # Windows/Mac
+            entry.bind("<MouseWheel>", on_wheel, add="+")
+            # Linux/X11
+            entry.bind("<Button-4>", on_wheel, add="+")
+            entry.bind("<Button-5>", on_wheel, add="+")
+        except Exception:
+            pass
+
+    def _nudge(self, field: str, delta: float, min_v: float | None = None, max_v: float | None = None):
+        var = {"sph": self.sph_var, "cyl": self.cyl_var, "bc": self.bc_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").replace(",", ".").strip()
+        try:
+            val = float(txt) if txt != "" else 0.0
+        except ValueError:
+            val = 0.0
+        val += delta
+        if min_v is not None:
+            val = max(min_v, val)
+        if max_v is not None:
+            val = min(max_v, val)
+        # Snap by step
+        step = 0.25 if field in {"sph", "cyl"} else 0.1
+        snapped = round(round((val - (min_v or 0.0)) / step) * step + (min_v or 0.0), 2)
+        var.set(f"{snapped:.2f}".replace(".", ","))
+
+    def _nudge_int(self, field: str, delta: int, min_v: int, max_v: int, wrap: bool = False):
+        var = {"ax": self.ax_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").strip()
+        try:
+            val = int(float(txt.replace(",", "."))) if txt != "" else 0
+        except ValueError:
+            val = 0
+        val += delta
+        if wrap:
+            if val < min_v:
+                val = max_v
+            elif val > max_v:
+                val = min_v
+        else:
+            val = max(min_v, min(max_v, val))
+        var.set(str(val))
 
     # Validation helpers
     def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
@@ -534,13 +707,13 @@ class MKLOrderEditorView(ttk.Frame):
         if "—" in t:
             parts = t.split("—", 1)
             fio = parts[0].strip()
-            phone_digits = re.sub(r"\\D", "", parts[1])
+            phone_digits = re.sub(r"\D", "", parts[1])
             return fio, phone_digits
         term = t.lower()
         for c in self.clients:
             if term in c.get("fio", "").lower() or term in c.get("phone", "").lower():
                 return c.get("fio", ""), c.get("phone", "")
-        return t, re.sub(r"\\D", "", t)
+        return t, re.sub(r"\D", "", t)
 
     def _parse_product(self, text: str) -> str:
         t = (text or "").strip()

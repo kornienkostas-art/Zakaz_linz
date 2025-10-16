@@ -185,43 +185,56 @@ class MeridianItemForm(tk.Toplevel):
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        def _fmt_val(v: float) -> str:
-            v = round(v, 2)
-            if abs(v) < 1e-9:
-                return "0"
-            s = f"{v:.2f}".replace(".", ",")
-            s = s.rstrip("0").rstrip(",")
-            return s
-        def _centered_display_values(max_abs: float, step: float = 0.25) -> list[str]:
-            neg = [-(i * step) for i in range(int(max_abs / step), 0, -1)]
-            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
-            return [_fmt_val(v) for v in neg] + ["0"] + [_fmt_val(v) for v in pos]
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=3, column=0, sticky="ew")
+        sph_box = ttk.Frame(card)
+        sph_box.grid(row=3, column=0, sticky="ew")
+        sph_box.columnconfigure(1, weight=1)
+        ttk.Button(sph_box, text="−", width=3, command=lambda: self._nudge("sph", -0.25)).grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_box, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(sph_box, text="+", width=3, command=lambda: self._nudge("sph", +0.25)).grid(row=0, column=2, sticky="e")
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+        self._bind_mouse_wheel(self.sph_entry, step=0.25, field="sph")
 
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=3, column=1, sticky="ew")
+        cyl_box = ttk.Frame(card)
+        cyl_box.grid(row=3, column=1, sticky="ew")
+        cyl_box.columnconfigure(1, weight=1)
+        ttk.Button(cyl_box, text="−", width=3, command=lambda: self._nudge("cyl", -0.25)).grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_box, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(cyl_box, text="+", width=3, command=lambda: self._nudge("cyl", +0.25)).grid(row=0, column=2, sticky="e")
         cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+        self._bind_mouse_wheel(self.cyl_entry, step=0.25, field="cyl")
 
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=5, column=0, sticky="ew")
+        ax_box = ttk.Frame(card)
+        ax_box.grid(row=5, column=0, sticky="ew")
+        ax_box.columnconfigure(1, weight=1)
+        ttk.Button(ax_box, text="−", width=3, command=lambda: self._nudge_int("ax", -1, 0, 180, wrap=True)).grid(row=0, column=0, sticky="w")
+        self.ax_entry = ttk.Entry(ax_box, textvariable=self.ax_var)
+        self.ax_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(ax_box, text="+", width=3, command=lambda: self._nudge_int("ax", +1, 0, 180, wrap=True)).grid(row=0, column=2, sticky="e")
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
+        self._bind_mouse_wheel(self.ax_entry, step=1, field="ax", integer=True, min_v=0, max_v=180, wrap=True)
 
         ttk.Label(card, text="D (40…90, шаг 5) — в экспорте добавляется 'мм'", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8, 0))
-        self.d_entry = ttk.Entry(card, textvariable=self.d_var)
-        self.d_entry.grid(row=5, column=1, sticky="ew")
+        d_box = ttk.Frame(card)
+        d_box.grid(row=5, column=1, sticky="ew")
+        d_box.columnconfigure(1, weight=1)
+        ttk.Button(d_box, text="−", width=3, command=lambda: self._nudge_d(-5)).grid(row=0, column=0, sticky="w")
+        self.d_entry = ttk.Entry(d_box, textvariable=self.d_var)
+        self.d_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Button(d_box, text="+", width=3, command=lambda: self._nudge_d(+5)).grid(row=0, column=2, sticky="e")
         d_vcmd = (self.register(self._vc_int_relaxed), "%P")
         self.d_entry.configure(validate="key", validatecommand=d_vcmd)
         self.d_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("d"))
+        self._bind_mouse_wheel(self.d_entry, step=5, field="d", integer=True, min_v=40, max_v=90, wrap=False)
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=6, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
@@ -264,6 +277,75 @@ class MeridianItemForm(tk.Toplevel):
         if v in {"+", "-"}:
             return True
         return v.isdigit()
+
+    # Удобный ввод: колесо мыши и кнопки +/- для полей
+    def _bind_mouse_wheel(self, entry: ttk.Entry, step: float, field: str, integer: bool = False, min_v: float | None = None, max_v: float | None = None, wrap: bool = False):
+        try:
+            def on_wheel(event):
+                delta = 0
+                if hasattr(event, "delta") and event.delta:
+                    delta = 1 if event.delta > 0 else -1
+                else:
+                    delta = +1 if getattr(event, "num", 0) == 4 else -1
+                if integer:
+                    self._nudge_int(field, delta * int(step), int(min_v or 0), int(max_v or 0), wrap=wrap)
+                else:
+                    self._nudge(field, delta * step, min_v=min_v, max_v=max_v)
+                return "break"
+            entry.bind("<MouseWheel>", on_wheel, add="+")
+            entry.bind("<Button-4>", on_wheel, add="+")
+            entry.bind("<Button-5>", on_wheel, add="+")
+        except Exception:
+            pass
+
+    def _nudge(self, field: str, delta: float, min_v: float | None = None, max_v: float | None = None):
+        var = {"sph": self.sph_var, "cyl": self.cyl_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").replace(",", ".").strip()
+        try:
+            val = float(txt) if txt != "" else 0.0
+        except ValueError:
+            val = 0.0
+        val += delta
+        if min_v is not None:
+            val = max(min_v, val)
+        if max_v is not None:
+            val = min(max_v, val)
+        step = 0.25
+        snapped = round(round((val - (min_v or -30.0)) / step) * step + (min_v or -30.0), 2)
+        var.set(f"{snapped:.2f}".replace(".", ","))
+
+    def _nudge_int(self, field: str, delta: int, min_v: int, max_v: int, wrap: bool = False):
+        var = {"ax": self.ax_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").strip()
+        try:
+            val = int(float(txt.replace(",", "."))) if txt != "" else 0
+        except ValueError:
+            val = 0
+        val += delta
+        if wrap:
+            if val < min_v:
+                val = max_v
+            elif val > max_v:
+                val = min_v
+        else:
+            val = max(min_v, min(max_v, val))
+        var.set(str(val))
+
+    def _nudge_d(self, delta: int):
+        txt = (self.d_var.get() or "").strip()
+        try:
+            val = int(float(txt.replace(",", "."))) if txt != "" else 40
+        except ValueError:
+            val = 40
+        val += int(delta)
+        val = max(40, min(90, val))
+        # шаг 5 мм
+        val = int(round(val / 5.0) * 5)
+        self.d_var.set(str(val))
 
     def _apply_snap_for(self, field: str):
         if field == "sph":
