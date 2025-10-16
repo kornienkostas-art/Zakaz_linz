@@ -112,6 +112,13 @@ class PricesView(ttk.Frame):
     def _open_form(self, item=None):
         top = tk.Toplevel(self.master)
         top.title("Добавить прайс" if not item else "Редактировать прайс")
+        # Make dialog behave modally and stay above the main window
+        try:
+            top.transient(self.master)
+            top.grab_set()
+            top.focus_set()
+        except Exception:
+            pass
         set_initial_geometry(top, 520, 180, center_to=self.master)
         frm = ttk.Frame(top, padding=16)
         frm.pack(fill="both", expand=True)
@@ -129,14 +136,21 @@ class PricesView(ttk.Frame):
         ttk.Entry(row, textvariable=path_var).grid(row=0, column=0, sticky="ew")
         def _browse():
             p = filedialog.askopenfilename(
+                parent=top,
                 title="Выберите файл прайса",
                 filetypes=[
+                    ("Все файлы", "*.*"),
                     ("Excel", "*.xlsx;*.xls"),
                     ("Текст", "*.txt;*.csv"),
                     ("PDF", "*.pdf"),
-                    ("Все файлы", "*.*"),
                 ]
             )
+            # Bring the dialog back to front and focus it
+            try:
+                top.lift()
+                top.focus_force()
+            except Exception:
+                pass
             if p:
                 path_var.set(p)
         ttk.Button(row, text="Обзор…", command=_browse).grid(row=0, column=1, padx=(8, 0))
@@ -147,19 +161,23 @@ class PricesView(ttk.Frame):
             name = (name_var.get() or "").strip()
             path = (path_var.get() or "").strip()
             if not name or not path:
-                messagebox.showerror("Прайсы", "Укажите название и файл.")
+                messagebox.showerror("Прайсы", "Укажите название и файл.", parent=top)
                 return
             try:
                 if item:
                     self.db.update_price(item["id"], name, path)
                 else:
                     self.db.add_price(name, path)
+                try:
+                    top.grab_release()
+                except Exception:
+                    pass
                 top.destroy()
                 self._reload()
             except Exception as e:
-                messagebox.showerror("Прайсы", f"Не удалось сохранить:\n{e}")
+                messagebox.showerror("Прайсы", f"Не удалось сохранить:\n{e}", parent=top)
         ttk.Button(btns, text="Сохранить", command=_ok).pack(side="right")
-        ttk.Button(btns, text="Отмена", command=top.destroy).pack(side="right", padx=(8, 0))
+        ttk.Button(btns, text="Отмена", command=lambda: (top.grab_release() if True else None) or top.destroy()).pack(side="right", padx=(8, 0))
 
     def _open_selected(self):
         pid = self._selected_id()
