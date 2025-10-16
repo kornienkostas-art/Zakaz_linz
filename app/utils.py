@@ -97,3 +97,45 @@ def format_phone_mask(raw: str) -> str:
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
 
 
+def bind_text_hotkeys(root: tk.Misc):
+    """
+    Enable standard Windows hotkeys for text input widgets across the app:
+    - Ctrl+C / Ctrl+Insert: Copy
+    - Ctrl+V / Shift+Insert: Paste
+    - Ctrl+X / Shift+Delete: Cut
+    - Ctrl+A: Select all
+    - Delete: Clear selection (if any)
+    Applies to Entry, TEntry, Spinbox, TSpinbox, Combobox, TCombobox and Text.
+    """
+    try:
+        classes = ("Entry", "TEntry", "Spinbox", "TSpinbox", "Combobox", "TCombobox", "Text")
+        def _bind(cls: str, sequence: str, virtual: str):
+            try:
+                root.bind_class(cls, sequence, lambda e, v=virtual: (e.widget.event_generate(v), "break"))
+            except Exception:
+                pass
+
+        # Copy
+        for seq in ("<Control-c>", "<Control-C>", "<Control-Insert>"):
+            for cls in classes:
+                _bind(cls, seq, "<<Copy>>")
+        # Paste
+        for seq in ("<Control-v>", "<Control-V>", "<Shift-Insert>"):
+            for cls in classes:
+                _bind(cls, seq, "<<Paste>>")
+        # Cut
+        for seq in ("<Control-x>", "<Control-X>", "<Shift-Delete>"):
+            for cls in classes:
+                _bind(cls, seq, "<<Cut>>")
+        # Select all
+        for seq in ("<Control-a>", "<Control-A>"):
+            for cls in classes:
+                _bind(cls, seq, "<<SelectAll>>")
+        # Delete selection
+        for cls in classes:
+            _bind(cls, "<Delete>", "<<Clear>>")
+    except Exception:
+        # Do not fail the app if bindings cannot be applied
+        pass
+
+
