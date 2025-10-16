@@ -24,7 +24,7 @@ def ensure_settings(path: str):
                 {
                     "version": 1,
                     "ui_scale": 1.25,
-                    "ui_font_size": 17,
+                    "ui_font_size": 15,
                     "export_path": export_path,
                     "tray_enabled": True,
                     "minimize_to_tray": True,
@@ -61,7 +61,7 @@ def load_settings(path: str) -> dict:
             # Fill missing keys with defaults
             defaults = {
                 "ui_scale": 1.25,
-                "ui_font_size": 17,
+                "ui_font_size": 15,
                 "tray_enabled": True,
                 "minimize_to_tray": True,
                 "start_in_tray": True,

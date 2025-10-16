@@ -30,8 +30,8 @@ class MainWindow:
         # Configure large button style for better visibility
         try:
             style = ttk.Style(self.root)
-            # Base font larger and bold
-            big_font = ("Segoe UI", 16, "bold")
+            # Base font bold, aligned with global default size 15
+            big_font = ("Segoe UI", 15, "bold")
             # Fallback: if Segoe UI not available, Tk will substitute
             style.configure("Big.TButton", font=big_font, padding=(24, 16))
         except Exception:
