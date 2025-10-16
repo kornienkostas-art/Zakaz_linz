@@ -8,7 +8,6 @@ from tkinter import font as tkfont
 from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
-from app.utils import bind_text_hotkeys
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -167,11 +166,6 @@ def main():
         pass
 
     root = tk.Tk()
-    # Global text hotkeys (Win 10/11): Ctrl+C/V/X, Ctrl+A, Delete, etc.
-    try:
-        bind_text_hotkeys(root)
-    except Exception:
-        pass
 
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
