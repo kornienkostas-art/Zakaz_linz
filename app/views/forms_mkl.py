@@ -66,7 +66,7 @@ class OrderForm(tk.Toplevel):
         self._build_ui()
 
         # Hotkeys: Esc closes form
-        self.bind("<Escape>", lambda e: self.destroy())
+        self.bind("<Escape>", lambda e: self._cancel())
 
     
     def _build_ui(self):
@@ -336,6 +336,19 @@ class OrderForm(tk.Toplevel):
             self._go_back()
         except Exception:
             self.destroy()
+
+    def _cancel(self):
+        try:
+            self.destroy()
+        finally:
+            try:
+                parent = self.master
+                if hasattr(parent, "deiconify"):
+                    parent.deiconify()
+                if hasattr(parent, "focus_set"):
+                    parent.focus_set()
+            except Exception:
+                pass
 
 
 class MKLOrderEditorView(ttk.Frame):
