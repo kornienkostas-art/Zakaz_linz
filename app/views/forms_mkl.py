@@ -115,11 +115,41 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+
+        # Local nudge for buttons inside this method
+        def _nudge_local(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+
+        # Row 4: entries with inline − / + controls
+        sph_row = ttk.Frame(card, style="Card.TFrame")
+        sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_row.columnconfigure(1, weight=1)
+        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+
+        cyl_row = ttk.Frame(card, style="Card.TFrame")
+        cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.columnconfigure(1, weight=1)
+        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
@@ -162,7 +192,14 @@ class OrderForm(tk.Toplevel):
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
-    # Helpers
+    def _go_back(self):
+        try:
+            self.destroy()
+        finally:
+            if callable(self.on_back):
+                self.on_back()
+
+    # Helpers: values for combo and filtering
     def _client_values(self):
         values = []
         for c in self.clients:
@@ -370,29 +407,6 @@ class MKLOrderEditorView(ttk.Frame):
                 self.qty_var.set(1)
 
         self._build_ui()
-        # Быстрые +/- для SPH/CYL через клавиши (локальные биндинги)
-        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
-            txt = (var.get() or "").replace(",", ".").strip()
-            if txt == "":
-                cur = 0.0
-            else:
-                try:
-                    cur = float(txt)
-                except ValueError:
-                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
-            cur += step * (1 if direction >= 0 else -1)
-            cur = max(min_v, min(max_v, cur))
-            steps = round((cur - min_v) / step)
-            snapped = min_v + steps * step
-            snapped = max(min_v, min(max_v, snapped))
-            var.set(f"{snapped:.2f}")
-        if hasattr(self, "sph_entry") and hasattr(self, "cyl_entry"):
-            for seq in ("<KeyPress-plus>", "<KeyPress-KP_Add>", "<KeyPress-=>"):
-                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, +1), "break"))
-                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, +1), "break"))
-            for seq in ("<KeyPress-minus>", "<KeyPress-KP_Subtract>"):
-                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, -1), "break"))
-                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, -1), "break"))
 
     def _build_ui(self):
         # Toolbar with back
@@ -419,14 +433,42 @@ class MKLOrderEditorView(ttk.Frame):
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
+        # Local nudge for +/- buttons
+        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        # Row 4: entries with inline − / + controls
+        sph_row = ttk.Frame(card, style="Card.TFrame")
+        sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_row.columnconfigure(1, weight=1)
+        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+
+        cyl_row = ttk.Frame(card, style="Card.TFrame")
+        cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.columnconfigure(1, weight=1)
+        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
@@ -580,13 +622,13 @@ class MKLOrderEditorView(ttk.Frame):
         if "—" in t:
             parts = t.split("—", 1)
             fio = parts[0].strip()
-            phone_digits = re.sub(r"\\D", "", parts[1])
+            phone_digits = re.sub(r"\D", "", parts[1])
             return fio, phone_digits
         term = t.lower()
         for c in self.clients:
             if term in c.get("fio", "").lower() or term in c.get("phone", "").lower():
                 return c.get("fio", ""), c.get("phone", "")
-        return t, re.sub(r"\\D", "", t)
+        return t, re.sub(r"\D", "", t)
 
     def _parse_product(self, text: str) -> str:
         t = (text or "").strip()

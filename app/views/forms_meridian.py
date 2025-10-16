@@ -161,29 +161,6 @@ class MeridianItemForm(tk.Toplevel):
         self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
 
         self._build_ui()
-        # Быстрые +/- для SPH/CYL через клавиши (локальные биндинги)
-        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
-            txt = (var.get() or "").replace(",", ".").strip()
-            if txt == "":
-                cur = 0.0
-            else:
-                try:
-                    cur = float(txt)
-                except ValueError:
-                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
-            cur += step * (1 if direction >= 0 else -1)
-            cur = max(min_v, min(max_v, cur))
-            steps = round((cur - min_v) / step)
-            snapped = min_v + steps * step
-            snapped = max(min_v, min(max_v, snapped))
-            var.set(f"{snapped:.2f}")
-        if hasattr(self, "sph_entry") and hasattr(self, "cyl_entry"):
-            for seq in ("<KeyPress-plus>", "<KeyPress-KP_Add>", "<KeyPress-=>"):
-                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, +1), "break"))
-                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, +1), "break"))
-            for seq in ("<KeyPress-minus>", "<KeyPress-KP_Subtract>"):
-                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, -1), "break"))
-                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, -1), "break"))
 
     def _product_values(self) -> list[str]:
         return [p.get("name", "") for p in self.products]
@@ -208,26 +185,45 @@ class MeridianItemForm(tk.Toplevel):
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        def _fmt_val(v: float) -> str:
-            v = round(v, 2)
-            if abs(v) < 1e-9:
-                return "0"
-            s = f"{v:.2f}".replace(".", ",")
-            s = s.rstrip("0").rstrip(",")
-            return s
-        def _centered_display_values(max_abs: float, step: float = 0.25) -> list[str]:
-            neg = [-(i * step) for i in range(int(max_abs / step), 0, -1)]
-            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
-            return [_fmt_val(v) for v in neg] + ["0"] + [_fmt_val(v) for v in pos]
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=3, column=0, sticky="ew")
+
+        # Local nudge function for +/- buttons
+        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+
+        # SPH row with − / +
+        sph_row = ttk.Frame(card, style="Card.TFrame")
+        sph_row.grid(row=3, column=0, sticky="ew")
+        sph_row.columnconfigure(1, weight=1)
+        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
 
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=3, column=1, sticky="ew")
+        # CYL row with − / +
+        cyl_row = ttk.Frame(card, style="Card.TFrame")
+        cyl_row.grid(row=3, column=1, sticky="ew")
+        cyl_row.columnconfigure(1, weight=1)
+        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
         cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
