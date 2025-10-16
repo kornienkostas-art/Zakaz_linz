@@ -184,17 +184,21 @@ class MeridianItemForm(tk.Toplevel):
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
+        self.sph_entry = ttk.Combobox(
+            card,
+            textvariable=self.sph_var,
+            values=[f"{v:+.2f}" for v in [round(-30.0 + i * 0.25, 2) for i in range(0, int((30.0 - (-30.0)) / 0.25) + 1)]],
+        )
         self.sph_entry.grid(row=3, column=0, sticky="ew")
-        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
-        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
 
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
+        self.cyl_entry = ttk.Combobox(
+            card,
+            textvariable=self.cyl_var,
+            values=[f"{v:+.2f}" for v in [round(-10.0 + i * 0.25, 2) for i in range(0, int((10.0 - (-10.0)) / 0.25) + 1)]],
+        )
         self.cyl_entry.grid(row=3, column=1, sticky="ew")
-        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
-        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
@@ -205,10 +209,12 @@ class MeridianItemForm(tk.Toplevel):
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
 
         ttk.Label(card, text="D (40…90, шаг 5) — в экспорте добавляется 'мм'", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8, 0))
-        self.d_entry = ttk.Entry(card, textvariable=self.d_var)
+        self.d_entry = ttk.Combobox(
+            card,
+            textvariable=self.d_var,
+            values=[str(v) for v in range(40, 91, 5)],
+        )
         self.d_entry.grid(row=5, column=1, sticky="ew")
-        d_vcmd = (self.register(self._vc_int_relaxed), "%P")
-        self.d_entry.configure(validate="key", validatecommand=d_vcmd)
         self.d_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("d"))
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=6, column=0, sticky="w", pady=(8, 0))
