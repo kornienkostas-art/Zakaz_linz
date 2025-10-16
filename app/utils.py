@@ -97,3 +97,87 @@ def format_phone_mask(raw: str) -> str:
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
 
 
+def install_copy_paste_bindings(root: tk.Tk):
+    """
+    Install global copy/paste/cut/select-all shortcuts that work across keyboard layouts
+    for common input widgets (Entry, Text, Combobox, Spinbox).
+
+    - Ctrl/Cmd + C/V/X/A
+    - Ctrl + Insert (Copy), Shift + Insert (Paste)
+    - Cyrillic equivalents: Ctrl + 'с','в','ч','а' (lower/upper)
+    """
+    try:
+        # Map shortcut to a virtual event generation on the focused widget
+        def _gen(event_name):
+            w = root.focus_get()
+            if not w:
+                return
+            try:
+                w.event_generate(event_name)
+            except Exception:
+                pass
+
+        def _copy(_e=None): _gen("<<Copy>>")
+        def _paste(_e=None): _gen("<<Paste>>")
+        def _cut(_e=None): _gen("<<Cut>>")
+        def _sel_all(_e=None):
+            w = root.focus_get()
+            if not w:
+                return
+            try:
+                # Try virtual first
+                w.event_generate("<<SelectAll>>")
+            except Exception:
+                # Fallback per widget types
+                try:
+                    if isinstance(w, (tk.Entry, tk.Spinbox, tk.Text, tk.ttk.Entry, tk.ttk.Combobox)):
+                        try:
+                            w.select_range(0, "end")
+                            w.icursor("end")
+                        except Exception:
+                            w.event_generate("<Control-Home>")
+                            w.event_generate("<Shift-End>")
+                except Exception:
+                    pass
+
+        # Base Latin bindings
+        for seq in ("<Control-c>", "<Control-C>", "<Control-Insert>"):
+            root.bind_all(seq, _copy)
+        for seq in ("<Control-v>", "<Control-V>", "<Shift-Insert>"):
+            root.bind_all(seq, _paste)
+        for seq in ("<Control-x>", "<Control-X>"):
+            root.bind_all(seq, _cut)
+        for seq in ("<Control-a>", "<Control-A>"):
+            root.bind_all(seq, _sel_all)
+
+        # MacOS Command key variants
+        for seq in ("<Command-c>", "<Command-C>"):
+            root.bind_all(seq, _copy)
+        for seq in ("<Command-v>", "<Command-V>"):
+            root.bind_all(seq, _paste)
+        for seq in ("<Command-x>", "<Command-X>"):
+            root.bind_all(seq, _cut)
+        for seq in ("<Command-a>", "<Command-A>"):
+            root.bind_all(seq, _sel_all)
+
+        # Cyrillic letter equivalents: 'с' (es), 'в' (ve), 'ч' (che), 'а' (a)
+        cyr_copy = ("<Control-с>", "<Control-С>")
+        cyr_paste = ("<Control-в>", "<Control-В>")
+        cyr_cut = ("<Control-ч>", "<Control-Ч>")
+        cyr_all = ("<Control-а>", "<Control-А>")
+        for seq in cyr_copy:
+            root.bind_all(seq, _copy)
+        for seq in cyr_paste:
+            root.bind_all(seq, _paste)
+        for seq in cyr_cut:
+            root.bind_all(seq, _cut)
+        for seq in cyr_all:
+            root.bind_all(seq, _sel_all)
+
+        # Also bind to Toplevels created later via 'bindtags' on root
+        # Tk will propagate bind_all to future widgets, so no extra work needed.
+    except Exception:
+        # Avoid breaking startup if platform doesn't support some sequences
+        pass
+
+
