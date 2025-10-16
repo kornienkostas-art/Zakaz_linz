@@ -98,7 +98,7 @@ class OrderForm(tk.Toplevel):
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
         # Row 4: entries
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
+        self.sph_entry = ttk.Combobox(card, textvariable=self.sph_var, values=[f"{v:+.2f}" for v in [round(-30.0 + i*0.25, 2) for i in range(0, int((30.0-(-30.0))/0.25)+1)]])
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
         self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
@@ -334,10 +334,11 @@ class MKLOrderEditorView(ttk.Frame):
         # Vars
         self.client_var = tk.StringVar()
         self.product_var = tk.StringVar()
-        self.sph_var = tk.StringVar(value="")
-        self.cyl_var = tk.StringVar(value="")
+        # Defaults
+        self.sph_var = tk.StringVar(value="0.00")
+        self.cyl_var = tk.StringVar(value="0.00")
         self.ax_var = tk.StringVar(value="")
-        self.bc_var = tk.StringVar(value="")
+        self.bc_var = tk.StringVar(value="8.6")
         self.qty_var = tk.IntVar(value=1)
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
         self.comment_var = tk.StringVar(value=(initial or {}).get("comment", ""))
@@ -386,16 +387,22 @@ class MKLOrderEditorView(ttk.Frame):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: entries
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
+        # Row 4: comboboxes for SPH/CYL
+        def _range_vals(start, stop, step):
+            vals = []
+            x = start
+            while x <= stop + 1e-9:
+                vals.append(f"{x:+.2f}")
+                x = round(x + step, 5)
+            return vals
+        sph_values = _range_vals(-30.0, 30.0, 0.25)
+        cyl_values = _range_vals(-10.0, 10.0, 0.25)
+
+        self.sph_entry = ttk.Combobox(card, textvariable=self.sph_var, values=sph_values)
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
+        self.cyl_entry = ttk.Combobox(card, textvariable=self.cyl_var, values=cyl_values)
         self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
-        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
-        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
-        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
-        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
         # Row 5: labels
