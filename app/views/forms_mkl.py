@@ -92,17 +92,54 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
-        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
-        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
-        self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
-        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
-        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
-        self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+
+        # Центрированный список значений вокруг 0.00
+        def _format_signed(val: float) -> str:
+            return f"{val:+.2f}"
+
+        def _centered_values(max_abs: float, step: float) -> list[str]:
+            count = int(round(max_abs / step))
+            neg = [-(i * step) for i in range(count, 0, -1)]
+            pos = [(i * step) for i in range(1, count + 1)]
+            return [_format_signed(v) for v in neg] + ["+0.00"] + [_format_signed(v) for v in pos]
+
+        # Dropdowns
+        self.sph_combo = ttk.Combobox(card, textvariable=self.sph_var, values=_centered_values(30.0, 0.25), height=12)
+        self.sph_combo.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        self.cyl_combo = ttk.Combobox(card, textvariable=self.cyl_var, values=_centered_values(10.0, 0.25), height=12)
+        self.cyl_combo.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+
+        # Нормализация при потере фокуса
+        self.sph_combo.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+        self.cyl_combo.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+
+        # При открытии — если пусто, ставим 0.00
+        def _ensure_zero_on_open(var: tk.StringVar):
+            v = (var.get() or "").strip()
+            if v == "":
+                var.set("+0.00")
+
+        for cb in (self.sph_combo, self.cyl_combo):
+            cb.bind("<Button-1>", lambda e, v=self.sph_var if e.widget is self.sph_combo else self.cyl_var: _ensure_zero_on_open(v))
+
+        # Прокрутка колесом: вверх +0.25, вниз -0.25
+        def _wheel_step(var: tk.StringVar, min_v: float, max_v: float, step: float, delta_up: bool):
+            s = (var.get() or "").replace(",", ".").strip()
+            try:
+                cur = float(s) if s else 0.0
+            except Exception:
+                cur = 0.0
+            cur += (step if delta_up else -step)
+            cur = max(min_v, min(max_v, round(cur * 4) / 4))
+            var.set(f"{cur:+.2f}")
+
+        def _bind_wheel(combo: ttk.Combobox, var: tk.StringVar, min_v: float, max_v: float, step: float):
+            combo.bind("<MouseWheel>", lambda e: (_wheel_step(var, min_v, max_v, step, e.delta > 0), "break"))
+            combo.bind("<Button-4>", lambda e: (_wheel_step(var, min_v, max_v, step, True), "break"))
+            combo.bind("<Button-5>", lambda e: (_wheel_step(var, min_v, max_v, step, False), "break"))
+
+        _bind_wheel(self.sph_combo, self.sph_var, -30.0, 30.0, 0.25)
+        _bind_wheel(self.cyl_combo, self.cyl_var, -10.0, 10.0, 0.25)
 
         # Row 5: labels
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
@@ -119,7 +156,7 @@ class OrderForm(tk.Toplevel):
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
+        for w in (self.client_combo, self.product_combo, self.sph_combo, self.cyl_combo, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
@@ -376,17 +413,54 @@ class MKLOrderEditorView(ttk.Frame):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
-        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
-        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
-        self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
-        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
-        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
-        self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+
+        # Центрированный список значений вокруг 0.00
+        def _format_signed(val: float) -> str:
+            return f"{val:+.2f}"
+
+        def _centered_values(max_abs: float, step: float) -> list[str]:
+            count = int(round(max_abs / step))
+            neg = [-(i * step) for i in range(count, 0, -1)]
+            pos = [(i * step) for i in range(1, count + 1)]
+            return [_format_signed(v) for v in neg] + ["+0.00"] + [_format_signed(v) for v in pos]
+
+        # Dropdowns
+        self.sph_combo = ttk.Combobox(card, textvariable=self.sph_var, values=_centered_values(30.0, 0.25), height=12)
+        self.sph_combo.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        self.cyl_combo = ttk.Combobox(card, textvariable=self.cyl_var, values=_centered_values(10.0, 0.25), height=12)
+        self.cyl_combo.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+
+        # Нормализация при потере фокуса
+        self.sph_combo.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+        self.cyl_combo.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+
+        # При открытии — если пусто, ставим 0.00
+        def _ensure_zero_on_open(var: tk.StringVar):
+            v = (var.get() or "").strip()
+            if v == "":
+                var.set("+0.00")
+
+        for cb in (self.sph_combo, self.cyl_combo):
+            cb.bind("<Button-1>", lambda e, v=self.sph_var if e.widget is self.sph_combo else self.cyl_var: _ensure_zero_on_open(v))
+
+        # Прокрутка колесом: вверх +0.25, вниз -0.25
+        def _wheel_step(var: tk.StringVar, min_v: float, max_v: float, step: float, delta_up: bool):
+            s = (var.get() or "").replace(",", ".").strip()
+            try:
+                cur = float(s) if s else 0.0
+            except Exception:
+                cur = 0.0
+            cur += (step if delta_up else -step)
+            cur = max(min_v, min(max_v, round(cur * 4) / 4))
+            var.set(f"{cur:+.2f}")
+
+        def _bind_wheel(combo: ttk.Combobox, var: tk.StringVar, min_v: float, max_v: float, step: float):
+            combo.bind("<MouseWheel>", lambda e: (_wheel_step(var, min_v, max_v, step, e.delta > 0), "break"))
+            combo.bind("<Button-4>", lambda e: (_wheel_step(var, min_v, max_v, step, True), "break"))
+            combo.bind("<Button-5>", lambda e: (_wheel_step(var, min_v, max_v, step, False), "break"))
+
+        _bind_wheel(self.sph_combo, self.sph_var, -30.0, 30.0, 0.25)
+        _bind_wheel(self.cyl_combo, self.cyl_var, -10.0, 10.0, 0.25)
 
         # Row 5: labels
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
@@ -403,7 +477,7 @@ class MKLOrderEditorView(ttk.Frame):
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
+        for w in (self.client_combo, self.product_combo, self.sph_combo, self.cyl_combo, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
@@ -534,13 +608,13 @@ class MKLOrderEditorView(ttk.Frame):
         if "—" in t:
             parts = t.split("—", 1)
             fio = parts[0].strip()
-            phone_digits = re.sub(r"\\D", "", parts[1])
+            phone_digits = re.sub(r"\D", "", parts[1])
             return fio, phone_digits
         term = t.lower()
         for c in self.clients:
             if term in c.get("fio", "").lower() or term in c.get("phone", "").lower():
                 return c.get("fio", ""), c.get("phone", "")
-        return t, re.sub(r"\\D", "", t)
+        return t, re.sub(r"\D", "", t)
 
     def _parse_product(self, text: str) -> str:
         t = (text or "").strip()

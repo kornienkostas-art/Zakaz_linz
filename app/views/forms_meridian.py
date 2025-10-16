@@ -185,29 +185,56 @@ class MeridianItemForm(tk.Toplevel):
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        def _fmt_val(v: float) -> str:
-            v = round(v, 2)
-            if abs(v) < 1e-9:
-                return "0"
-            s = f"{v:.2f}".replace(".", ",")
-            s = s.rstrip("0").rstrip(",")
-            return s
-        def _centered_display_values(max_abs: float, step: float = 0.25) -> list[str]:
-            neg = [-(i * step) for i in range(int(max_abs / step), 0, -1)]
-            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
-            return [_fmt_val(v) for v in neg] + ["0"] + [_fmt_val(v) for v in pos]
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=3, column=0, sticky="ew")
-        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
-        self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
-        self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+
+        # Центрированный список вокруг 0.00
+        def _format_signed(val: float) -> str:
+            return f"{val:+.2f}"
+
+        def _centered_values(max_abs: float, step: float) -> list[str]:
+            count = int(round(max_abs / step))
+            neg = [-(i * step) for i in range(count, 0, -1)]
+            pos = [(i * step) for i in range(1, count + 1)]
+            return [_format_signed(v) for v in neg] + ["+0.00"] + [_format_signed(v) for v in pos]
+
+        # Dropdowns вместо обычных Entry
+        self.sph_combo = ttk.Combobox(card, textvariable=self.sph_var, values=_centered_values(30.0, 0.25), height=12)
+        self.sph_combo.grid(row=3, column=0, sticky="ew")
+        self.cyl_combo = ttk.Combobox(card, textvariable=self.cyl_var, values=_centered_values(10.0, 0.25), height=12)
+        self.cyl_combo.grid(row=3, column=1, sticky="ew")
+
+        # Нормализация и замена запятой на точку при потере фокуса
+        self.sph_combo.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
+        self.cyl_combo.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
+
+        # Если пусто — при открытии ставим 0.00
+        def _ensure_zero_on_open(var: tk.StringVar):
+            v = (var.get() or "").strip()
+            if v == "":
+                var.set("+0.00")
+
+        for cb in (self.sph_combo, self.cyl_combo):
+            cb.bind("<Button-1>", lambda e, v=self.sph_var if e.widget is self.sph_combo else self.cyl_var: _ensure_zero_on_open(v))
+
+        # Прокрутка колесом: вверх +0.25, вниз -0.25
+        def _wheel_step(var: tk.StringVar, min_v: float, max_v: float, step: float, delta_up: bool):
+            s = (var.get() or "").replace(",", ".").strip()
+            try:
+                cur = float(s) if s else 0.0
+            except Exception:
+                cur = 0.0
+            cur += (step if delta_up else -step)
+            cur = max(min_v, min(max_v, round(cur * 4) / 4))
+            var.set(f"{cur:+.2f}")
+
+        def _bind_wheel(combo: ttk.Combobox, var: tk.StringVar, min_v: float, max_v: float, step: float):
+            combo.bind("<MouseWheel>", lambda e: (_wheel_step(var, min_v, max_v, step, e.delta > 0), "break"))
+            combo.bind("<Button-4>", lambda e: (_wheel_step(var, min_v, max_v, step, True), "break"))
+            combo.bind("<Button-5>", lambda e: (_wheel_step(var, min_v, max_v, step, False), "break"))
+
+        _bind_wheel(self.sph_combo, self.sph_var, -30.0, 30.0, 0.25)
+        _bind_wheel(self.cyl_combo, self.cyl_var, -10.0, 10.0, 0.25)
 
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=3, column=1, sticky="ew")
-        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
-        self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
-        self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
         self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
