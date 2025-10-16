@@ -92,7 +92,7 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
+        # Row 4: entries (оставляем базовые Entry, но добавим прокрутку/кнопки ниже)
         self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
@@ -119,23 +119,42 @@ class OrderForm(tk.Toplevel):
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
+        # Улучшения ввода: прокрутка, Ctrl+стрелки, кнопки +/- рядом
+        self._bind_spin_for_entry(self.sph_entry, step=0.25, lo=-30.0, hi=30.0, round_to=0.25, signed=True)
+        self._bind_spin_for_entry(self.cyl_entry, step=0.25, lo=-10.0, hi=10.0, round_to=0.25, signed=True)
+        self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, signed=False)
+        self._bind_spin_for_entry(self.bc_entry, step=0.1, lo=8.0, hi=9.0, round_to=0.1, signed=True)
+        # Кнопки +/- (под полями)
+        stepper_row = ttk.Frame(card)
+        stepper_row.grid(row=7, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        def make_stepper(label, entry, step, lo, hi, round_to, signed):
+            box = ttk.Frame(stepper_row); box.pack(side="left", padx=(0, 12))
+            ttk.Label(box, text=label).pack(side="left")
+            ttk.Button(box, text="−", width=2, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, signed)))).pack(side="left", padx=(6,2))
+            ttk.Button(box, text="+", width=2, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, signed)))).pack(side="left")
+        make_stepper("SPH", self.sph_entry, 0.25, -30.0, 30.0, 0.25, True)
+        make_stepper("CYL", self.cyl_entry, 0.25, -10.0, 10.0, 0.25, True)
+        make_stepper("AX", self.ax_entry, 1.0, 0.0, 180.0, 1.0, False)
+        make_stepper("BC", self.bc_entry, 0.1, 8.0, 9.0, 0.1, True)
+
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
-        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=8, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.grid(row=8, column=0, sticky="w")
+        self.qty_spin.grid(row=9, column=0, sticky="w")
 
         # Comment field
-        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=8, column=1, sticky="w", pady=(8, 0))
         self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
-        self.comment_entry.grid(row=8, column=1, sticky="ew")
+        self.comment_entry.grid(row=9, column=1, sticky="ew")
 
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
-        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        footer.grid(row=10, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        ttk.Button(btns, text="Вставить из буфера", style="Menu.TButton", command=self._paste_from_clipboard).pack(side="left")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
@@ -261,44 +280,96 @@ class OrderForm(tk.Toplevel):
                 return p.get("name", "")
         return t
 
-    def _save(self):
-        fio, phone = self._parse_client(self.client_var.get())
-        product = self._parse_product(self.product_var.get())
+    # --- Steppers and clipboard helpers reused in both classes ---
 
-        sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=False)
-        cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
-        ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
-        bc = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
-        qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
-        status = "Не заказан" if self.is_new else (self.status_var.get() or "Не заказан").strip()
+    def _step_value(self, cur: str, step: float, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        def _parse_num(s: str):
+            s = (s or "").replace(",", ".").strip()
+            if not s:
+                return 0.0
+            try:
+                return float(s)
+            except Exception:
+                return 0.0
+        v = _parse_num(cur) + step
+        v = max(lo, min(hi, v))
+        if round_to:
+            v = round(v / round_to) * round_to
+        return (f"{v:+.2f}" if signed else str(int(round(v))))
 
-        if not fio:
-            messagebox.showinfo("Проверка", "Выберите или введите клиента.")
-            return
-        if not product:
-            messagebox.showinfo("Проверка", "Выберите или введите товар.")
-            return
+    def _normalize_value(self, cur: str, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        return self._step_value(cur, 0.0, lo, hi, round_to, signed)
 
-        order = {
-            "fio": fio,
-            "phone": phone,
-            "product": product,
-            "sph": sph,
-            "cyl": cyl,
-            "ax": ax,
-            "bc": bc,
-            "qty": qty,
-            "status": status,
-            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "comment": (self.comment_var.get() or "").strip(),
-        }
-        if callable(self.on_save):
-            self.on_save(order)
-        # Close via unified back handler
+    def _bind_spin_for_entry(self, entry: ttk.Entry, step: float, lo: float, hi: float, round_to: float, signed: bool):
+        def on_wheel(event):
+            delta = 0
+            if event.num == 4:
+                delta = +1
+            elif event.num == 5:
+                delta = -1
+            else:
+                delta = +1 if event.delta > 0 else -1
+            cur = entry.get()
+            new = self._step_value(cur, delta * step, lo, hi, round_to, signed)
+            try:
+                entry.delete(0, "end"); entry.insert(0, new)
+            except Exception:
+                pass
+            return "break"
+        entry.bind("<MouseWheel>", on_wheel)
+        entry.bind("<Button-4>", on_wheel)
+        entry.bind("<Button-5>", on_wheel)
+
+        def on_key(event):
+            if (event.state & 0x4) != 0:  # Ctrl
+                if event.keysym in ("Up", "KP_Up"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, signed))
+                    return "break"
+                if event.keysym in ("Down", "KP_Down"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, signed))
+                    return "break"
+            return None
+        entry.bind("<KeyPress>", on_key)
+
+        entry.bind("<FocusOut>", lambda e: (entry.delete(0, "end"), entry.insert(0, self._normalize_value(entry.get(), lo, hi, round_to, signed))))
+
+    def _paste_from_clipboard(self):
         try:
-            self._go_back()
+            text = self.clipboard_get()
         except Exception:
-            self.destroy()
+            return
+        if not text:
+            return
+        import re
+        s = text.replace(",", ".")
+        # Try labels
+        def pick(label, fallback_idx=None):
+            m = re.search(label + r"\s*([+\-]?\d+(?:\.\d+)?)", s, re.I)
+            return m.group(1) if m else None
+        sph = pick(r"Sph") or None
+        cyl = pick(r"Cyl") or None
+        ax = None
+        m = re.search(r"(?:Ax|Axis|x|×)\s*(\d{1,3})", s, re.I)
+        if m:
+            ax = m.group(1)
+        if not (sph and cyl and ax):
+            nums = re.findall(r"[+\-]?\d+(?:\.\d+)?", s)
+            if len(nums) >= 3:
+                sph = sph or nums[0]
+                cyl = cyl or nums[1]
+                ax = ax or nums[2]
+        def norm_s(v, lo, hi, step, signed):
+            try:
+                f = float(str(v).strip())
+            except Exception:
+                f = 0.0
+            f = max(lo, min(hi, f))
+            if step:
+                f = round(f / step) * step
+            return (f"{f:+.2f}" if signed else str(int(round(f))))
+        if sph: self.sph_var.set(norm_s(sph, -30.0, 30.0, 0.25, True))
+        if cyl: self.cyl_var.set(norm_s(cyl, -10.0, 10.0, 0.25, True))
+        if ax:  self.ax_var.set(norm_s(ax, 0.0, 180.0, 1.0, False))
 
 
 class MKLOrderEditorView(ttk.Frame):
@@ -347,6 +418,97 @@ class MKLOrderEditorView(ttk.Frame):
                 self.qty_var.set(1)
 
         self._build_ui()
+
+    # --- Steppers and wheel helpers (dup across classes to stay self-contained) ---
+
+    def _step_value(self, cur: str, step: float, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        def _parse_num(s: str):
+            s = (s or "").replace(",", ".").strip()
+            if not s:
+                return 0.0
+            try:
+                return float(s)
+            except Exception:
+                return 0.0
+        v = _parse_num(cur) + step
+        v = max(lo, min(hi, v))
+        if round_to:
+            v = round(v / round_to) * round_to
+        return (f"{v:+.2f}" if signed else str(int(round(v))))
+
+    def _normalize_value(self, cur: str, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        return self._step_value(cur, 0.0, lo, hi, round_to, signed)
+
+    def _bind_spin_for_entry(self, entry: ttk.Entry, step: float, lo: float, hi: float, round_to: float, signed: bool):
+        def on_wheel(event):
+            delta = 0
+            if event.num == 4:
+                delta = +1
+            elif event.num == 5:
+                delta = -1
+            else:
+                delta = +1 if event.delta > 0 else -1
+            cur = entry.get()
+            new = self._step_value(cur, delta * step, lo, hi, round_to, signed)
+            try:
+                entry.delete(0, "end"); entry.insert(0, new)
+            except Exception:
+                pass
+            return "break"
+        entry.bind("<MouseWheel>", on_wheel)
+        entry.bind("<Button-4>", on_wheel)
+        entry.bind("<Button-5>", on_wheel)
+
+        def on_key(event):
+            if (event.state & 0x4) != 0:  # Ctrl
+                if event.keysym in ("Up", "KP_Up"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, signed))
+                    return "break"
+                if event.keysym in ("Down", "KP_Down"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, signed))
+                    return "break"
+            return None
+        entry.bind("<KeyPress>", on_key)
+
+        entry.bind("<FocusOut>", lambda e: (entry.delete(0, "end"), entry.insert(0, self._normalize_value(entry.get(), lo, hi, round_to, signed))))
+
+    def _paste_from_clipboard(self):
+        try:
+            text = self.master.clipboard_get()
+        except Exception:
+            return
+        if not text:
+            return
+        import re
+        s = text.replace(",", ".")
+        # Try labels
+        def pick(label, fallback_idx=None):
+            m = re.search(label + r"\s*([+\-]?\d+(?:\.\d+)?)", s, re.I)
+            return m.group(1) if m else None
+        sph = pick(r"Sph") or None
+        cyl = pick(r"Cyl") or None
+        ax = None
+        m = re.search(r"(?:Ax|Axis|x|×)\s*(\d{1,3})", s, re.I)
+        if m:
+            ax = m.group(1)
+        if not (sph and cyl and ax):
+            nums = re.findall(r"[+\-]?\d+(?:\.\d+)?", s)
+            if len(nums) >= 3:
+                sph = sph or nums[0]
+                cyl = cyl or nums[1]
+                ax = ax or nums[2]
+        def norm_s(v, lo, hi, step, signed):
+            try:
+                f = float(str(v).strip())
+            except Exception:
+                f = 0.0
+            f = max(lo, min(hi, f))
+            if step:
+                f = round(f / step) * step
+            return (f"{f:+.2f}" if signed else str(int(round(f))))
+        if sph: self.sph_var.set(norm_s(sph, -30.0, 30.0, 0.25, True))
+        if cyl: self.cyl_var.set(norm_s(cyl, -10.0, 10.0, 0.25, True))
+        if ax:  self.ax_var.set(norm_s(ax, 0.0, 180.0, 1.0, False))
 
     def _build_ui(self):
         # Toolbar with back
@@ -403,6 +565,12 @@ class MKLOrderEditorView(ttk.Frame):
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
+        # Улучшения ввода
+        self._bind_spin_for_entry(self.sph_entry, step=0.25, lo=-30.0, hi=30.0, round_to=0.25, signed=True)
+        self._bind_spin_for_entry(self.cyl_entry, step=0.25, lo=-10.0, hi=10.0, round_to=0.25, signed=True)
+        self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, signed=False)
+        self._bind_spin_for_entry(self.bc_entry, step=0.1, lo=8.0, hi=9.0, round_to=0.1, signed=True)
+
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
@@ -419,7 +587,8 @@ class MKLOrderEditorView(ttk.Frame):
         self.comment_entry.grid(row=8, column=1, sticky="ew")
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        ttk.Button(btns, text="Вставить из буфера", style="Menu.TButton", command=self._paste_from_clipboard).pack(side="left")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 

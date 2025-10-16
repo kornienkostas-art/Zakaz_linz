@@ -172,6 +172,97 @@ class MeridianItemForm(tk.Toplevel):
             values = [v for v in values if term in v.lower()]
         self.product_combo["values"] = values
 
+    # --- Steppers and clipboard helpers ---
+
+    def _step_value(self, cur: str, step: float, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        def _parse_num(s: str):
+            s = (s or "").replace(",", ".").strip()
+            if not s:
+                return 0.0
+            try:
+                return float(s)
+            except Exception:
+                return 0.0
+        v = _parse_num(cur) + step
+        v = max(lo, min(hi, v))
+        if round_to:
+            v = round(v / round_to) * round_to
+        return (f"{v:+.2f}" if signed else str(int(round(v))))
+
+    def _normalize_value(self, cur: str, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        return self._step_value(cur, 0.0, lo, hi, round_to, signed)
+
+    def _bind_spin_for_entry(self, entry: ttk.Entry, step: float, lo: float, hi: float, round_to: float, signed: bool):
+        def on_wheel(event):
+            delta = 0
+            if event.num == 4:
+                delta = +1
+            elif event.num == 5:
+                delta = -1
+            else:
+                delta = +1 if event.delta > 0 else -1
+            cur = entry.get()
+            new = self._step_value(cur, delta * step, lo, hi, round_to, signed)
+            try:
+                entry.delete(0, "end"); entry.insert(0, new)
+            except Exception:
+                pass
+            return "break"
+        entry.bind("<MouseWheel>", on_wheel)
+        entry.bind("<Button-4>", on_wheel)
+        entry.bind("<Button-5>", on_wheel)
+
+        def on_key(event):
+            if (event.state & 0x4) != 0:  # Ctrl
+                if event.keysym in ("Up", "KP_Up"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, signed))
+                    return "break"
+                if event.keysym in ("Down", "KP_Down"):
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, signed))
+                    return "break"
+            return None
+        entry.bind("<KeyPress>", on_key)
+
+        entry.bind("<FocusOut>", lambda e: (entry.delete(0, "end"), entry.insert(0, self._normalize_value(entry.get(), lo, hi, round_to, signed))))
+
+    def _paste_from_clipboard(self):
+        try:
+            text = self.clipboard_get()
+        except Exception:
+            return
+        if not text:
+            return
+        import re
+        s = text.replace(",", ".")
+        # Try labels
+        def pick(label, fallback_idx=None):
+            m = re.search(label + r"\s*([+\-]?\d+(?:\.\d+)?)", s, re.I)
+            return m.group(1) if m else None
+        sph = pick(r"Sph") or None
+        cyl = pick(r"Cyl") or None
+        ax = None
+        m = re.search(r"(?:Ax|Axis|x|×)\s*(\d{1,3})", s, re.I)
+        if m:
+            ax = m.group(1)
+        if not (sph and cyl and ax):
+            nums = re.findall(r"[+\-]?\d+(?:\.\d+)?", s)
+            if len(nums) >= 3:
+                sph = sph or nums[0]
+                cyl = cyl or nums[1]
+                ax = ax or nums[2]
+        def norm_s(v, lo, hi, step, signed):
+            try:
+                f = float(str(v).strip())
+            except Exception:
+                f = 0.0
+            f = max(lo, min(hi, f))
+            if step:
+                f = round(f / step) * step
+            return (f"{f:+.2f}" if signed else str(int(round(f))))
+        if sph: self.sph_var.set(norm_s(sph, -30.0, 30.0, 0.25, True))
+        if cyl: self.cyl_var.set(norm_s(cyl, -10.0, 10.0, 0.25, True))
+        if ax:  self.ax_var.set(norm_s(ax, 0.0, 180.0, 1.0, False))
+
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -185,17 +276,6 @@ class MeridianItemForm(tk.Toplevel):
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        def _fmt_val(v: float) -> str:
-            v = round(v, 2)
-            if abs(v) < 1e-9:
-                return "0"
-            s = f"{v:.2f}".replace(".", ",")
-            s = s.rstrip("0").rstrip(",")
-            return s
-        def _centered_display_values(max_abs: float, step: float = 0.25) -> list[str]:
-            neg = [-(i * step) for i in range(int(max_abs / step), 0, -1)]
-            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
-            return [_fmt_val(v) for v in neg] + ["0"] + [_fmt_val(v) for v in pos]
         self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
         self.sph_entry.grid(row=3, column=0, sticky="ew")
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
@@ -227,8 +307,17 @@ class MeridianItemForm(tk.Toplevel):
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
         self.qty_spin.grid(row=7, column=0, sticky="w")
 
+        # Улучшения ввода: прокрутка, Ctrl+стрелки; кнопки внизу + буфер
+        self._bind_spin_for_entry(self.sph_entry, step=0.25, lo=-30.0, hi=30.0, round_to=0.25, signed=True)
+        self._bind_spin_for_entry(self.cyl_entry, step=0.25, lo=-10.0, hi=10.0, round_to=0.25, signed=True)
+        self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, signed=False)
+
+        actions = ttk.Frame(card, style="Card.TFrame")
+        actions.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        ttk.Button(actions, text="Вставить из буфера", style="Menu.TButton", command=self._paste_from_clipboard).pack(side="left")
+
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=8, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=9, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить позицию", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
 
