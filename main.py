@@ -517,26 +517,30 @@ def main():
     except Exception:
         pass
 
-    # Launch UI
-    if app_settings.get("tray_enabled", True) and app_settings.get("start_in_tray", True):
-        # Initialize UI, then start hidden in tray
-        try:
-            MainWindow(root)
-            root.main_initialized = True
-        except Exception:
-            pass
-        try:
-            root.withdraw()
-            _start_tray(root)
-        except Exception:
-            # Fallback to visible UI
-            MainWindow(root)
-            root.main_initialized = True
-            root.mainloop()
-            return
-    else:
+    # Launch UI — always start visible on Windows for double-click start reliability
+    try:
         MainWindow(root)
         root.main_initialized = True
+    except Exception:
+        root.main_initialized = False
+
+    # Force window visible, maximized, and brought to front
+    try:
+        root.deiconify()
+    except Exception:
+        pass
+    try:
+        root.state("zoomed")  # Windows maximize
+    except Exception:
+        try:
+            root.attributes("-zoomed", True)
+        except Exception:
+            pass
+    try:
+        root.attributes("-topmost", True)
+        root.after(400, lambda: root.attributes("-topmost", False))
+    except Exception:
+        pass
 
     root.mainloop()
 
