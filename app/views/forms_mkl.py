@@ -37,11 +37,11 @@ class OrderForm(tk.Toplevel):
         # Vars
         self.client_var = tk.StringVar()
         self.product_var = tk.StringVar()
-        # Defaults: Sph/Cyl start at 0.00, BC at 8.6
-        self.sph_var = tk.StringVar(value="0.00")
-        self.cyl_var = tk.StringVar(value="0.00")
+        # По умолчанию поля пустые; при открытии списка подсветим 0.00
+        self.sph_var = tk.StringVar(value="")
+        self.cyl_var = tk.StringVar(value="")
         self.ax_var = tk.StringVar(value="")
-        self.bc_var = tk.StringVar(value="8.6")
+        self.bc_var = tk.StringVar(value="")
         self.qty_var = tk.IntVar(value=1)
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
 
@@ -97,11 +97,35 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: entries
-        self.sph_entry = ttk.Combobox(card, textvariable=self.sph_var, values=[f"{v:+.2f}" for v in [round(-30.0 + i*0.25, 2) for i in range(0, int((30.0-(-30.0))/0.25)+1)]])
+        # Row 4: comboboxes with centered 0.00 (минусы сверху, плюсы снизу)
+        def _centered_signed_values(max_abs: float) -> list[str]:
+            # e.g. for step 0.25: -max..-0.25, +0.00, +0.25..+max
+            step = 0.25
+            neg = [-(i * step) for i in range(1, int(max_abs / step) + 1)]
+            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
+            values = [f"{v:+.2f}" for v in neg] + ["+0.00"] + [f"{v:+.2f}" for v in pos]
+            return values
+
+        sph_values = _centered_signed_values(30.0)
+        cyl_values = _centered_signed_values(10.0)
+
+        self.sph_entry = ttk.Combobox(card, textvariable=self.sph_var, values=sph_values)
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
+        self.cyl_entry = ttk.Combobox(card, textvariable=self.cyl_var, values=cyl_values)
         self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+
+        # При открытии списка, если поле пустое — подсвечиваем 0.00
+        def _center_on_open(combo: ttk.Combobox):
+            if (combo.get() or "").strip() == "":
+                try:
+                    combo.set("+0.00")
+                    combo.selection_range(0, tk.END)
+                except Exception:
+                    pass
+
+        self.sph_entry.configure(postcommand=lambda: _center_on_open(self.sph_entry))
+        self.cyl_entry.configure(postcommand=lambda: _center_on_open(self.cyl_entry))
+
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
@@ -334,11 +358,11 @@ class MKLOrderEditorView(ttk.Frame):
         # Vars
         self.client_var = tk.StringVar()
         self.product_var = tk.StringVar()
-        # Defaults
-        self.sph_var = tk.StringVar(value="0.00")
-        self.cyl_var = tk.StringVar(value="0.00")
+        # По умолчанию поля пустые; при открытии списка подсветим 0.00
+        self.sph_var = tk.StringVar(value="")
+        self.cyl_var = tk.StringVar(value="")
         self.ax_var = tk.StringVar(value="")
-        self.bc_var = tk.StringVar(value="8.6")
+        self.bc_var = tk.StringVar(value="")
         self.qty_var = tk.IntVar(value=1)
         self.status_var = tk.StringVar(value=(initial or {}).get("status", "Не заказан"))
         self.comment_var = tk.StringVar(value=(initial or {}).get("comment", ""))
@@ -387,21 +411,31 @@ class MKLOrderEditorView(ttk.Frame):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: comboboxes for SPH/CYL
-        def _range_vals(start, stop, step):
-            vals = []
-            x = start
-            while x <= stop + 1e-9:
-                vals.append(f"{x:+.2f}")
-                x = round(x + step, 5)
-            return vals
-        sph_values = _range_vals(-30.0, 30.0, 0.25)
-        cyl_values = _range_vals(-10.0, 10.0, 0.25)
+        # Row 4: comboboxes with centered 0.00 (минусы сверху, плюсы снизу)
+        def _centered_signed_values(max_abs: float) -> list[str]:
+            step = 0.25
+            neg = [-(i * step) for i in range(1, int(max_abs / step) + 1)]
+            pos = [(i * step) for i in range(1, int(max_abs / step) + 1)]
+            return [f"{v:+.2f}" for v in neg] + ["+0.00"] + [f"{v:+.2f}" for v in pos]
+
+        sph_values = _centered_signed_values(30.0)
+        cyl_values = _centered_signed_values(10.0)
 
         self.sph_entry = ttk.Combobox(card, textvariable=self.sph_var, values=sph_values)
         self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.cyl_entry = ttk.Combobox(card, textvariable=self.cyl_var, values=cyl_values)
         self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+
+        def _center_on_open(combo: ttk.Combobox):
+            if (combo.get() or "").strip() == "":
+                try:
+                    combo.set("+0.00")
+                    combo.selection_range(0, tk.END)
+                except Exception:
+                    pass
+
+        self.sph_entry.configure(postcommand=lambda: _center_on_open(self.sph_entry))
+        self.cyl_entry.configure(postcommand=lambda: _center_on_open(self.cyl_entry))
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
