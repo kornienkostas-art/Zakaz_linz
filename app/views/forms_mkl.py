@@ -367,6 +367,129 @@ class MKLOrderEditorView(ttk.Frame):
         except Exception:
             pass
 
+    # Mouse wheel and nudge helpers for convenient input (OrderForm)
+    def _bind_mouse_wheel(self, entry: ttk.Entry, step: float, field: str, integer: bool = False, min_v: float | None = None, max_v: float | None = None, wrap: bool = False):
+        try:
+            def on_wheel(event):
+                delta = 0
+                if hasattr(event, "delta") and event.delta:
+                    delta = 1 if event.delta > 0 else -1
+                else:
+                    # X11 uses Button-4/5
+                    delta = +1 if getattr(event, "num", 0) == 4 else -1
+                if integer:
+                    self._nudge_int(field, delta * int(step), int(min_v or 0), int(max_v or 0), wrap=wrap)
+                else:
+                    self._nudge(field, delta * step, min_v=min_v, max_v=max_v)
+                return "break"
+            # Windows/Mac
+            entry.bind("<MouseWheel>", on_wheel, add="+")
+            # Linux/X11
+            entry.bind("<Button-4>", on_wheel, add="+")
+            entry.bind("<Button-5>", on_wheel, add="+")
+        except Exception:
+            pass
+
+    def _nudge(self, field: str, delta: float, min_v: float | None = None, max_v: float | None = None):
+        var = {"sph": self.sph_var, "cyl": self.cyl_var, "bc": self.bc_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").replace(",", ".").strip()
+        try:
+            val = float(txt) if txt != "" else 0.0
+        except ValueError:
+            val = 0.0
+        val += delta
+        if min_v is not None:
+            val = max(min_v, val)
+        if max_v is not None:
+            val = min(max_v, val)
+        # Snap by step
+        step = 0.25 if field in {"sph", "cyl"} else 0.1
+        snapped = round(round((val - (min_v or 0.0)) / step) * step + (min_v or 0.0), 2)
+        var.set(f"{snapped:.2f}".replace(".", ","))
+
+    def _nudge_int(self, field: str, delta: int, min_v: int, max_v: int, wrap: bool = False):
+        var = {"ax": self.ax_var}.get(field)
+        if not var:
+            return
+        txt = (var.get() or "").strip()
+        try:
+            val = int(float(txt.replace(",", "."))) if txt != "" else 0
+        except ValueError:
+            val = 0
+        val += delta
+        if wrap:
+            if val < min_v:
+                val = max_v
+            elif val > max_v:
+                val = min_v
+        else:
+            val = max(min_v, min(max_v, val))
+        var.set(str(val))
+
+    # Validation (OrderForm)
+    def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
+        v = (new_value or "").replace(",", ".")
+        if v == "":
+            return True
+        if v in {"+", "-", ".", "-.", "+.", ",", "-,", "+,"}:
+            return True
+        try:
+            num = float(v)
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _vc_int(self, new_value: str, min_v: int, max_v: int) -> bool:
+        v = (new_value or "").strip()
+        if v == "":
+            return True
+        if v in {"+", "-"}:
+            return True
+        try:
+            num = int(float(v.replace(",", ".")))
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _apply_snap_for(self, field: str):
+        if field == "sph":
+            self.sph_var.set(self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True))
+        elif field == "cyl":
+            self.cyl_var.set(self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True))
+        elif field == "ax":
+            self.ax_var.set(self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True))
+        elif field == "bc":
+            self.bc_var.set(self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True))
+
+    @staticmethod
+    def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
+        text = (value_str or "").replace(",", ".").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = float(text)
+        except ValueError:
+            v = 0.0 if min_v <= 0.0 <= max_v else min_v
+        v = max(min_v, min(max_v, v))
+        steps = round((v - min_v) / step)
+        snapped = min_v + steps * step
+        snapped = max(min_v, min(max_v, snapped))
+        return f"{snapped:.2f}"
+
+    @staticmethod
+    def _snap_int(value_str: str, min_v: int, max_v: int, allow_empty: bool = False) -> str:
+        text = (value_str or "").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = int(float(text.replace(",", ".")))
+        except ValueError:
+            v = min_v
+        v = max(min_v, min(max_v, v))
+        return str(v)
+
     def _go_back(self):
         try:
             self.destroy()
