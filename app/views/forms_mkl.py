@@ -70,7 +70,20 @@ class OrderForm(tk.Toplevel):
 
     
     # --- Steppers, wheel and clipboard helpers (OrderForm) ---
-    def _step_value(self, cur: str, step: float, lo: float, hi: float, round_to: float, signed: bool) -> str:
+    def _format_value(self, v: float, decimals: int, show_plus: bool) -> str:
+        if decimals <= 0:
+            s = f"{int(round(v))}"
+        else:
+            s = f"{v:.{decimals}f}"
+        if show_plus:
+            if v >= 0:
+                if not s.startswith("+"):
+                    s = ("+" if decimals > 0 else "+") + s.lstrip("+")
+        else:
+            s = s.lstrip("+")
+        return s
+
+    def _step_value(self, cur: str, step: float, lo: float, hi: float, round_to: float, decimals: int, show_plus: bool) -> str:
         def _parse_num(s: str):
             s = (s or "").replace(",", ".").strip()
             if not s:
@@ -83,12 +96,12 @@ class OrderForm(tk.Toplevel):
         v = max(lo, min(hi, v))
         if round_to:
             v = round(v / round_to) * round_to
-        return (f"{v:+.2f}" if signed else str(int(round(v))))
+        return self._format_value(v, decimals, show_plus)
     
-    def _normalize_value(self, cur: str, lo: float, hi: float, round_to: float, signed: bool) -> str:
-        return self._step_value(cur, 0.0, lo, hi, round_to, signed)
+    def _normalize_value(self, cur: str, lo: float, hi: float, round_to: float, decimals: int, show_plus: bool) -> str:
+        return self._step_value(cur, 0.0, lo, hi, round_to, decimals, show_plus)
     
-    def _bind_spin_for_entry(self, entry: ttk.Entry, step: float, lo: float, hi: float, round_to: float, signed: bool):
+    def _bind_spin_for_entry(self, entry: ttk.Entry, step: float, lo: float, hi: float, round_to: float, decimals: int, show_plus: bool):
         def on_wheel(event):
             delta = 0
             if event.num == 4:
@@ -98,7 +111,7 @@ class OrderForm(tk.Toplevel):
             else:
                 delta = +1 if event.delta > 0 else -1
             cur = entry.get()
-            new = self._step_value(cur, delta * step, lo, hi, round_to, signed)
+            new = self._step_value(cur, delta * step, lo, hi, round_to, decimals, show_plus)
             try:
                 entry.delete(0, "end"); entry.insert(0, new)
             except Exception:
@@ -111,15 +124,15 @@ class OrderForm(tk.Toplevel):
         def on_key(event):
             if (event.state & 0x4) != 0:  # Ctrl
                 if event.keysym in ("Up", "KP_Up"):
-                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, signed))
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, decimals, show_plus))
                     return "break"
                 if event.keysym in ("Down", "KP_Down"):
-                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, signed))
+                    entry.delete(0, "end"); entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, decimals, show_plus))
                     return "break"
             return None
         entry.bind("<KeyPress>", on_key)
     
-        entry.bind("<FocusOut>", lambda e: (entry.delete(0, "end"), entry.insert(0, self._normalize_value(entry.get(), lo, hi, round_to, signed))))
+        entry.bind("<FocusOut>", lambda e: (entry.delete(0, "end"), entry.insert(0, self._normalize_value(entry.get(), lo, hi, round_to, decimals, show_plus))))
     
     def _paste_from_clipboard(self):
         try:
@@ -210,22 +223,22 @@ class OrderForm(tk.Toplevel):
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
         # Улучшения ввода: прокрутка, Ctrl+стрелки, кнопки +/- рядом
-        self._bind_spin_for_entry(self.sph_entry, step=0.25, lo=-30.0, hi=30.0, round_to=0.25, signed=True)
-        self._bind_spin_for_entry(self.cyl_entry, step=0.25, lo=-10.0, hi=10.0, round_to=0.25, signed=True)
-        self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, signed=False)
-        self._bind_spin_for_entry(self.bc_entry, step=0.1, lo=8.0, hi=9.0, round_to=0.1, signed=True)
-        # Кнопки +/- (под полями)
+        self._bind_spin_for_entry(self.sph_entry, step=0.25, lo=-30.0, hi=30.0, round_to=0.25, decimals=2, show_plus=True)
+        self._bind_spin_for_entry(self.cyl_entry, step=0.25, lo=-10.0, hi=10.0, round_to=0.25, decimals=2, show_plus=True)
+        self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, decimals=0, show_plus=False)
+        self._bind_spin_for_entry(self.bc_entry, step=0.1, lo=8.0, hi=9.0, round_to=0.1, decimals=1, show_plus=False)
+        # Кнопки +/- (под полями) — компактные
         stepper_row = ttk.Frame(card)
         stepper_row.grid(row=7, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        def make_stepper(label, entry, step, lo, hi, round_to, signed):
+        def make_stepper(label, entry, step, lo, hi, round_to, decimals, show_plus):
             box = ttk.Frame(stepper_row); box.pack(side="left", padx=(0, 12))
             ttk.Label(box, text=label).pack(side="left")
-            ttk.Button(box, text="−", width=2, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, signed)))).pack(side="left", padx=(6,2))
-            ttk.Button(box, text="+", width=2, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, signed)))).pack(side="left")
-        make_stepper("SPH", self.sph_entry, 0.25, -30.0, 30.0, 0.25, True)
-        make_stepper("CYL", self.cyl_entry, 0.25, -10.0, 10.0, 0.25, True)
-        make_stepper("AX", self.ax_entry, 1.0, 0.0, 180.0, 1.0, False)
-        make_stepper("BC", self.bc_entry, 0.1, 8.0, 9.0, 0.1, True)
+            ttk.Button(box, text="−", width=1, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, decimals, show_plus)))).pack(side="left", padx=(6,2))
+            ttk.Button(box, text="+", width=1, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, decimals, show_plus)))).pack(side="left")
+        make_stepper("SPH", self.sph_entry, 0.25, -30.0, 30.0, 0.25, 2, True)
+        make_stepper("CYL", self.cyl_entry, 0.25, -10.0, 10.0, 0.25, 2, True)
+        make_stepper("AX", self.ax_entry, 1.0, 0.0, 180.0, 1.0, 0, False)
+        make_stepper("BC", self.bc_entry, 0.1, 8.0, 9.0, 0.1, 1, False)
 
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
@@ -656,10 +669,10 @@ class MKLOrderEditorView(ttk.Frame):
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
         # Улучшения ввода
-        self._bind_spin_for_entry(self.sph_entry, step=0.25, lo=-30.0, hi=30.0, round_to=0.25, signed=True)
-        self._bind_spin_for_entry(self.cyl_entry, step=0.25, lo=-10.0, hi=10.0, round_to=0.25, signed=True)
-        self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, signed=False)
-        self._bind_spin_for_entry(self.bc_entry, step=0.1, lo=8.0, hi=9.0, round_to=0.1, signed=True)
+        self._bind_spin_for_entry(self.sph_entry, step=0.25, lo=-30.0, hi=30.0, round_to=0.25, decimals=2, show_plus=True)
+        self._bind_spin_for_entry(self.cyl_entry, step=0.25, lo=-10.0, hi=10.0, round_to=0.25, decimals=2, show_plus=True)
+        self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, decimals=0, show_plus=False)
+        self._bind_spin_for_entry(self.bc_entry, step=0.1, lo=8.0, hi=9.0, round_to=0.1, decimals=1, show_plus=False)
 
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
