@@ -41,7 +41,16 @@ def _transpose_minus_to_plus(sph: float, cyl: float, axis: int) -> tuple[float, 
 
 
 class AstigCalcView(ttk.Frame):
-    """Пересчёт астигматических линз (транспозиция цилиндра из минус в плюс)."""
+    """Пересчёт астигматических линз (транспозиция цилиндра из минус в плюс).
+
+    Улучшенный ввод Sph/Cyl/Ax:
+    - Прокрутка колёсиком: Sph/Cyl по 0.25D, Axis по 1°.
+    - Кнопки +/- рядом с полями.
+    - Нормализация формата при потере фокуса.
+    - Горячие клавиши Ctrl+↑/↓ (±шаг).
+    - Кнопка «OD → OS».
+    - Попытка «Вставить из буфера» (распознаёт простые форматы рецепта).
+    """
 
     def __init__(self, master: tk.Tk, on_back):
         super().__init__(master, padding=0)
@@ -50,6 +59,84 @@ class AstigCalcView(ttk.Frame):
 
         self.pack(fill="both", expand=True)
         self._build_ui()
+
+    # ---- Helpers for stepping/normalization -------------------------------------------------
+
+    def _step_value(self, val_str: str, step: float, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        v = _parse_num(val_str)
+        if v is None:
+            v = 0.0
+        v = v + step
+        v = max(lo, min(hi, v))
+        if round_to:
+            v = round(v / round_to) * round_to
+        return _format_signed(v) if signed else f"{int(round(v))}"
+
+    def _normalize_value(self, val_str: str, lo: float, hi: float, round_to: float, signed: bool) -> str:
+        v = _parse_num(val_str)
+        if v is None:
+            v = 0.0
+        v = max(lo, min(hi, v))
+        if round_to:
+            v = round(v / round_to) * round_to
+        return _format_signed(v) if signed else f"{int(round(v))}"
+
+    def _bind_spin(self, widget: ttk.Combobox, step: float, lo: float, hi: float, round_to: float, signed: bool):
+        # Mouse wheel
+        def on_wheel(event):
+            delta = 0
+            if event.num == 4:   # X11 up
+                delta = +1
+            elif event.num == 5: # X11 down
+                delta = -1
+            else:
+                # Windows/Mac
+                delta = +1 if event.delta > 0 else -1
+            new = self._step_value(widget.get(), delta * step, lo, hi, round_to, signed)
+            widget.set(new)
+            return "break"
+
+        widget.bind("<MouseWheel>", on_wheel)
+        widget.bind("<Button-4>", on_wheel)
+        widget.bind("<Button-5>", on_wheel)
+
+        # Keyboard
+        def on_key(event):
+            if (event.state & 0x4) != 0:  # Ctrl pressed
+                if event.keysym in ("Up", "KP_Up"):
+                    widget.set(self._step_value(widget.get(), +step, lo, hi, round_to, signed))
+                    return "break"
+                if event.keysym in ("Down", "KP_Down"):
+                    widget.set(self._step_value(widget.get(), -step, lo, hi, round_to, signed))
+                    return "break"
+            return None
+
+        widget.bind("<KeyPress>", on_key)
+
+        # Normalize on focus out
+        def on_focus_out(_):
+            widget.set(self._normalize_value(widget.get(), lo, hi, round_to, signed))
+
+        widget.bind("<FocusOut>", on_focus_out)
+
+    def _make_input_with_steppers(self, parent, values, default, step, lo, hi, round_to, signed, grid_opts):
+        box = ttk.Frame(parent)
+        box.grid(**grid_opts)
+        cb = ttk.Combobox(box, values=values, width=10)
+        cb.set(default)
+        cb.pack(side="left", fill="x", expand=True)
+
+        btns = ttk.Frame(box)
+        btns.pack(side="left", padx=(4, 0))
+        plus = ttk.Button(btns, text="+", width=2, command=lambda: cb.set(self._step_value(cb.get(), +step, lo, hi, round_to, signed)))
+        minus = ttk.Button(btns, text="−", width=2, command=lambda: cb.set(self._step_value(cb.get(), -step, lo, hi, round_to, signed)))
+        plus.pack(side="top", pady=(0, 2))
+        minus.pack(side="top")
+
+        self._bind_spin(cb, step, lo, hi, round_to, signed)
+        return cb
+
+    # -----------------------------------------------------------------------------------------
 
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=(16, 12))
@@ -72,15 +159,18 @@ class AstigCalcView(ttk.Frame):
         ttk.Label(body, text="Cyl").grid(row=0, column=2, sticky="w", padx=(8, 0))
         ttk.Label(body, text="Ax").grid(row=0, column=3, sticky="w", padx=(8, 0))
 
-        self.od_sph = ttk.Combobox(body, values=sph_vals)
-        self.od_cyl = ttk.Combobox(body, values=cyl_vals)
-        self.od_ax = ttk.Combobox(body, values=axis_vals)
-        self.od_sph.set("+0.00")
-        self.od_cyl.set("-0.25")
-        self.od_ax.set("90")
-        self.od_sph.grid(row=1, column=1, sticky="ew", padx=(8, 0))
-        self.od_cyl.grid(row=1, column=2, sticky="ew", padx=(8, 0))
-        self.od_ax.grid(row=1, column=3, sticky="ew", padx=(8, 0))
+        self.od_sph = self._make_input_with_steppers(
+            body, sph_vals, "+0.00", step=0.25, lo=-20.0, hi=20.0, round_to=0.25, signed=True,
+            grid_opts=dict(row=1, column=1, sticky="ew", padx=(8, 0))
+        )
+        self.od_cyl = self._make_input_with_steppers(
+            body, cyl_vals, "-0.25", step=0.25, lo=-10.0, hi=10.0, round_to=0.25, signed=True,
+            grid_opts=dict(row=1, column=2, sticky="ew", padx=(8, 0))
+        )
+        self.od_ax = self._make_input_with_steppers(
+            body, axis_vals, "90", step=1.0, lo=0.0, hi=180.0, round_to=1.0, signed=False,
+            grid_opts=dict(row=1, column=3, sticky="ew", padx=(8, 0))
+        )
 
         # OS
         ttk.Label(body, text="OS").grid(row=2, column=0, sticky="w", pady=(12, 4))
@@ -88,20 +178,25 @@ class AstigCalcView(ttk.Frame):
         ttk.Label(body, text="Cyl").grid(row=2, column=2, sticky="w", padx=(8, 0))
         ttk.Label(body, text="Ax").grid(row=2, column=3, sticky="w", padx=(8, 0))
 
-        self.os_sph = ttk.Combobox(body, values=sph_vals)
-        self.os_cyl = ttk.Combobox(body, values=cyl_vals)
-        self.os_ax = ttk.Combobox(body, values=axis_vals)
-        self.os_sph.set("+0.00")
-        self.os_cyl.set("-0.25")
-        self.os_ax.set("90")
-        self.os_sph.grid(row=3, column=1, sticky="ew", padx=(8, 0))
-        self.os_cyl.grid(row=3, column=2, sticky="ew", padx=(8, 0))
-        self.os_ax.grid(row=3, column=3, sticky="ew", padx=(8, 0))
+        self.os_sph = self._make_input_with_steppers(
+            body, sph_vals, "+0.00", step=0.25, lo=-20.0, hi=20.0, round_to=0.25, signed=True,
+            grid_opts=dict(row=3, column=1, sticky="ew", padx=(8, 0))
+        )
+        self.os_cyl = self._make_input_with_steppers(
+            body, cyl_vals, "-0.25", step=0.25, lo=-10.0, hi=10.0, round_to=0.25, signed=True,
+            grid_opts=dict(row=3, column=2, sticky="ew", padx=(8, 0))
+        )
+        self.os_ax = self._make_input_with_steppers(
+            body, axis_vals, "90", step=1.0, lo=0.0, hi=180.0, round_to=1.0, signed=False,
+            grid_opts=dict(row=3, column=3, sticky="ew", padx=(8, 0))
+        )
 
         # Actions
         actions = ttk.Frame(body)
         actions.grid(row=4, column=0, columnspan=4, sticky="w", pady=(16, 8))
-        ttk.Button(actions, text="Пересчитать", command=self._calc).pack(side="left")
+        ttk.Button(actions, text="OD → OS", command=self._copy_od_to_os).pack(side="left")
+        ttk.Button(actions, text="Вставить из буфера", command=self._paste_from_clipboard).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Пересчитать", command=self._calc).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Копировать результат", command=self._copy).pack(side="left", padx=(8, 0))
 
         # Output
@@ -176,6 +271,70 @@ class AstigCalcView(ttk.Frame):
             self.master.clipboard_append(text)
         except Exception:
             pass
+
+    # Convenience actions -------------------------------------------------------
+
+    def _copy_od_to_os(self):
+        try:
+            self.os_sph.set(self._normalize_value(self.od_sph.get(), -20.0, 20.0, 0.25, True))
+            self.os_cyl.set(self._normalize_value(self.od_cyl.get(), -10.0, 10.0, 0.25, True))
+            self.os_ax.set(self._normalize_value(self.od_ax.get(), 0.0, 180.0, 1.0, False))
+        except Exception:
+            pass
+
+    def _paste_from_clipboard(self):
+        try:
+            text = self.master.clipboard_get()
+        except Exception:
+            return
+        if not text:
+            return
+        # Very simple parser for common formats:
+        # "OD: Sph +3.00 Cyl -1.25 ax 90°"
+        # "+3.00 -1.25 x 90", etc.
+        import re
+
+        def parse_side(s: str):
+            # Extract three numbers: sph, cyl, axis
+            s_norm = s.replace(",", ".")
+            # Try explicit labels
+            m = re.search(r"Sph\\s*([+\\-]?\\d+(?:\\.\\d+)?)", s_norm, re.I)
+            sph = m.group(1) if m else None
+            m = re.search(r"Cyl\\s*([+\\-]?\\d+(?:\\.\\d+)?)", s_norm, re.I)
+            cyl = m.group(1) if m else None
+            m = re.search(r"(?:Ax|Axis|x|×|x)\\s*([\\d]{1,3})", s_norm, re.I)
+            axis = m.group(1) if m else None
+            # Fallback: three numbers in order
+            if not (sph and cyl and axis):
+                nums = re.findall(r"[+\\-]?\\d+(?:\\.\\d+)?", s_norm)
+                if len(nums) >= 3:
+                    sph = sph or nums[0]
+                    cyl = cyl or nums[1]
+                    axis = axis or nums[2]
+            return sph, cyl, axis
+
+        # Split by lines; try to find lines starting with OD/OS
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        od_line = next((ln for ln in lines if ln.upper().startswith("OD")), None)
+        os_line = next((ln for ln in lines if ln.upper().startswith("OS")), None)
+
+        if od_line:
+            sph, cyl, ax = parse_side(od_line)
+            if sph: self.od_sph.set(self._normalize_value(sph, -20.0, 20.0, 0.25, True))
+            if cyl: self.od_cyl.set(self._normalize_value(cyl, -10.0, 10.0, 0.25, True))
+            if ax:  self.od_ax.set(self._normalize_value(ax, 0.0, 180.0, 1.0, False))
+        if os_line:
+            sph, cyl, ax = parse_side(os_line)
+            if sph: self.os_sph.set(self._normalize_value(sph, -20.0, 20.0, 0.25, True))
+            if cyl: self.os_cyl.set(self._normalize_value(cyl, -10.0, 10.0, 0.25, True))
+            if ax:  self.os_ax.set(self._normalize_value(ax, 0.0, 180.0, 1.0, False))
+        # If no labels, but got a single line with three numbers, apply to OD
+        if not od_line and not os_line and len(lines) == 1:
+            sph, cyl, ax = parse_side(lines[0])
+            if sph and cyl and ax:
+                self.od_sph.set(self._normalize_value(sph, -20.0, 20.0, 0.25, True))
+                self.od_cyl.set(self._normalize_value(cyl, -10.0, 10.0, 0.25, True))
+                self.od_ax.set(self._normalize_value(ax, 0.0, 180.0, 1.0, False))
 
     def _go_back(self):
         try:
