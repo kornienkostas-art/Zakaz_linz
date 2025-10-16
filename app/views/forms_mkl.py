@@ -674,23 +674,36 @@ class MKLOrderEditorView(ttk.Frame):
         self._bind_spin_for_entry(self.ax_entry, step=1.0, lo=0.0, hi=180.0, round_to=1.0, decimals=0, show_plus=False)
         self._bind_spin_for_entry(self.bc_entry, step=0.1, lo=8.0, hi=9.0, round_to=0.1, decimals=1, show_plus=False)
 
+        # Компактные кнопки +/- под полями
+        stepper_row = ttk.Frame(card, style="Card.TFrame")
+        stepper_row.grid(row=7, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        def make_stepper(label, entry, step, lo, hi, round_to, decimals, show_plus):
+            box = ttk.Frame(stepper_row, style="Card.TFrame"); box.pack(side="left", padx=(0, 12))
+            ttk.Label(box, text=label).pack(side="left")
+            ttk.Button(box, text="−", width=1, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), -step, lo, hi, round_to, decimals, show_plus)))).pack(side="left", padx=(6,2))
+            ttk.Button(box, text="+", width=1, command=lambda: (entry.delete(0,"end"), entry.insert(0, self._step_value(entry.get(), +step, lo, hi, round_to, decimals, show_plus)))).pack(side="left")
+        make_stepper("SPH", self.sph_entry, 0.25, -30.0, 30.0, 0.25, 2, True)
+        make_stepper("CYL", self.cyl_entry, 0.25, -10.0, 10.0, 0.25, 2, True)
+        make_stepper("AX", self.ax_entry, 1.0, 0.0, 180.0, 1.0, 0, False)
+        make_stepper("BC", self.bc_entry, 0.1, 8.0, 9.0, 0.1, 1, False)
+
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
-        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=8, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.grid(row=8, column=0, sticky="w")
+        self.qty_spin.grid(row=9, column=0, sticky="w")
 
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
-        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        footer.grid(row=10, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         # Comment field
-        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=8, column=1, sticky="w", pady=(8, 0))
         self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
-        self.comment_entry.grid(row=8, column=1, sticky="ew")
+        self.comment_entry.grid(row=9, column=1, sticky="ew")
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        btns.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         ttk.Button(btns, text="Вставить из буфера", style="Menu.TButton", command=self._paste_from_clipboard).pack(side="left")
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
