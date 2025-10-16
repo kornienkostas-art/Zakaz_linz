@@ -28,7 +28,7 @@ def ensure_settings(path: str):
                     "export_path": export_path,
                     "tray_enabled": True,
                     "minimize_to_tray": True,
-                    "start_in_tray": False,  # start visible by default
+                    "start_in_tray": True,  # start in tray by default
                     "autostart_enabled": False,
                     "tray_logo_path": "app/assets/logo.png",
                     # Meridian notifications
@@ -64,7 +64,7 @@ def load_settings(path: str) -> dict:
                 "ui_font_size": 17,
                 "tray_enabled": True,
                 "minimize_to_tray": True,
-                "start_in_tray": False,  # start visible by default
+                "start_in_tray": True,  # start in tray by default
                 "autostart_enabled": False,
                 "tray_logo_path": "app/assets/logo.png",
                 # Meridian notifications
@@ -517,30 +517,35 @@ def main():
     except Exception:
         pass
 
-    # Launch UI — always start visible on Windows for double-click start reliability
-    try:
-        MainWindow(root)
-        root.main_initialized = True
-    except Exception:
-        root.main_initialized = False
-
-    # Force window visible, maximized, and brought to front
-    try:
-        root.deiconify()
-    except Exception:
-        pass
-    try:
-        root.state("zoomed")  # Windows maximize
-    except Exception:
+    # Launch UI
+    if app_settings.get("tray_enabled", True) and app_settings.get("start_in_tray", True):
+        # Initialize UI, then start hidden in tray
         try:
-            root.attributes("-zoomed", True)
+            MainWindow(root)
+            root.main_initialized = True
+        except Exception:
+            root.main_initialized = False
+        try:
+            root.withdraw()
+            _start_tray(root)
+        except Exception:
+            # Fallback to visible UI
+            try:
+                root.deiconify()
+                root.state("zoomed")
+            except Exception:
+                pass
+    else:
+        try:
+            MainWindow(root)
+            root.main_initialized = True
+        except Exception:
+            root.main_initialized = False
+        try:
+            root.deiconify()
+            root.state("zoomed")
         except Exception:
             pass
-    try:
-        root.attributes("-topmost", True)
-        root.after(400, lambda: root.attributes("-topmost", False))
-    except Exception:
-        pass
 
     root.mainloop()
 
