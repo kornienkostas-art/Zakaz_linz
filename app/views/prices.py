@@ -28,6 +28,7 @@ class PricesView(ttk.Frame):
 
         ttk.Button(toolbar, text="Добавить", command=self._add).pack(side="right")
         ttk.Button(toolbar, text="Редактировать", command=self._edit).pack(side="right", padx=(8, 0))
+        ttk.Button(toolbar, text="Удалить", command=self._delete).pack(side="right", padx=(8, 0))
         ttk.Button(toolbar, text="Открыть", command=self._open_selected).pack(side="right", padx=(8, 0))
 
         container = ttk.Frame(self)
@@ -86,6 +87,27 @@ class PricesView(ttk.Frame):
         except Exception:
             item = None
         self._open_form(item)
+
+    def _delete(self):
+        pid = self._selected_id()
+        if not pid:
+            messagebox.showinfo("Прайсы", "Выберите запись для удаления.")
+            return
+        try:
+            all_items = self.db.list_prices()
+            item = next((x for x in all_items if x["id"] == pid), None)
+        except Exception:
+            item = None
+        if not item:
+            return
+        name = item.get("name") or ""
+        if not messagebox.askyesno("Удалить прайс", f"Удалить '{name}'?"):
+            return
+        try:
+            self.db.delete_price(pid)
+            self._reload()
+        except Exception as e:
+            messagebox.showerror("Прайсы", f"Не удалось удалить:\n{e}")
 
     def _open_form(self, item=None):
         top = tk.Toplevel(self.master)
