@@ -8,6 +8,7 @@ from tkinter import font as tkfont
 from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
+from app.utils import install_crosslayout_shortcuts, apply_builtins_fresh_style
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -23,7 +24,7 @@ def ensure_settings(path: str):
                 {
                     "version": 1,
                     "ui_scale": 1.25,
-                    "ui_font_size": 17,
+                    "ui_font_size": 15,
                     "export_path": export_path,
                     "tray_enabled": True,
                     "minimize_to_tray": True,
@@ -60,7 +61,7 @@ def load_settings(path: str) -> dict:
             # Fill missing keys with defaults
             defaults = {
                 "ui_scale": 1.25,
-                "ui_font_size": 17,
+                "ui_font_size": 15,
                 "tray_enabled": True,
                 "minimize_to_tray": True,
                 "start_in_tray": True,
@@ -166,6 +167,11 @@ def main():
         pass
 
     root = tk.Tk()
+    # Make common shortcuts work with any keyboard layout (RU/EN etc.)
+    try:
+        install_crosslayout_shortcuts(root)
+    except Exception:
+        pass
 
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
@@ -306,6 +312,12 @@ def main():
     # Apply global font size
     ui_font_size = int(app_settings.get("ui_font_size", 17))
     _apply_global_fonts(root, ui_font_size)
+
+    # Apply a fresh built-in ttk style without external assets
+    try:
+        apply_builtins_fresh_style(root)
+    except Exception:
+        pass
 
     # Restore main window geometry if saved; otherwise start maximized
     geom = app_settings.get("main_geometry")
