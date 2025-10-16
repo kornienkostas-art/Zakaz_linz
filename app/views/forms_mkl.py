@@ -90,13 +90,19 @@ class OrderForm(tk.Toplevel):
 
         # Client selection with autocomplete
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
+        client_values = []
+        for c in self.clients:
+            fio = c.get("fio", "")
+            phone = format_phone_mask(c.get("phone", ""))
+            client_values.append(f"{fio} — {phone}".strip(" —"))
+        self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=client_values, height=10)
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
         # Product selection with autocomplete
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+        product_values = [p.get("name", "") for p in self.products]
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=product_values, height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
