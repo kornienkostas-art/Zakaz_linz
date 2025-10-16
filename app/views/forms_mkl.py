@@ -26,7 +26,7 @@ class OrderForm(tk.Toplevel):
         set_initial_geometry(self, min_w=820, min_h=680, center_to=master)
         self.transient(master)
         self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
 
         self.on_save = on_save
         self.clients = clients
