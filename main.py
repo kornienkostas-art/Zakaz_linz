@@ -8,6 +8,7 @@ from tkinter import font as tkfont
 from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
+from app.utils import install_crosslayout_shortcuts
 
 SETTINGS_FILE = "settings.json"
 DB_FILE = "data.db"
@@ -166,6 +167,11 @@ def main():
         pass
 
     root = tk.Tk()
+    # Make common shortcuts work with any keyboard layout (RU/EN etc.)
+    try:
+        install_crosslayout_shortcuts(root)
+    except Exception:
+        pass
 
     # Load settings and apply UI scale
     app_settings = load_settings(SETTINGS_FILE)
