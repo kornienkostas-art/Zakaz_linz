@@ -26,9 +26,52 @@ class SettingsView(ttk.Frame):
         toolbar.pack(fill="x")
         ttk.Button(toolbar, text="← Назад", style="Back.TButton", command=self._go_back).pack(side="left")
 
-        card = ttk.Frame(self, style="Card.TFrame", padding=16)
-        card.pack(fill="both", expand=True)
+        # Scrollable content area (so нижние кнопки не уезжают за экран)
+        outer = ttk.Frame(self, style="Card.TFrame")
+        outer.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(outer, highlightthickness=0, borderwidth=0)
+        vbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        vbar.pack(side="right", fill="y")
+
+        # Inner frame which actually holds the settings form
+        card = ttk.Frame(canvas, style="Card.TFrame", padding=16)
         card.columnconfigure(1, weight=1)
+
+        # Put inner frame into canvas window
+        window_id = canvas.create_window((0, 0), window=card, anchor="nw")
+
+        def _on_configure(event=None):
+            try:
+                # Update scrollregion
+                canvas.configure(scrollregion=canvas.bbox("all"))
+                # Make inner frame width follow the canvas width
+                canvas.itemconfig(window_id, width=canvas.winfo_width())
+            except Exception:
+                pass
+
+        def _on_mousewheel(event):
+            # Windows / macOS delta
+            delta = 0
+            if hasattr(event, "delta") and event.delta:
+                delta = int(-1 * (event.delta / 120) * 30)
+            elif event.num in (4, 5):  # X11
+                delta = -30 if event.num == 4 else 30
+            if delta:
+                canvas.yview_scroll(int(delta / 30), "units")
+
+        card.bind("<Configure>", _on_configure)
+        canvas.bind("<Configure>", _on_configure)
+
+        # Smooth mousewheel on different platforms
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind_all("<Button-4>", _on_mousewheel)
+        canvas.bind_all("<Button-5>", _on_mousewheel)
+
+        # --- FORM CONTENT ---
 
         # UI scale
         ttk.Label(card, text="Масштаб интерфейса (tk scaling)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 4))
