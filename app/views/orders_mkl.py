@@ -186,7 +186,7 @@ class MKLOrdersView(ttk.Frame):
         order_id = current.get("id")
 
         clients = self.db.list_clients() if self.db else []
-        products = self.db.list_products() if self.db else []
+        products = self.db.list_products_mkl() if self.db else []
 
         def on_save(updated: dict):
             new_status = updated.get("status", current.get("status", "Не заказан"))
