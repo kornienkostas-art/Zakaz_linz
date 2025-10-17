@@ -43,10 +43,14 @@ class MeridianProductPickerInline(ttk.Frame):
 
         # Tree
         self.tree = ttk.Treeview(self, show="tree", style="Data.Treeview")
+        # Make tree column stretch to show long names; add horizontal scrollbar
+        self.tree.column("#0", width=900, stretch=True)
         y_scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscroll=y_scroll.set)
+        x_scroll = ttk.Scrollbar(self, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
         self.tree.grid(row=1, column=0, rowspan=3, sticky="nsew", padx=(0, 8))
         y_scroll.grid(row=1, column=0, rowspan=3, sticky="nse")
+        x_scroll.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.tree.bind("<Double-1>", self._on_tree_dbl)
 
         # Right panel params
@@ -441,35 +445,35 @@ class MeridianOrderForm(tk.Toplevel):
 
         ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(12, 12))
 
-        items_frame = ttk.Frame(card, style="Card.TFrame")
-        items_frame.grid(row=2, column=0, sticky="nsew")
+        self._items_frame = ttk.Frame(card, style="Card.TFrame")
+        self._items_frame.grid(row=2, column=0, sticky="nsew")
         card.rowconfigure(2, weight=1)
 
         cols = ("product", "sph", "cyl", "ax", "d", "qty")
-        self.items_tree = ttk.Treeview(items_frame, columns=cols, show="headings", style="Data.Treeview")
+        self.items_tree = ttk.Treeview(self._items_frame, columns=cols, show="headings", style="Data.Treeview")
         headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "d": "D (мм)", "qty": "Количество"}
         widths = {"product": 240, "sph": 90, "cyl": 90, "ax": 90, "d": 90, "qty": 120}
         for c in cols:
             self.items_tree.heading(c, text=headers[c], anchor="w")
             self.items_tree.column(c, width=widths[c], anchor="w", stretch=True)
 
-        y_scroll = ttk.Scrollbar(items_frame, orient="vertical", command=self.items_tree.yview)
+        y_scroll = ttk.Scrollbar(self._items_frame, orient="vertical", command=self.items_tree.yview)
         self.items_tree.configure(yscroll=y_scroll.set)
         self.items_tree.grid(row=0, column=0, sticky="nsew")
         y_scroll.grid(row=0, column=1, sticky="ns")
-        items_frame.columnconfigure(0, weight=1)
-        items_frame.rowconfigure(0, weight=1)
+        self._items_frame.columnconfigure(0, weight=1)
+        self._items_frame.rowconfigure(0, weight=1)
 
-        items_toolbar = ttk.Frame(card, style="Card.TFrame")
-        items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
-        ttk.Button(items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
-        ttk.Button(items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
-        ttk.Button(items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
+        self._items_toolbar = ttk.Frame(card, style="Card.TFrame")
+        self._items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(self._items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
+        ttk.Button(self._items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
+        ttk.Button(self._items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
 
-        btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=4, column=0, sticky="e", pady=(12, 0))
-        ttk.Button(btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+        self._footer_btns = ttk.Frame(card, style="Card.TFrame")
+        self._footer_btns.grid(row=4, column=0, sticky="e", pady=(12, 0))
+        ttk.Button(self._footer_btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(self._footer_btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
 
         self._refresh_items_view()
 
@@ -506,17 +510,48 @@ class MeridianOrderForm(tk.Toplevel):
         except Exception:
             pass
         self._picker_panel = None
+        # Restore main grid weights and frames
+        try:
+            if hasattr(self, "_items_frame"):
+                self._items_frame.grid()
+            if hasattr(self, "_items_toolbar"):
+                self._items_toolbar.grid()
+            if hasattr(self, "_footer_btns"):
+                self._footer_btns.grid()
+            # restore row weights
+            try:
+                self._card.rowconfigure(5, weight=0)
+                self._card.rowconfigure(2, weight=1)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def _show_picker_inline(self, db):
         self._close_picker()
+        # Спрячем таблицу позиций и кнопки, чтобы панель заняла весь экран
+        try:
+            if hasattr(self, "_items_frame"):
+                self._items_frame.grid_remove()
+            if hasattr(self, "_items_toolbar"):
+                self._items_toolbar.grid_remove()
+            if hasattr(self, "_footer_btns"):
+                self._footer_btns.grid_remove()
+            # растянуть строку под панель
+            try:
+                self._card.rowconfigure(2, weight=0)
+                self._card.rowconfigure(5, weight=1)
+            except Exception:
+                pass
+        except Exception:
+            pass
         # Панель сама закроется после добавления в заказ (через on_cancel внутри _done)
         panel = MeridianProductPickerInline(self._card, db, on_done=lambda items: (self.items.extend(items), self._refresh_items_view()), on_cancel=self._close_picker)
-        # Размещаем панель под кнопками, чтобы не ломать существующую компоновку
+        # Размещаем панель на всю доступную область
         try:
-            panel.grid(row=5, column=0, sticky="nsew", pady=(8, 0))
-            self._card.rowconfigure(5, weight=1)
+            panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
         except Exception:
-            panel.pack(fill="both", expand=True, pady=(8, 0))
+            panel.pack(fill="both", expand=True, pady=(0, 0))
         self._picker_panel = panel
 
     def _add_item(self):
@@ -839,35 +874,35 @@ class MeridianOrderEditorView(ttk.Frame):
 
         ttk.Separator(card).grid(row=1, column=0, sticky="ew", pady=(12, 12))
 
-        items_frame = ttk.Frame(card, style="Card.TFrame")
-        items_frame.grid(row=2, column=0, sticky="nsew")
+        self._items_frame = ttk.Frame(card, style="Card.TFrame")
+        self._items_frame.grid(row=2, column=0, sticky="nsew")
         card.rowconfigure(2, weight=1)
 
         cols = ("product", "sph", "cyl", "ax", "d", "qty")
-        self.items_tree = ttk.Treeview(items_frame, columns=cols, show="headings", style="Data.Treeview")
+        self.items_tree = ttk.Treeview(self._items_frame, columns=cols, show="headings", style="Data.Treeview")
         headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "d": "D (мм)", "qty": "Количество"}
         widths = {"product": 240, "sph": 90, "cyl": 90, "ax": 90, "d": 90, "qty": 120}
         for c in cols:
             self.items_tree.heading(c, text=headers[c], anchor="w")
             self.items_tree.column(c, width=widths[c], anchor="w", stretch=True)
 
-        y_scroll = ttk.Scrollbar(items_frame, orient="vertical", command=self.items_tree.yview)
+        y_scroll = ttk.Scrollbar(self._items_frame, orient="vertical", command=self.items_tree.yview)
         self.items_tree.configure(yscroll=y_scroll.set)
         self.items_tree.grid(row=0, column=0, sticky="nsew")
         y_scroll.grid(row=0, column=1, sticky="ns")
-        items_frame.columnconfigure(0, weight=1)
-        items_frame.rowconfigure(0, weight=1)
+        self._items_frame.columnconfigure(0, weight=1)
+        self._items_frame.rowconfigure(0, weight=1)
 
-        items_toolbar = ttk.Frame(card, style="Card.TFrame")
-        items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
-        ttk.Button(items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
-        ttk.Button(items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
-        ttk.Button(items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
+        self._items_toolbar = ttk.Frame(card, style="Card.TFrame")
+        self._items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(self._items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
+        ttk.Button(self._items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
+        ttk.Button(self._items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
 
-        btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=4, column=0, sticky="e", pady=(12, 0))
-        ttk.Button(btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
+        self._footer_btns = ttk.Frame(card, style="Card.TFrame")
+        self._footer_btns.grid(row=4, column=0, sticky="e", pady=(12, 0))
+        ttk.Button(self._footer_btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
+        ttk.Button(self._footer_btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
         self._refresh_items_view()
 
@@ -909,22 +944,50 @@ class MeridianOrderEditorView(ttk.Frame):
                 except Exception:
                     pass
                 self._picker_panel = None
+                # Restore main grid
+                try:
+                    if hasattr(self, "_items_frame"):
+                        self._items_frame.grid()
+                    if hasattr(self, "_items_toolbar"):
+                        self._items_toolbar.grid()
+                    if hasattr(self, "_footer_btns"):
+                        self._footer_btns.grid()
+                    try:
+                        self._card.rowconfigure(5, weight=0)
+                        self._card.rowconfigure(2, weight=1)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
             def on_done(items):
                 self.items.extend(items)
                 self._refresh_items_view()
-                # Панель закроется сама (через _done -> on_cancel), но закроем на всякий случай
                 _cancel()
             try:
                 if self._picker_panel is not None:
                     self._picker_panel.destroy()
             except Exception:
                 pass
+            # Hide main parts to give full area to picker
+            try:
+                if hasattr(self, "_items_frame"):
+                    self._items_frame.grid_remove()
+                if hasattr(self, "_items_toolbar"):
+                    self._items_toolbar.grid_remove()
+                if hasattr(self, "_footer_btns"):
+                    self._footer_btns.grid_remove()
+                try:
+                    self._card.rowconfigure(2, weight=0)
+                    self._card.rowconfigure(5, weight=1)
+                except Exception:
+                    pass
+            except Exception:
+                pass
             self._picker_panel = MeridianProductPickerInline(self._card, self.db, on_done=on_done, on_cancel=_cancel)
             try:
-                self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(8, 0))
-                self._card.rowconfigure(5, weight=1)
+                self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
             except Exception:
-                self._picker_panel.pack(fill="both", expand=True, pady=(8, 0))
+                self._picker_panel.pack(fill="both", expand=True, pady=(0, 0))
             return
         MeridianItemForm(self, products=[], on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
 
