@@ -8,7 +8,7 @@ from app.utils import create_tooltip
 
 class MeridianProductPickerInline(ttk.Frame):
     """Встроенная панель выбора товара с группами + свободный ввод имени и корзиной позиций."""
-    def __init__(self, master, db, on_done, on_cancel=None):
+    def __init__(self, master, db, on_done, on_cancel=None, initial_item: dict | None = None):
         super().__init__(master, style="Card.TFrame", padding=12)
         self.db = db
         self.on_done = on_done
@@ -20,7 +20,31 @@ class MeridianProductPickerInline(ttk.Frame):
             self._ensure_seed()
         except Exception:
             pass
+        # Если пришла исходная позиция (режим редактирования) — заполним поля и корзину
+        if initial_item:
+            try:
+                name = (initial_item.get("product", "") or "").strip()
+                self.free_name_var.set(name)
+                self.sel_product_var.set(name)
+                self.sel_label.configure(text=name)
+                self.sph_var.set(initial_item.get("sph", ""))
+                self.cyl_var.set(initial_item.get("cyl", ""))
+                self.ax_var.set(initial_item.get("ax", ""))
+                self.d_var.set(initial_item.get("d", ""))
+                try:
+                    self.qty_var.set(int(initial_item.get("qty", 1)))
+                except Exception:
+                    self.qty_var.set(1)
+                # Показать в корзине текущую позицию для наглядности
+                self._basket = [initial_item.copy()]
+            except Exception:
+                pass
         self._load_tree()
+        # Обновим корзину, если заполнили начальное
+        try:
+            self._refresh_basket()
+        except Exception:
+            pass
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
@@ -112,6 +136,7 @@ class MeridianProductPickerInline(ttk.Frame):
         ctl = ttk.Frame(self, style="Card.TFrame")
         ctl.grid(row=2, column=1, sticky="ew", pady=(8, 4))
         ttk.Button(ctl, text="Добавить в список", style="Menu.TButton", command=self._add_to_basket).pack(side="left")
+        ttk.Button(ctl, text="Удалить выбранное", style="Menu.TButton", command=self._remove_selected).pack(side="left", padx=(8, 0))
         ttk.Button(ctl, text="Очистить список", style="Menu.TButton", command=self._clear_basket).pack(side="left", padx=(8, 0))
 
         # Basket table
@@ -357,8 +382,19 @@ class MeridianProductPickerInline(ttk.Frame):
                 pass
         qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
 
-        item = {"product": product, "sph": sph, "cyl": cyl, "ax": ax, "d": d, "qty": qty}
-        self._basket.append(item)
+        # merge with same items in basket (same product+sph+cyl+ax+d)
+        merged = False
+        for it in self._basket:
+            if it["product"] == product and it["sph"] == sph and it["cyl"] == cyl and it["ax"] == ax and it["d"] == d:
+                try:
+                    it["qty"] = str(int(it.get("qty", "0")) + int(qty))
+                except Exception:
+                    it["qty"] = str(qty)
+                merged = True
+                break
+        if not merged:
+            item = {"product": product, "sph": sph, "cyl": cyl, "ax": ax, "d": d, "qty": qty}
+            self._basket.append(item)
         self._refresh_basket()
 
     def _refresh_basket(self):
@@ -366,6 +402,20 @@ class MeridianProductPickerInline(ttk.Frame):
             self.basket.delete(i)
         for idx, it in enumerate(self._basket):
             self.basket.insert("", "end", iid=str(idx), values=(it["product"], it["sph"], it["cyl"], it["ax"], it["d"], it["qty"]))
+
+    def _remove_selected(self):
+        sel = self.basket.selection()
+        if not sel:
+            messagebox.showinfo("Выбор", "Выберите позицию в списке.")
+            return
+        try:
+            idx = int(sel[0])
+        except Exception:
+            return
+        if idx < 0 or idx >= len(self._basket):
+            return
+        del self._basket[idx]
+        self._refresh_basket()
 
     def _clear_basket(self):
         if not self._basket:
@@ -527,7 +577,7 @@ class MeridianOrderForm(tk.Toplevel):
         except Exception:
             pass
 
-    def _show_picker_inline(self, db):
+    def _show_picker_inline(self, db, initial_item: dict | None = None):
         self._close_picker()
         # Спрячем таблицу позиций и кнопки, чтобы панель заняла весь экран
         try:
@@ -546,7 +596,13 @@ class MeridianOrderForm(tk.Toplevel):
         except Exception:
             pass
         # Панель сама закроется после добавления в заказ (через on_cancel внутри _done)
-        panel = MeridianProductPickerInline(self._card, db, on_done=lambda items: (self.items.extend(items), self._refresh_items_view()), on_cancel=self._close_picker)
+        panel = MeridianProductPickerInline(
+            self._card,
+            db,
+            on_done=lambda items: (self.items.extend(items), self._refresh_items_view()),
+            on_cancel=self._close_picker,
+            initial_item=initial_item,
+        )
         # Размещаем панель на всю доступную область
         try:
             panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
@@ -567,10 +623,49 @@ class MeridianOrderForm(tk.Toplevel):
         if idx is None:
             return
         current = self.items[idx].copy()
+        db = self._find_db()
+        if db:
+            # Редактирование во всю область через встроенную панель
+            def on_done(items):
+                if items:
+                    # Берем первую позицию из результатов для замены
+                    try:
+                        self.items[idx] = items[0]
+                    except Exception:
+                        pass
+                    self._refresh_items_view()
+                self._close_picker()
+            # спрятать части формы и показать панель с предзаполнением
+            try:
+                if hasattr(self, "_items_frame"):
+                    self._items_frame.grid_remove()
+                if hasattr(self, "_items_toolbar"):
+                    self._items_toolbar.grid_remove()
+                if hasattr(self, "_footer_btns"):
+                    self._footer_btns.grid_remove()
+                try:
+                    self._card.rowconfigure(2, weight=0)
+                    self._card.rowconfigure(5, weight=1)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            try:
+                if self._picker_panel is not None:
+                    self._picker_panel.destroy()
+            except Exception:
+                pass
+            self._picker_panel = MeridianProductPickerInline(self._card, db, on_done=on_done, on_cancel=self._close_picker, initial_item=current)
+            try:
+                self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
+            except Exception:
+                self._picker_panel.pack(fill="both", expand=True, pady=(0, 0))
+            return
+        # Fallback на старую модалку
         products = []
         try:
             if hasattr(self, "db") and self.db:
-                products = self.db.list_products()
+                products = self.db.list_products_meridian()
         except Exception:
             products = []
         MeridianItemForm(self, products=products, initial=current, on_save=lambda it: (self._apply_item_update(idx, it), self._refresh_items_view()))
