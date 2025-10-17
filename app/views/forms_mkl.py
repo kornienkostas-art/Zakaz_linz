@@ -10,6 +10,87 @@ from app.utils import format_phone_mask  # used for displaying client phones
 from app.utils import create_tooltip
 
 
+class _ListPicker(tk.Toplevel):
+    """Базовый диалог выбора из списка (одно значение)."""
+    def __init__(self, master, title: str, columns: list[tuple[str, str]], rows: list[tuple], on_format=None):
+        super().__init__(master)
+        self.title(title)
+        self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=640, min_h=420, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.bind("<Escape>", lambda e: self.destroy())
+
+        self._on_format = on_format
+        self._result = None
+
+        card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        card.pack(fill="both", expand=True)
+
+        # search
+        self.search_var = tk.StringVar()
+        top = ttk.Frame(card, style="Card.TFrame")
+        top.pack(fill="x")
+        ttk.Label(top, text="Поиск", style="Subtitle.TLabel").pack(anchor="w")
+        ent = ttk.Entry(top, textvariable=self.search_var)
+        ent.pack(fill="x")
+        ent.bind("<KeyRelease>", lambda e: self._apply_filter())
+        try:
+            ent.focus_set()
+        except Exception:
+            pass
+
+        # table
+        self.tree = ttk.Treeview(card, columns=[c[0] for c in columns], show="headings", style="Data.Treeview")
+        for key, hdr in columns:
+            self.tree.heading(key, text=hdr, anchor="w")
+            self.tree.column(key, width=280 if len(columns) == 1 else 240, anchor="w", stretch=True)
+        y = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscroll=y.set)
+        self.tree.pack(fill="both", expand=True, side="left")
+        y.pack(fill="y", side="left")
+
+        # controls
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.pack(fill="x", pady=(8, 0))
+        ttk.Button(btns, text="Выбрать", style="Menu.TButton", command=self._choose).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+        self._rows_all = rows[:]  # list of tuples
+        self._apply_filter()
+
+        self.tree.bind("<Double-1>", lambda e: self._choose())
+
+    def _apply_filter(self):
+        term = (self.search_var.get() or "").strip().lower()
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        for idx, row in enumerate(self._rows_all):
+            display = row
+            if self._on_format:
+                display = self._on_format(row)
+            text_join = " ".join(str(x) for x in display).lower()
+            if term and term not in text_join:
+                continue
+            self.tree.insert("", "end", iid=str(idx), values=display)
+
+    def _choose(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        try:
+            i = int(sel[0])
+        except Exception:
+            return
+        self._result = self._rows_all[i]
+        self.destroy()
+
+    @property
+    def result(self):
+        return self._result
+
+
 class OrderForm(tk.Toplevel):
     """Форма создания/редактирования заказа МКЛ."""
     def __init__(
@@ -167,17 +248,25 @@ class OrderForm(tk.Toplevel):
         card.columnconfigure(0, weight=1)
         card.columnconfigure(1, weight=1)
 
-        # Client selection with autocomplete
+        # Client selection with autocomplete + button
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
-        self.client_combo.grid(row=1, column=0, sticky="ew")
-        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
+        client_row = ttk.Frame(card, style="Card.TFrame")
+        client_row.grid(row=1, column=0, sticky="ew")
+        client_row.columnconfigure(0, weight=1)
+        self.client_combo = ttk.Combobox(client_row, textvariable=self.client_var, values=self._client_values(), height=10, width=40)
+        self.client_combo.grid(row=0, column=0, sticky="w")
+        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients(open_dropdown=True))
+        ttk.Button(client_row, text="Выбрать", style="Menu.TButton", command=self._pick_client).grid(row=0, column=1, padx=(8, 0))
 
-        # Product selection (простая строка с автодополнением)
+        # Product selection (автодополнение) + button
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10, width=40)
-        self.product_combo.grid(row=1, column=1, sticky="w")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        product_row = ttk.Frame(card, style="Card.TFrame")
+        product_row.grid(row=1, column=1, sticky="ew")
+        product_row.columnconfigure(0, weight=1)
+        self.product_combo = ttk.Combobox(product_row, textvariable=self.product_var, values=self._product_values(), height=10, width=40)
+        self.product_combo.grid(row=0, column=0, sticky="w")
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products(open_dropdown=True))
+        ttk.Button(product_row, text="Выбрать", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, padx=(8, 0))
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
@@ -294,19 +383,32 @@ class OrderForm(tk.Toplevel):
     def _product_values(self):
         return [p.get("name", "") for p in self.products]
 
-    def _filter_clients(self):
+    def _filter_clients(self, open_dropdown: bool = False):
         term = self.client_var.get().strip().lower()
         values = self._client_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
+        try:
+            self.client_combo.focus_set()
+            if open_dropdown:
+                # открыть список подсказок и оставить курсор в поле
+                self.client_combo.event_generate("<Down>")
+        except Exception:
+            pass
 
-    def _filter_products(self):
+    def _filter_products(self, open_dropdown: bool = False):
         term = self.product_var.get().strip().lower()
         values = self._product_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.product_combo["values"] = values
+        try:
+            self.product_combo.focus_set()
+            if open_dropdown:
+                self.product_combo.event_generate("<Down>")
+        except Exception:
+            pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
@@ -567,17 +669,25 @@ class MKLOrderEditorView(ttk.Frame):
         card.columnconfigure(0, weight=1)
         card.columnconfigure(1, weight=1)
 
-        # Client selection
+        # Client selection + button
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
-        self.client_combo.grid(row=1, column=0, sticky="ew")
-        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
+        client_row = ttk.Frame(card, style="Card.TFrame")
+        client_row.grid(row=1, column=0, sticky="ew")
+        client_row.columnconfigure(0, weight=1)
+        self.client_combo = ttk.Combobox(client_row, textvariable=self.client_var, values=self._client_values(), height=10, width=40)
+        self.client_combo.grid(row=0, column=0, sticky="w")
+        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients(open_dropdown=True))
+        ttk.Button(client_row, text="Выбрать", style="Menu.TButton", command=self._pick_client).grid(row=0, column=1, padx=(8, 0))
 
-        # Product selection (простая строка с автодополнением)
+        # Product selection + button
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10, width=40)
-        self.product_combo.grid(row=1, column=1, sticky="w")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        product_row = ttk.Frame(card, style="Card.TFrame")
+        product_row.grid(row=1, column=1, sticky="ew")
+        product_row.columnconfigure(0, weight=1)
+        self.product_combo = ttk.Combobox(product_row, textvariable=self.product_var, values=self._product_values(), height=10, width=40)
+        self.product_combo.grid(row=0, column=0, sticky="w")
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products(open_dropdown=True))
+        ttk.Button(product_row, text="Выбрать", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, padx=(8, 0))
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
@@ -692,19 +802,59 @@ class MKLOrderEditorView(ttk.Frame):
     def _product_values(self):
         return [p.get("name", "") for p in self.products]
 
-    def _filter_clients(self):
+    def _filter_clients(self, open_dropdown: bool = False):
         term = self.client_var.get().strip().lower()
         values = self._client_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
+        try:
+            self.client_combo.focus_set()
+            if open_dropdown:
+                self.client_combo.event_generate("<Down>")
+        except Exception:
+            pass
 
-    def _filter_products(self):
+    def _filter_products(self, open_dropdown: bool = False):
         term = self.product_var.get().strip().lower()
         values = self._product_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.product_combo["values"] = values
+        try:
+            self.product_combo.focus_set()
+            if open_dropdown:
+                self.product_combo.event_generate("<Down>")
+        except Exception:
+            pass
+
+    def _pick_client(self):
+        rows = [(c.get("fio", ""), format_phone_mask(c.get("phone", "")), c.get("phone", "")) for c in self.clients]
+        dlg = _ListPicker(self, "Выбор клиента", [("fio", "ФИО"), ("phone", "Телефон")], rows, on_format=lambda r: (r[0], r[1]))
+        self.wait_window(dlg)
+        res = dlg.result
+        if res:
+            fio, masked, phone_raw = res
+            self.client_var.set(f"{fio} — {masked}".strip(" —"))
+            try:
+                self.client_combo.focus_set()
+                self.client_combo.icursor("end")
+            except Exception:
+                pass
+
+    def _pick_product(self):
+        rows = [(p.get("name", ""),) for p in self.products]
+        dlg = _ListPicker(self, "Выбор товара", [("name", "Название")], rows)
+        self.wait_window(dlg)
+        res = dlg.result
+        if res:
+            name = res[0]
+            self.product_var.set(name)
+            try:
+                self.product_combo.focus_set()
+                self.product_combo.icursor("end")
+            except Exception:
+                pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
