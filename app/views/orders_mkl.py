@@ -200,7 +200,7 @@ class MKLOrdersView(ttk.Frame):
             self._refresh_orders_view()
 
         from app.views.forms_mkl import OrderForm
-        OrderForm(self, clients=clients, products=products, on_save=on_save, initial=current, statuses=self.STATUSES)
+        OrderForm(self, clients=clients, products=products, on_save=on_save, initial=current, statuses=self.STATUSES, db=self.db)
 
     def _delete_order(self):
         idx = self._selected_index()

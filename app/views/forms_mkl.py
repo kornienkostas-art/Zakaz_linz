@@ -20,11 +20,12 @@ class OrderForm(tk.Toplevel):
         on_save=None,
         initial: dict | None = None,
         statuses: list[str] | None = None,
+        db: Optional[AppDB] = None,
     ):
         super().__init__(master)
         self.title("Редактирование заказа" if initial else "Новый заказ")
         self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=820, min_h=680, center_to=master)
+        set_initial_geometry(self, min_w=820, min_h=780, center_to=master)
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -34,6 +35,8 @@ class OrderForm(tk.Toplevel):
         self.products = products
         self.statuses = statuses or ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
         self.is_new = initial is None
+        # DB for tree-based picker (используем каталоги товаров Меридиан)
+        self._db = db
 
         # Vars
         self.client_var = tk.StringVar()
@@ -93,20 +96,20 @@ class OrderForm(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
 
     def _load_tree_mkl(self):
-        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска."""
+        """Загрузка дерева групп/товаров (каталог Меридиан) с учетом поиска."""
         if not getattr(self, "_db", None) or not hasattr(self, "tree"):
             return
         term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
         self.tree.delete(*self.tree.get_children())
-        # Получаем группы
+        # Группы каталога Меридиан
         try:
-            groups = self._db.list_product_groups()
+            groups = self._db.list_product_groups_meridian()
         except Exception:
             groups = []
         if not groups:
-            # Покажем плоский список всех товаров
+            # Плоский список товаров Меридиан
             try:
-                all_prods = self._db.list_products()
+                all_prods = self._db.list_products_meridian()
             except Exception:
                 all_prods = []
             root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
@@ -124,10 +127,9 @@ class OrderForm(tk.Toplevel):
         any_found_total = False
         for g in groups:
             try:
-                prods = self._db.list_products_by_group(g["id"])
+                prods = self._db.list_products_meridian_by_group(g["id"])
             except Exception:
                 prods = []
-            # Фильтрация
             matched = []
             if term:
                 for p in prods:
@@ -159,6 +161,7 @@ class OrderForm(tk.Toplevel):
             self.tree.item(item, open=not is_open)
             return
         if "product" in tags:
+            # Выбор товара из дерева заполняет поле ввода
             self.product_var.set(text)
 
     def _build_ui(self):
@@ -173,17 +176,44 @@ class OrderForm(tk.Toplevel):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection (простая строка с автодополнением)
+        # Product selection (строка + дерево как в товарах Меридиан)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
-        ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        # Встроенный блок выбора из каталога Меридиан
+        picker = ttk.Frame(card, style="Card.TFrame")
+        picker.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(8, 12))
+        card.rowconfigure(2, weight=1)
+        picker.columnconfigure(0, weight=1)
+        ttk.Label(picker, text="Поиск товара (каталог Меридиан)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        self.search_var = tk.StringVar()
+        ent_search = ttk.Entry(picker, textvariable=self.search_var)
+        ent_search.grid(row=1, column=0, sticky="ew", pady=(4, 8))
+        ent_search.bind("<KeyRelease>", lambda e: self._load_tree_mkl())
 
-        # Row 3: labels
-        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
-        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
+        self.tree = ttk.Treeview(picker, show="tree", style="Data.Treeview")
+        self.tree.column("#0", width=900, stretch=True)
+        y_scroll = ttk.Scrollbar(picker, orient="vertical", command=self.tree.yview)
+        x_scroll = ttk.Scrollbar(picker, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
+        self.tree.grid(row=2, column=0, sticky="nsew")
+        y_scroll.grid(row=2, column=0, sticky="nse")
+        x_scroll.grid(row=3, column=0, sticky="ew")
+        self.tree.bind("<Double-1>", self._on_tree_dbl_mkl)
+
+        # Загрузка дерева
+        try:
+            self._load_tree_mkl()
+        except Exception:
+            pass
+
+        ttk.Separator(card).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+
+        # Row 5: labels
+        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8))
+        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0))
 
         # Local nudge for buttons inside this method
         def _nudge_local(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
@@ -202,9 +232,9 @@ class OrderForm(tk.Toplevel):
             snapped = max(min_v, min(max_v, snapped))
             var.set(f"{snapped:.2f}")
 
-        # Row 4: entries with inline − / + controls
+        # Row 6: entries with inline − / + controls
         sph_row = ttk.Frame(card, style="Card.TFrame")
-        sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_row.grid(row=6, column=0, sticky="ew", padx=(0, 8))
         sph_row.columnconfigure(1, weight=1)
         btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, -1))
         btn_sph_dec.grid(row=0, column=0, sticky="w")
@@ -219,7 +249,7 @@ class OrderForm(tk.Toplevel):
             pass
 
         cyl_row = ttk.Frame(card, style="Card.TFrame")
-        cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.grid(row=6, column=1, sticky="ew", padx=(8, 0))
         cyl_row.columnconfigure(1, weight=1)
         btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, -1))
         btn_cyl_dec.grid(row=0, column=0, sticky="w")
@@ -240,14 +270,14 @@ class OrderForm(tk.Toplevel):
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
-        # Row 5: labels
-        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
-        # Row 6: entries
+        # Row 7: labels
+        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+        # Row 8: entries
         self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=6, column=0, sticky="ew", padx=(0, 8))
+        self.ax_entry.grid(row=8, column=0, sticky="ew", padx=(0, 8))
         self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
-        self.bc_entry.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        self.bc_entry.grid(row=8, column=1, sticky="ew", padx=(8, 0))
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
@@ -258,20 +288,20 @@ class OrderForm(tk.Toplevel):
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
-        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=9, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.grid(row=8, column=0, sticky="w")
+        self.qty_spin.grid(row=10, column=0, sticky="w")
 
         # Comment field
-        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=9, column=1, sticky="w", pady=(8, 0))
         self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
-        self.comment_entry.grid(row=8, column=1, sticky="ew")
+        self.comment_entry.grid(row=10, column=1, sticky="ew")
 
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
-        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        footer.grid(row=11, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=12, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
@@ -279,7 +309,9 @@ class OrderForm(tk.Toplevel):
         try:
             self.destroy()
         finally:
-            if callable(self.on_back):
+            if callable(self.on_save):  # keep API consistent
+                pass
+            if callable(getattr(self, "on_back", None)):
                 self.on_back()
 
     # Helpers: values for combo and filtering
@@ -498,12 +530,12 @@ class MKLOrderEditorView(ttk.Frame):
         term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
         self.tree.delete(*self.tree.get_children())
         try:
-            groups = self.db.list_product_groups()
+            groups = self.db.list_product_groups_meridian()
         except Exception:
             groups = []
         if not groups:
             try:
-                all_prods = self.db.list_products()
+                all_prods = self.db.list_products_meridian()
             except Exception:
                 all_prods = []
             root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
@@ -520,7 +552,7 @@ class MKLOrderEditorView(ttk.Frame):
         any_found_total = False
         for g in groups:
             try:
-                prods = self.db.list_products_by_group(g["id"])
+                prods = self.db.list_products_meridian_by_group(g["id"])
             except Exception:
                 prods = []
             matched = []
@@ -579,7 +611,34 @@ class MKLOrderEditorView(ttk.Frame):
         self.product_combo.grid(row=1, column=1, sticky="ew")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
-        ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        # Inline tree picker like Meridian for product name
+        picker = ttk.Frame(card, style="Card.TFrame")
+        picker.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(8, 12))
+        card.rowconfigure(2, weight=1)
+        picker.columnconfigure(0, weight=1)
+        ttk.Label(picker, text="Поиск товара (из каталога Меридиан)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        self.search_var = tk.StringVar()
+        ent_search = ttk.Entry(picker, textvariable=self.search_var)
+        ent_search.grid(row=1, column=0, sticky="ew", pady=(4, 8))
+        ent_search.bind("<KeyRelease>", lambda e: self._load_tree_mkl())
+
+        self.tree = ttk.Treeview(picker, show="tree", style="Data.Treeview")
+        self.tree.column("#0", width=900, stretch=True)
+        y_scroll = ttk.Scrollbar(picker, orient="vertical", command=self.tree.yview)
+        x_scroll = ttk.Scrollbar(picker, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
+        self.tree.grid(row=2, column=0, sticky="nsew")
+        y_scroll.grid(row=2, column=0, sticky="nse")
+        x_scroll.grid(row=3, column=0, sticky="ew")
+        self.tree.bind("<Double-1>", self._on_tree_dbl_mkl)
+
+        # Load initial tree
+        try:
+            self._load_tree_mkl()
+        except Exception:
+            pass
+
+        ttk.Separator(card).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
         # Local nudge for +/- buttons
         def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
@@ -598,12 +657,12 @@ class MKLOrderEditorView(ttk.Frame):
             snapped = max(min_v, min(max_v, snapped))
             var.set(f"{snapped:.2f}")
 
-        # Row 3: labels
-        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
-        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: entries with inline − / + controls
+        # Row 5: labels
+        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8))
+        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0))
+        # Row 6: entries with inline − / + controls
         sph_row = ttk.Frame(card, style="Card.TFrame")
-        sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_row.grid(row=6, column=0, sticky="ew", padx=(0, 8))
         sph_row.columnconfigure(1, weight=1)
         btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1))
         btn_sph_dec.grid(row=0, column=0, sticky="w")
@@ -618,7 +677,7 @@ class MKLOrderEditorView(ttk.Frame):
             pass
 
         cyl_row = ttk.Frame(card, style="Card.TFrame")
-        cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.grid(row=6, column=1, sticky="ew", padx=(8, 0))
         cyl_row.columnconfigure(1, weight=1)
         btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1))
         btn_cyl_dec.grid(row=0, column=0, sticky="w")
@@ -638,14 +697,14 @@ class MKLOrderEditorView(ttk.Frame):
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
-        # Row 5: labels
-        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
-        # Row 6: entries
+        # Row 7: labels
+        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+        # Row 8: entries
         self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=6, column=0, sticky="ew", padx=(0, 8))
+        self.ax_entry.grid(row=8, column=0, sticky="ew", padx=(0, 8))
         self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
-        self.bc_entry.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        self.bc_entry.grid(row=8, column=1, sticky="ew", padx=(8, 0))
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
@@ -656,20 +715,20 @@ class MKLOrderEditorView(ttk.Frame):
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
-        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=9, column=0, sticky="w")
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.grid(row=8, column=0, sticky="w")
-
-        footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
-        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        self.qty_spin.grid(row=10, column=0, sticky="w")
 
         # Comment field
-        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=9, column=1, sticky="w")
         self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
-        self.comment_entry.grid(row=8, column=1, sticky="ew")
+        self.comment_entry.grid(row=10, column=1, sticky="ew")
+
+        footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
+        footer.grid(row=11, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=12, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
