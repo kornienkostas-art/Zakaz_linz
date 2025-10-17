@@ -13,9 +13,11 @@ class NameDialog(tk.Toplevel):
         super().__init__(master)
         self.title(title)
         self.configure(bg="#f8fafc")
-        # широкое окно, чтобы влезало длинное имя
-        from app.utils import set_initial_geometry
-        set_initial_geometry(self, min_w=800, min_h=180, center_to=master)
+        # Небольшое, но широкое окно без раздувания на 70% экрана
+        try:
+            self.minsize(700, 120)
+        except Exception:
+            pass
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self._cancel)
@@ -38,6 +40,14 @@ class NameDialog(tk.Toplevel):
         btns.pack(fill="x", anchor="e")
         ttk.Button(btns, text="OK", style="Menu.TButton", command=self._ok).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._cancel).pack(side="right", padx=(8, 0))
+
+        # Центрируем аккуратно без масштабирования
+        try:
+            from app.utils import center_on_screen
+            self.update_idletasks()
+            center_on_screen(self)
+        except Exception:
+            pass
 
         self.entry.focus_set()
 
@@ -214,7 +224,8 @@ class ProductsMeridianView(ttk.Frame):
         card.columnconfigure(0, weight=1)
         card.rowconfigure(3, weight=1)
 
-        # Double-click expand/collapse only on groups
+        # Double-click expand/collapse only on groups (по всей строке)
+        self.tree.bind("<Double-1>", self._on_double_click)ouble-click expand/collapse only on groups
         self.tree.bind("<Double-1>", self._on_double_click)
 
     def _go_back(self):
@@ -239,9 +250,37 @@ class ProductsMeridianView(ttk.Frame):
             for nm in items:
                 self.db.add_product_meridian(_clean_spaces(nm), gid)
 
-    def _reload(self, initial_seed: bool = False):
+    def _capture_state(self):
+        open_gids = set()
+        try:
+            for top in self.tree.get_children(""):
+                tags = set(self.tree.item(top, "tags") or [])
+                if "group" in tags:
+                    gid = None
+                    for t in tags:
+                        if t.startswith("gid:"):
+                            v = t.split(":", 1)[1]
+                            gid = None if v == "None" else int(v)
+                    if gid is not None and self.tree.item(top, "open"):
+                        open_gids.add(gid)
+        except Exception:
+            pass
+        kind, info = self._selection()
+        sel = None
+        if kind and info:
+            sel = {"kind": kind, "gid": info.get("gid"), "pid": info.get("pid")}
+        return open_gids, sel
+
+    def _reload(self, initial_seed: bool = False, preserve_state: bool = False, open_gids: set | None = None, select_pref: dict | None = None):
         if initial_seed and self.db:
             self._seed_if_empty()
+        if preserve_state and (open_gids is None or select_pref is None):
+            # auto-capture if not provided
+            og, sel = self._capture_state()
+            if open_gids is None:
+                open_gids = og
+            if select_pref is None:
+                select_pref = sel
         # Load groups and products
         try:
             self._groups = self.db.list_product_groups_meridian()
@@ -258,21 +297,58 @@ class ProductsMeridianView(ttk.Frame):
             messagebox.showerror("База данных", f"Не удалось загрузить товары:\n{e}")
             self._group_products = {}
             self._ungrouped = []
-        self._refresh_view()
+        self._refresh_view(open_gids=open_gids, select_pref=select_pref)
 
-    def _refresh_view(self):
+    def _find_node_by_tag(self, tag: str):
+        try:
+            def walk(parent=""):
+                for child in self.tree.get_children(parent):
+                    tags = self.tree.item(child, "tags") or []
+                    if tag in tags:
+                        return child
+                    found = walk(child)
+                    if found:
+                        return found
+                return None
+            return walk("")
+        except Exception:
+            return None
+
+    def _refresh_view(self, open_gids: set | None = None, select_pref: dict | None = None):
         self.tree.delete(*self.tree.get_children())
         # Ungrouped section if exists
+        ungrouped_root = None
         if self._ungrouped:
-            uroot = self.tree.insert("", "end", text="Без группы", open=True, tags=("group", "ungrouped", "gid:None"))
+            ungrouped_root = self.tree.insert("", "end", text="Без группы", open=True, tags=("group", "ungrouped", "gid:None"))
             for p in self._ungrouped:
-                self.tree.insert(uroot, "end", text=p["name"], tags=("product", f"pid:{p['id']}", "gid:None"))
+                self.tree.insert(ungrouped_root, "end", text=p["name"], tags=("product", f"pid:{p['id']}", "gid:None"))
         # Groups
+        gid_to_node = {}
         for g in self._groups:
             gid = g["id"]
-            node = self.tree.insert("", "end", text=g["name"], open=False, tags=("group", f"gid:{gid}"))
+            is_open = bool(open_gids and gid in open_gids)
+            node = self.tree.insert("", "end", text=g["name"], open=is_open, tags=("group", f"gid:{gid}"))
+            gid_to_node[gid] = node
             for p in self._group_products.get(gid, []):
                 self.tree.insert(node, "end", text=p["name"], tags=("product", f"pid:{p['id']}", f"gid:{gid}"))
+
+        # Restore selection
+        try:
+            if select_pref:
+                target_item = None
+                if select_pref.get("kind") == "product" and select_pref.get("pid") is not None:
+                    target_item = self._find_node_by_tag(f"pid:{select_pref['pid']}")
+                if not target_item:
+                    gid = select_pref.get("gid")
+                    if gid is None and ungrouped_root:
+                        target_item = ungrouped_root
+                    elif gid in gid_to_node:
+                        target_item = gid_to_node[gid]
+                if target_item:
+                    self.tree.selection_set(target_item)
+                    self.tree.see(target_item)
+        except Exception:
+            pass
 
     def _selection(self):
         sel = self.tree.selection()
@@ -292,12 +368,14 @@ class ProductsMeridianView(ttk.Frame):
         kind = "group" if "group" in tags and "product" not in tags else ("product" if "product" in tags else None)
         return kind, {"item": item, "text": text, "gid": gid, "pid": pid}
 
-    def _on_double_click(self, _event):
-        kind, info = self._selection()
-        if kind != "group":
-            return
-        item = info["item"]
+    def _on_double_click(self, event):
         try:
+            item = self.tree.identify_row(event.y)
+            if not item:
+                return
+            tags = set(self.tree.item(item, "tags") or [])
+            if "group" not in tags:
+                return
             is_open = self.tree.item(item, "open")
             self.tree.item(item, open=not is_open)
         except Exception:
@@ -312,8 +390,9 @@ class ProductsMeridianView(ttk.Frame):
             return
         name = _clean_spaces(name)
         try:
+            og, sel = self._capture_state()
             self.db.add_product_group_meridian(name)
-            self._reload()
+            self._reload(preserve_state=True, open_gids=og, select_pref=sel)
         except Exception as e:
             messagebox.showerror("Группа", f"Не удалось добавить группу:\n{e}")
 
@@ -332,8 +411,9 @@ class ProductsMeridianView(ttk.Frame):
             return
         name = _clean_spaces(name)
         try:
+            og, sel = self._capture_state()
             self.db.update_product_group_meridian(info["gid"], name)
-            self._reload()
+            self._reload(preserve_state=True, open_gids=og, select_pref=sel)
         except Exception as e:
             messagebox.showerror("Группа", f"Не удалось переименовать группу:\n{e}")
 
@@ -349,8 +429,10 @@ class ProductsMeridianView(ttk.Frame):
         if not messagebox.askyesno("Удалить группу", f"Удалить группу '{info['text']}'?\nТовары останутся в 'Без группы'."):
             return
         try:
+            og, sel = self._capture_state()
             self.db.delete_product_group_meridian(gid)
-            self._reload()
+            # после удаления группы выберем "Без группы" или ближайшую группу
+            self._reload(preserve_state=True, open_gids=og, select_pref={"kind": "group", "gid": None, "pid": None})
         except Exception as e:
             messagebox.showerror("Группа", f"Не удалось удалить группу:\n{e}")
 
@@ -364,8 +446,9 @@ class ProductsMeridianView(ttk.Frame):
             messagebox.showinfo("Группа", "Нельзя перемещать 'Без группы'.")
             return
         try:
+            og, sel = self._capture_state()
             self.db.move_group_meridian(gid, direction)
-            self._reload()
+            self._reload(preserve_state=True, open_gids=og, select_pref=sel)
         except Exception as e:
             messagebox.showerror("Группа", f"Не удалось переместить группу:\n{e}")
 
@@ -384,8 +467,10 @@ class ProductsMeridianView(ttk.Frame):
             return
         name = _clean_spaces(name)
         try:
+            og, sel = self._capture_state()
             self.db.add_product_meridian(name, gid)
-            self._reload()
+            # Попробуем выбрать только что добавленный товар: заново загрузим и выберем группу gid
+            self._reload(preserve_state=True, open_gids=og, select_pref={"kind": "group", "gid": gid, "pid": None})
         except Exception as e:
             messagebox.showerror("Товар", f"Не удалось добавить товар:\n{e}")
 
@@ -404,8 +489,9 @@ class ProductsMeridianView(ttk.Frame):
             return
         name = _clean_spaces(name)
         try:
+            og, sel = self._capture_state()
             self.db.update_product_meridian(pid, name, gid)
-            self._reload()
+            self._reload(preserve_state=True, open_gids=og, select_pref=sel)
         except Exception as e:
             messagebox.showerror("Товар", f"Не удалось переименовать товар:\n{e}")
 
@@ -417,8 +503,11 @@ class ProductsMeridianView(ttk.Frame):
         if not messagebox.askyesno("Удалить товар", f"Удалить '{info['text']}'?"):
             return
         try:
+            og, _sel = self._capture_state()
+            gid = info["gid"]
             self.db.delete_product_meridian(info["pid"])
-            self._reload()
+            # После удаления выберем группу, чтобы дерево не схлопывалось
+            self._reload(preserve_state=True, open_gids=og, select_pref={"kind": "group", "gid": gid, "pid": None})
         except Exception as e:
             messagebox.showerror("Товар", f"Не удалось удалить товар:\n{e}")
 
