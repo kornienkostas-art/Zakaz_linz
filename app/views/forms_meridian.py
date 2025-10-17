@@ -243,16 +243,30 @@ class MeridianProductPickerInline(ttk.Frame):
             self._refresh_basket()
 
     def _done(self):
-        if callable(self.on_done):
-            try:
-                self.on_done(list(self._basket))
-            except Exception:
-                pass
+        items = list(self._basket)
+        # Сообщаем родителю о готовом списке
+        try:
+            if callable(self.on_done):
+                self.on_done(items)
+        except Exception:
+            pass
+        # Если панель все еще существует — очистим корзину и обновим таблицу
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
         self._basket.clear()
-        self._refresh_basket()
-        # Скрываем панель после переноса
-        if callable(self.on_cancel):
-            self.on_cancel()
+        try:
+            self._refresh_basket()
+        except Exception:
+            pass
+        # Закрыть панель по завершении
+        try:
+            if callable(self.on_cancel):
+                self.on_cancel()
+        except Exception:
+            pass
 
     def _cancel(self):
         # Закрыть панель без добавления
@@ -367,7 +381,8 @@ class MeridianOrderForm(tk.Toplevel):
 
     def _show_picker_inline(self, db):
         self._close_picker()
-        panel = MeridianProductPickerInline(self._card, db, on_done=lambda items: (self.items.extend(items), self._refresh_items_view(), self._close_picker()), on_cancel=self._close_picker)
+        # Панель сама закроется после добавления в заказ (через on_cancel внутри _done)
+        panel = MeridianProductPickerInline(self._card, db, on_done=lambda items: (self.items.extend(items), self._refresh_items_view()), on_cancel=self._close_picker)
         # Размещаем панель под кнопками, чтобы не ломать существующую компоновку
         try:
             panel.grid(row=5, column=0, sticky="nsew", pady=(8, 0))
@@ -769,8 +784,8 @@ class MeridianOrderEditorView(ttk.Frame):
             def on_done(items):
                 self.items.extend(items)
                 self._refresh_items_view()
+                # Панель закроется сама (через _done -> on_cancel), но закроем на всякий случай
                 _cancel()
-            # Показать/создать панель
             try:
                 if self._picker_panel is not None:
                     self._picker_panel.destroy()
