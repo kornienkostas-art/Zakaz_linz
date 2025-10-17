@@ -6,63 +6,56 @@ from app.utils import set_initial_geometry
 from app.utils import create_tooltip
 
 
-class MeridianProductPicker(tk.Toplevel):
-    def __init__(self, master, db, on_done):
-        super().__init__(master)
-        self.title("Выбор товара (Меридиан)")
-        self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=980, min_h=620, center_to=master)
-        self.transient(master)
-        self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
-        self.bind("<Escape>", lambda e: self.destroy())
-
+class MeridianProductPickerInline(ttk.Frame):
+    """Встроенная панель выбора товара с группами + свободный ввод имени и корзиной позиций."""
+    def __init__(self, master, db, on_done, on_cancel=None):
+        super().__init__(master, style="Card.TFrame", padding=12)
         self.db = db
         self.on_done = on_done
+        self.on_cancel = on_cancel
         self._basket: list[dict] = []
         self._build_ui()
         self._load_tree()
 
     def _build_ui(self):
-        root = ttk.Frame(self, style="Card.TFrame", padding=12)
-        root.pack(fill="both", expand=True)
-        root.columnconfigure(0, weight=1)
-        root.columnconfigure(1, weight=2)
-        root.rowconfigure(2, weight=1)
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=2)
+        self.rowconfigure(3, weight=1)
 
-        # Search
-        ttk.Label(root, text="Поиск товара", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 8))
+        # Search + free product entry
+        top = ttk.Frame(self, style="Card.TFrame")
+        top.grid(row=0, column=0, columnspan=2, sticky="ew")
+        top.columnconfigure(1, weight=1)
+        ttk.Label(top, text="Поиск:", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
         self.search_var = tk.StringVar()
-        ent = ttk.Entry(root, textvariable=self.search_var)
-        ent.grid(row=1, column=0, sticky="ew", padx=(0, 8))
-        ent.bind("<KeyRelease>", lambda e: self._load_tree())
+        ent_search = ttk.Entry(top, textvariable=self.search_var)
+        ent_search.grid(row=0, column=1, sticky="ew", padx=(6, 12))
+        ent_search.bind("<KeyRelease>", lambda e: self._load_tree())
 
-        # Tree: groups -> products
-        self.tree = ttk.Treeview(root, show="tree", style="Data.Treeview")
-        y_scroll = ttk.Scrollbar(root, orient="vertical", command=self.tree.yview)
+        ttk.Label(top, text="Свободный ввод товара:", style="Subtitle.TLabel").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        self.free_name_var = tk.StringVar()
+        ttk.Entry(top, textvariable=self.free_name_var).grid(row=1, column=1, sticky="ew", padx=(6, 12), pady=(8, 0))
+
+        # Tree
+        self.tree = ttk.Treeview(self, show="tree", style="Data.Treeview")
+        y_scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=y_scroll.set)
-        self.tree.grid(row=2, column=0, sticky="nsew", padx=(0, 8))
-        y_scroll.grid(row=2, column=0, sticky="nse", padx=(0, 0))
+        self.tree.grid(row=1, column=0, rowspan=3, sticky="nsew", padx=(0, 8))
+        y_scroll.grid(row=1, column=0, rowspan=3, sticky="nse")
         self.tree.bind("<Double-1>", self._on_tree_dbl)
 
-        # Right panel: params + basket
-        right = ttk.Frame(root, style="Card.TFrame", padding=(0, 0))
-        right.grid(row=0, column=1, rowspan=3, sticky="nsew")
-        right.columnconfigure(0, weight=1)
-        right.rowconfigure(3, weight=1)
+        # Right panel params
+        right = ttk.Frame(self, style="Card.TFrame")
+        right.grid(row=1, column=1, sticky="ew")
+        right.columnconfigure(1, weight=1)
+        right.columnconfigure(3, weight=1)
 
         self.sel_product_var = tk.StringVar(value="")
-
-        sel_row = ttk.Frame(right, style="Card.TFrame")
-        sel_row.grid(row=0, column=0, sticky="ew")
-        ttk.Label(sel_row, text="Выбранный товар:", style="Subtitle.TLabel").pack(side="left")
-        self.sel_label = ttk.Label(sel_row, text="", style="TLabel")
+        row_sel = ttk.Frame(right, style="Card.TFrame")
+        row_sel.grid(row=0, column=0, columnspan=4, sticky="ew")
+        ttk.Label(row_sel, text="Выбранный товар:", style="Subtitle.TLabel").pack(side="left")
+        self.sel_label = ttk.Label(row_sel, text="", style="TLabel")
         self.sel_label.pack(side="left", padx=(8, 0))
-
-        params = ttk.Frame(right, style="Card.TFrame")
-        params.grid(row=1, column=0, sticky="ew", pady=(8, 4))
-        params.columnconfigure(1, weight=1)
-        params.columnconfigure(3, weight=1)
 
         # Variables
         self.sph_var = tk.StringVar()
@@ -71,7 +64,6 @@ class MeridianProductPicker(tk.Toplevel):
         self.d_var = tk.StringVar()
         self.qty_var = tk.IntVar(value=1)
 
-        # Nudge helper
         def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
             txt = (var.get() or "").replace(",", ".").strip()
             if txt == "":
@@ -88,82 +80,85 @@ class MeridianProductPicker(tk.Toplevel):
             snapped = max(min_v, min(max_v, snapped))
             var.set(f"{snapped:.2f}")
 
-        # SPH
-        ttk.Label(params, text="SPH (−30…+30, шаг 0.25)").grid(row=0, column=0, sticky="w")
-        sph_row = ttk.Frame(params)
-        sph_row.grid(row=0, column=1, sticky="ew")
-        sph_row.columnconfigure(1, weight=1)
+        ttk.Label(right, text="SPH (−30…+30, 0.25)").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        sph_row = ttk.Frame(right); sph_row.grid(row=1, column=1, sticky="ew", pady=(6, 0)); sph_row.columnconfigure(1, weight=1)
         ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0)
-        sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
-        sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Entry(sph_row, textvariable=self.sph_var).grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
 
-        # CYL
-        ttk.Label(params, text="CYL (−10…+10, шаг 0.25)").grid(row=0, column=2, sticky="w", padx=(12, 0))
-        cyl_row = ttk.Frame(params)
-        cyl_row.grid(row=0, column=3, sticky="ew")
-        cyl_row.columnconfigure(1, weight=1)
+        ttk.Label(right, text="CYL (−10…+10, 0.25)").grid(row=1, column=2, sticky="w", pady=(6, 0))
+        cyl_row = ttk.Frame(right); cyl_row.grid(row=1, column=3, sticky="ew", pady=(6, 0)); cyl_row.columnconfigure(1, weight=1)
         ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
-        cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
-        cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Entry(cyl_row, textvariable=self.cyl_var).grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
-        # AX, D, QTY
-        ttk.Label(params, text="AX (0…180)").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(params, textvariable=self.ax_var).grid(row=1, column=1, sticky="ew", pady=(8, 0))
-        ttk.Label(params, text="D (40…90, шаг 5)").grid(row=1, column=2, sticky="w", pady=(8, 0))
-        ttk.Entry(params, textvariable=self.d_var).grid(row=1, column=3, sticky="ew", pady=(8, 0))
-        ttk.Label(params, text="Количество (1…20)").grid(row=1, column=4, sticky="w", padx=(12, 0), pady=(8, 0))
-        ttk.Spinbox(params, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=1, column=5, sticky="w", pady=(8, 0))
+        ttk.Label(right, text="AX (0…180)").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Entry(right, textvariable=self.ax_var).grid(row=2, column=1, sticky="ew", pady=(6, 0))
+        ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=2, sticky="w", pady=(6, 0))
+        ttk.Entry(right, textvariable=self.d_var).grid(row=2, column=3, sticky="ew", pady=(6, 0))
+        ttk.Label(right, text="Количество (1…20)").grid(row=2, column=4, sticky="w", padx=(12, 0), pady=(6, 0))
+        ttk.Spinbox(right, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=2, column=5, sticky="w", pady=(6, 0))
 
         # Basket controls
-        ctr = ttk.Frame(right, style="Card.TFrame")
-        ctr.grid(row=2, column=0, sticky="ew", pady=(8, 4))
-        ttk.Button(ctr, text="Добавить в список", style="Menu.TButton", command=self._add_to_basket).pack(side="left")
-        ttk.Button(ctr, text="Очистить список", style="Menu.TButton", command=self._clear_basket).pack(side="left", padx=(8, 0))
+        ctl = ttk.Frame(self, style="Card.TFrame")
+        ctl.grid(row=2, column=1, sticky="ew", pady=(8, 4))
+        ttk.Button(ctl, text="Добавить в список", style="Menu.TButton", command=self._add_to_basket).pack(side="left")
+        ttk.Button(ctl, text="Очистить список", style="Menu.TButton", command=self._clear_basket).pack(side="left", padx=(8, 0))
 
         # Basket table
         cols = ("product", "sph", "cyl", "ax", "d", "qty")
-        self.basket = ttk.Treeview(right, columns=cols, show="headings", style="Data.Treeview")
+        self.basket = ttk.Treeview(self, columns=cols, show="headings", style="Data.Treeview")
         headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "d": "D (мм)", "qty": "Кол-во"}
         widths = {"product": 360, "sph": 70, "cyl": 70, "ax": 60, "d": 70, "qty": 70}
         for c in cols:
             self.basket.heading(c, text=headers[c], anchor="w")
             self.basket.column(c, width=widths[c], anchor="w", stretch=True)
-        y2 = ttk.Scrollbar(right, orient="vertical", command=self.basket.yview)
+        y2 = ttk.Scrollbar(self, orient="vertical", command=self.basket.yview)
         self.basket.configure(yscroll=y2.set)
-        self.basket.grid(row=3, column=0, sticky="nsew")
-        y2.grid(row=3, column=1, sticky="ns")
+        self.basket.grid(row=3, column=1, sticky="nsew")
+        y2.grid(row=3, column=1, sticky="nse")
 
         # Footer
-        foot = ttk.Frame(right, style="Card.TFrame")
-        foot.grid(row=4, column=0, sticky="e", pady=(8, 0))
+        foot = ttk.Frame(self, style="Card.TFrame")
+        foot.grid(row=4, column=0, columnspan=2, sticky="e", pady=(8, 0))
         ttk.Button(foot, text="Добавить в заказ", style="Menu.TButton", command=self._done).pack(side="right")
-        ttk.Button(foot, text="Отмена", style="Menu.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+        ttk.Button(foot, text="Отмена", style="Menu.TButton", command=self._cancel).pack(side="right", padx=(8, 0))
 
     def _load_tree(self):
-        try:
-            term = (self.search_var.get() or "").strip().lower()
-        except Exception:
-            term = ""
+        term = (self.search_var.get() or "").strip().lower()
         self.tree.delete(*self.tree.get_children())
         try:
             groups = self.db.list_product_groups_meridian()
         except Exception:
             groups = []
-        gid_to_node = {}
+        if not groups:
+            # Показываем плоский список всех товаров
+            try:
+                all_prods = self.db.list_products_meridian()
+            except Exception:
+                all_prods = []
+            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            for p in all_prods:
+                name = p.get("name", "")
+                if term and term not in (name or "").lower():
+                    continue
+                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            return
+
         for g in groups:
             node = self.tree.insert("", "end", text=g["name"], open=False, tags=("group", f"gid:{g['id']}"))
-            gid_to_node[g["id"]] = node
             try:
                 prods = self.db.list_products_meridian_by_group(g["id"])
             except Exception:
                 prods = []
+            any_added = False
             for p in prods:
                 name = p["name"]
                 if term and term not in name.lower():
                     continue
                 self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                any_added = True
+            # Если по фильтру в группе нет элементов — скрывать группу не будем, просто останется пустой
 
     def _on_tree_dbl(self, event):
         item = self.tree.identify_row(event.y)
@@ -179,7 +174,6 @@ class MeridianProductPicker(tk.Toplevel):
             self.sel_product_var.set(text)
             self.sel_label.configure(text=text)
 
-    # Snap helpers
     @staticmethod
     def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
         text = (value_str or "").replace(",", ".").strip()
@@ -207,10 +201,16 @@ class MeridianProductPicker(tk.Toplevel):
         v = max(min_v, min(max_v, v))
         return str(v)
 
+    def _effective_product_name(self) -> str:
+        free = (self.free_name_var.get() or "").strip()
+        if free:
+            return free
+        return (self.sel_product_var.get() or "").strip()
+
     def _add_to_basket(self):
-        product = (self.sel_product_var.get() or "").strip()
+        product = self._effective_product_name()
         if not product:
-            messagebox.showinfo("Выбор", "Выберите товар слева в дереве.")
+            messagebox.showinfo("Выбор", "Введите название товара или выберите его слева.")
             return
         sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)
         cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
@@ -243,15 +243,21 @@ class MeridianProductPicker(tk.Toplevel):
             self._refresh_basket()
 
     def _done(self):
-        if not self._basket:
-            self.destroy()
-            return
         if callable(self.on_done):
             try:
                 self.on_done(list(self._basket))
             except Exception:
                 pass
-        self.destroy()
+        self._basket.clear()
+        self._refresh_basket()
+        # Скрываем панель после переноса
+        if callable(self.on_cancel):
+            self.on_cancel()
+
+    def _cancel(self):
+        # Закрыть панель без добавления
+        if callable(self.on_cancel):
+            self.on_cancel()
 
 
 class MeridianOrderForm(tk.Toplevel):
@@ -279,6 +285,8 @@ class MeridianOrderForm(tk.Toplevel):
 
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        self._card = card
+        self._picker_panel = None
         card.pack(fill="both", expand=True)
         card.columnconfigure(0, weight=1)
 
@@ -349,13 +357,29 @@ class MeridianOrderForm(tk.Toplevel):
             node = getattr(node, "master", None)
         return None
 
+    def _close_picker(self):
+        try:
+            if self._picker_panel is not None:
+                self._picker_panel.destroy()
+        except Exception:
+            pass
+        self._picker_panel = None
+
+    def _show_picker_inline(self, db):
+        self._close_picker()
+        panel = MeridianProductPickerInline(self._card, db, on_done=lambda items: (self.items.extend(items), self._refresh_items_view(), self._close_picker()), on_cancel=self._close_picker)
+        # Размещаем панель под кнопками, чтобы не ломать существующую компоновку
+        try:
+            panel.grid(row=5, column=0, sticky="nsew", pady=(8, 0))
+            self._card.rowconfigure(5, weight=1)
+        except Exception:
+            panel.pack(fill="both", expand=True, pady=(8, 0))
+        self._picker_panel = panel
+
     def _add_item(self):
         db = self._find_db()
         if db:
-            def on_done(items):
-                self.items.extend(items)
-                self._refresh_items_view()
-            MeridianProductPicker(self, db, on_done)
+            self._show_picker_inline(db)
             return
         # Fallback: simple item form
         MeridianItemForm(self, products=[], on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
@@ -658,6 +682,8 @@ class MeridianOrderEditorView(ttk.Frame):
         ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
 
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
+        self._card = card
+        self._picker_panel = None
         card.pack(fill="both", expand=True)
         card.columnconfigure(0, weight=1)
 
@@ -732,10 +758,30 @@ class MeridianOrderEditorView(ttk.Frame):
 
     def _add_item(self):
         if self.db:
+            # Встроенная панель выбора вместо нового окна
+            def _cancel():
+                try:
+                    if self._picker_panel is not None:
+                        self._picker_panel.destroy()
+                except Exception:
+                    pass
+                self._picker_panel = None
             def on_done(items):
                 self.items.extend(items)
                 self._refresh_items_view()
-            MeridianProductPicker(self, self.db, on_done)
+                _cancel()
+            # Показать/создать панель
+            try:
+                if self._picker_panel is not None:
+                    self._picker_panel.destroy()
+            except Exception:
+                pass
+            self._picker_panel = MeridianProductPickerInline(self._card, self.db, on_done=on_done, on_cancel=_cancel)
+            try:
+                self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(8, 0))
+                self._card.rowconfigure(5, weight=1)
+            except Exception:
+                self._picker_panel.pack(fill="both", expand=True, pady=(8, 0))
             return
         MeridianItemForm(self, products=[], on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
 
