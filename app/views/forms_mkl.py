@@ -24,7 +24,7 @@ class OrderForm(tk.Toplevel):
         super().__init__(master)
         self.title("Редактирование заказа" if initial else "Новый заказ")
         self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=820, min_h=680, center_to=master)
+        set_initial_geometry(self, min_w=680, min_h=680, center_to=master)
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -175,8 +175,8 @@ class OrderForm(tk.Toplevel):
 
         # Product selection (простая строка с автодополнением)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-        self.product_combo.grid(row=1, column=1, sticky="ew")
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10, width=40)
+        self.product_combo.grid(row=1, column=1, sticky="w")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
@@ -575,8 +575,8 @@ class MKLOrderEditorView(ttk.Frame):
 
         # Product selection (простая строка с автодополнением)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-        self.product_combo.grid(row=1, column=1, sticky="ew")
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10, width=40)
+        self.product_combo.grid(row=1, column=1, sticky="w")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
