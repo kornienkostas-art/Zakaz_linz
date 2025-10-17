@@ -943,7 +943,6 @@ class MeridianOrderEditorView(ttk.Frame):
         self._items_toolbar = ttk.Frame(card, style="Card.TFrame")
         self._items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         ttk.Button(self._items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
-        ttk.Button(self._items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
         ttk.Button(self._items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
 
         self._footer_btns = ttk.Frame(card, style="Card.TFrame")
