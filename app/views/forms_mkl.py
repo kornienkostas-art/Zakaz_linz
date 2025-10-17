@@ -354,14 +354,11 @@ class OrderForm(tk.Toplevel):
         card.columnconfigure(0, weight=1)
         card.columnconfigure(1, weight=1)
 
-        # Client selection: свободный ввод + кнопка выбора (вместо выпадашки)
+        # Client selection (Combobox with autocomplete)
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        client_row = ttk.Frame(card, style="Card.TFrame")
-        client_row.grid(row=1, column=0, sticky="ew")
-        client_row.columnconfigure(0, weight=1)
-        self.client_entry = ttk.Entry(client_row, textvariable=self.client_var)
-        self.client_entry.grid(row=0, column=0, sticky="ew")
-        ttk.Button(client_row, text="Выбрать…", style="Menu.TButton", command=self._open_client_picker).grid(row=0, column=1, padx=(8, 0))
+        self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
+        self.client_combo.grid(row=1, column=0, sticky="ew")
+        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
         # Product selection: свободный ввод + кнопка выбора из каталога
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")

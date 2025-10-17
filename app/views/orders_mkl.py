@@ -160,31 +160,22 @@ class MKLOrdersView(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            try:
-                from app.views.forms_mkl import MKLOrderEditorView
-                from app.views.main import MainWindow
-                def on_save(order: dict):
-                    # Save to DB only; view will be recreated by on_back of editor
-                    if self.db:
-                        try:
-                            self.db.add_mkl_order(order)
-                        except Exception as e:
-                            messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
-                MKLOrderEditorView(
-                    self.master,
-                    db=self.db,
-                    on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                    on_save=on_save,
-                    initial=None
-                )
-            except Exception as e:
-                # Если что-то пошло не так — покажем ошибку и вернем список
-                messagebox.showerror("Ошибка", f"Не удалось открыть форму нового заказа:\n{e}")
-                try:
-                    from app.views.main import MainWindow
-                    MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
-                except Exception:
-                    pass
+            from app.views.forms_mkl import MKLOrderEditorView
+            from app.views.main import MainWindow
+            def on_save(order: dict):
+                # Save to DB only; view will be recreated by on_back of editor
+                if self.db:
+                    try:
+                        self.db.add_mkl_order(order)
+                    except Exception as e:
+                        messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
+            MKLOrderEditorView(
+                self.master,
+                db=self.db,
+                on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                on_save=on_save,
+                initial=None
+            )
         fade_transition(self.master, swap)
 
     def _edit_order(self):
