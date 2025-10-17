@@ -173,45 +173,11 @@ class OrderForm(tk.Toplevel):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection: try grouped tree if DB is available, otherwise fallback to combobox
-        ttk.Label(card, text="Товар (группы → товары)", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self._db = None
-        try:
-            # try to discover db up the chain
-            node = self
-            while node is not None and self._db is None:
-                self._db = getattr(node, "db", None)
-                node = getattr(node, "master", None)
-        except Exception:
-            self._db = None
-
-        if self._db:
-            # Search + tree with groups/products
-            prod_wrap = ttk.Frame(card, style="Card.TFrame")
-            prod_wrap.grid(row=1, column=1, sticky="nsew")
-            card.rowconfigure(1, weight=1)
-            prod_wrap.columnconfigure(0, weight=1)
-            ttk.Label(prod_wrap, text="Поиск:", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-            self.search_var = tk.StringVar()
-            ent_search = ttk.Entry(prod_wrap, textvariable=self.search_var)
-            ent_search.grid(row=1, column=0, sticky="ew", pady=(4, 8))
-            ent_search.bind("<KeyRelease>", lambda e: self._load_tree_mkl())
-
-            self.tree = ttk.Treeview(prod_wrap, show="tree", style="Data.Treeview")
-            self.tree.column("#0", width=420, stretch=True)
-            y_scroll = ttk.Scrollbar(prod_wrap, orient="vertical", command=self.tree.yview)
-            self.tree.configure(yscroll=y_scroll.set)
-            self.tree.grid(row=2, column=0, sticky="nsew")
-            y_scroll.grid(row=2, column=1, sticky="ns")
-            prod_wrap.rowconfigure(2, weight=1)
-            self.tree.bind("<Double-1>", self._on_tree_dbl_mkl)
-
-            self._load_tree_mkl()
-        else:
-            # Fallback combobox
-            self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-            self.product_combo.grid(row=1, column=1, sticky="ew")
-            self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        # Product selection (простая строка с автодополнением)
+        ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+        self.product_combo.grid(row=1, column=1, sticky="ew")
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
@@ -607,34 +573,11 @@ class MKLOrderEditorView(ttk.Frame):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection (grouped when DB is available)
-        ttk.Label(card, text="Товар (группы → товары)", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self._db = self.db
-        if self._db:
-            prod_wrap = ttk.Frame(card, style="Card.TFrame")
-            prod_wrap.grid(row=1, column=1, sticky="nsew")
-            card.rowconfigure(1, weight=1)
-            prod_wrap.columnconfigure(0, weight=1)
-            ttk.Label(prod_wrap, text="Поиск:", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-            self.search_var = tk.StringVar()
-            ent_search = ttk.Entry(prod_wrap, textvariable=self.search_var)
-            ent_search.grid(row=1, column=0, sticky="ew", pady=(4, 8))
-            ent_search.bind("<KeyRelease>", lambda e: self._load_tree_mkl())
-
-            self.tree = ttk.Treeview(prod_wrap, show="tree", style="Data.Treeview")
-            self.tree.column("#0", width=420, stretch=True)
-            y_scroll = ttk.Scrollbar(prod_wrap, orient="vertical", command=self.tree.yview)
-            self.tree.configure(yscroll=y_scroll.set)
-            self.tree.grid(row=2, column=0, sticky="nsew")
-            y_scroll.grid(row=2, column=1, sticky="ns")
-            prod_wrap.rowconfigure(2, weight=1)
-            self.tree.bind("<Double-1>", self._on_tree_dbl_mkl)
-
-            self._load_tree_mkl()
-        else:
-            self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-            self.product_combo.grid(row=1, column=1, sticky="ew")
-            self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        # Product selection (простая строка с автодополнением)
+        ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
+        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+        self.product_combo.grid(row=1, column=1, sticky="ew")
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
