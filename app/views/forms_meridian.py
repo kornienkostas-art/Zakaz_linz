@@ -297,25 +297,47 @@ class MeridianProductPickerInline(ttk.Frame):
             except Exception:
                 all_prods = []
             root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            any_found = False
             for p in all_prods:
-                name = p.get("name", "")
-                if term and term not in (name or "").lower():
+                name = p.get("name", "") or ""
+                if term and term not in name.lower():
                     continue
+                any_found = True
                 self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            if term and not any_found:
+                # Показать явное сообщение, что ничего не найдено
+                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
             return
 
+        any_found_total = False
         for g in groups:
-            node = self.tree.insert("", "end", text=g["name"], open=False, tags=("group", f"gid:{g['id']}"))
+            # При поиске не показываем пустые группы и открываем те, где есть совпадения
             try:
                 prods = self.db.list_products_meridian_by_group(g["id"])
             except Exception:
                 prods = []
-            for p in prods:
-                name = p["name"]
-                if term and term not in name.lower():
-                    continue
+            matched = []
+            if term:
+                for p in prods:
+                    name = (p.get("name", "") or "")
+                    if term in name.lower():
+                        matched.append(p)
+            else:
+                matched = prods
+
+            if not matched and term:
+                # при поиске пропускаем пустые группы
+                continue
+
+            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
+            for p in matched:
+                name = p.get("name", "") or ""
                 self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
-            # Если по фильтру в группе нет элементов — скрывать группу не будем, просто останется пустой
+                any_found_total = True
+
+        if term and not any_found_total:
+            # Общий корневой маркер, если ни одна группа не подошла
+            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
 
     def _on_tree_dbl(self, event):
         item = self.tree.identify_row(event.y)
