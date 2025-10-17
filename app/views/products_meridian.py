@@ -8,6 +8,48 @@ def _clean_spaces(name: str) -> str:
     return " ".join((name or "").split())
 
 
+class NameDialog(tk.Toplevel):
+    def __init__(self, master, title: str, prompt: str, initial: str = ""):
+        super().__init__(master)
+        self.title(title)
+        self.configure(bg="#f8fafc")
+        # широкое окно, чтобы влезало длинное имя
+        from app.utils import set_initial_geometry
+        set_initial_geometry(self, min_w=800, min_h=180, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+
+        self.result = None
+        frm = ttk.Frame(self, padding=16, style="Card.TFrame")
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm, text=prompt, style="Subtitle.TLabel").pack(anchor="w")
+        self.entry = ttk.Entry(frm)
+        self.entry.pack(fill="x", expand=True, pady=(8, 8))
+        self.entry.insert(0, initial or "")
+        try:
+            self.entry.icursor("end")
+            self.entry.select_range(0, "end")
+        except Exception:
+            pass
+
+        btns = ttk.Frame(frm, style="Card.TFrame")
+        btns.pack(fill="x", anchor="e")
+        ttk.Button(btns, text="OK", style="Menu.TButton", command=self._ok).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._cancel).pack(side="right", padx=(8, 0))
+
+        self.entry.focus_set()
+
+    def _ok(self):
+        self.result = (self.entry.get() or "").strip()
+        self.destroy()
+
+    def _cancel(self):
+        self.result = None
+        self.destroy()
+
+
 MERIDIAN_SEED = [
     ("ПОЛИМЕРНЫЕ ЛИНЗЫ", [
         "1.81 ASPHERIC HMC KOREA",
@@ -172,7 +214,7 @@ class ProductsMeridianView(ttk.Frame):
         card.columnconfigure(0, weight=1)
         card.rowconfigure(3, weight=1)
 
-        # Double-click expand/collapse
+        # Double-click expand/collapse only on groups
         self.tree.bind("<Double-1>", self._on_double_click)
 
     def _go_back(self):
@@ -251,10 +293,10 @@ class ProductsMeridianView(ttk.Frame):
         return kind, {"item": item, "text": text, "gid": gid, "pid": pid}
 
     def _on_double_click(self, _event):
-        sel = self.tree.selection()
-        if not sel:
+        kind, info = self._selection()
+        if kind != "group":
             return
-        item = sel[0]
+        item = info["item"]
         try:
             is_open = self.tree.item(item, "open")
             self.tree.item(item, open=not is_open)
@@ -263,7 +305,9 @@ class ProductsMeridianView(ttk.Frame):
 
     # Group actions
     def _add_group(self):
-        name = simpledialog.askstring("Новая группа", "Введите название группы:", parent=self)
+        dlg = NameDialog(self, "Новая группа", "Введите название группы:")
+        self.wait_window(dlg)
+        name = dlg.result
         if not name:
             return
         name = _clean_spaces(name)
@@ -278,18 +322,17 @@ class ProductsMeridianView(ttk.Frame):
         if kind != "group":
             messagebox.showinfo("Группа", "Выберите группу.")
             return
-        current = info["text"]
-        name = simpledialog.askstring("Переименовать группу", "Новое название:", initialvalue=current, parent=self)
+        if info["gid"] is None:
+            messagebox.showinfo("Группа", "Нельзя переименовать 'Без группы'.")
+            return
+        dlg = NameDialog(self, "Переименовать группу", "Новое название:", initial=info["text"])
+        self.wait_window(dlg)
+        name = dlg.result
         if not name:
             return
         name = _clean_spaces(name)
         try:
-            # find gid from tag
-            gid = info["gid"]
-            if gid is None:
-                messagebox.showinfo("Группа", "Нельзя переименовать 'Без группы'.")
-                return
-            self.db.update_product_group_meridian(gid, name)
+            self.db.update_product_group_meridian(info["gid"], name)
             self._reload()
         except Exception as e:
             messagebox.showerror("Группа", f"Не удалось переименовать группу:\n{e}")
@@ -334,7 +377,9 @@ class ProductsMeridianView(ttk.Frame):
             gid = info["gid"]
         elif kind == "product":
             gid = info["gid"]
-        name = simpledialog.askstring("Новый товар", "Название товара:", parent=self)
+        dlg = NameDialog(self, "Новый товар", "Название товара:")
+        self.wait_window(dlg)
+        name = dlg.result
         if not name:
             return
         name = _clean_spaces(name)
@@ -352,7 +397,9 @@ class ProductsMeridianView(ttk.Frame):
         current = info["text"]
         pid = info["pid"]
         gid = info["gid"]
-        name = simpledialog.askstring("Переименовать товар", "Новое название:", initialvalue=current, parent=self)
+        dlg = NameDialog(self, "Переименовать товар", "Новое название:", initial=current)
+        self.wait_window(dlg)
+        name = dlg.result
         if not name:
             return
         name = _clean_spaces(name)
