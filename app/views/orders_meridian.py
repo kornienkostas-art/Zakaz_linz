@@ -36,7 +36,7 @@ class MeridianOrdersView(ttk.Frame):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
 
-        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Back.TButton", command=self._go_back)
+        btn_back = ttk.Button(toolbar, text="← Главное меню", style="Accent.TButton", command=self._go_back)
 
         btn_new_order = ttk.Button(toolbar, text="Новый заказ", style="Menu.TButton", command=self._new_order)
         btn_edit_order = ttk.Button(toolbar, text="Редактировать", style="Menu.TButton", command=self._edit_order)
@@ -236,20 +236,34 @@ class MeridianOrdersView(ttk.Frame):
 
         initial = {"status": current.get("status", "Не заказан"), "date": current.get("date", ""), "items": items}
 
-        def on_save(updated: dict):
-            if self.master.db and order_id:
-                try:
-                    self.master.db.update_meridian_order(order_id, {
-                        "status": updated.get("status", current.get("status", "Не заказан")),
-                        "date": updated.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
-                    })
-                    self.master.db.replace_meridian_items(order_id, updated.get("items", []))
-                except Exception as e:
-                    messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
-            self._refresh_orders_view()
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            from app.views.forms_meridian import MeridianOrderEditorView
+            from app.views.main import MainWindow
 
-        from app.views.forms_meridian import MeridianOrderForm
-        MeridianOrderForm(self.master, on_save=on_save, initial=initial)
+            def on_save(updated: dict):
+                if self.master.db and order_id:
+                    try:
+                        self.master.db.update_meridian_order(order_id, {
+                            "status": updated.get("status", current.get("status", "Не заказан")),
+                            "date": updated.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                        })
+                        self.master.db.replace_meridian_items(order_id, updated.get("items", []))
+                    except Exception as e:
+                        messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
+
+            MeridianOrderEditorView(
+                self.master,
+                db=getattr(self.master, "db", None),
+                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                on_save=on_save,
+                initial=initial,
+            )
+
+        fade_transition(self.master, swap)
 
     def _change_status(self):
         idx = self._selected_index()

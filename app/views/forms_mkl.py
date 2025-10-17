@@ -7,6 +7,7 @@ from typing import Optional
 from app.db import AppDB
 from app.utils import set_initial_geometry
 from app.utils import format_phone_mask  # used for displaying client phones
+from app.utils import create_tooltip
 
 
 class OrderForm(tk.Toplevel):
@@ -64,11 +65,102 @@ class OrderForm(tk.Toplevel):
 
         # UI
         self._build_ui()
+        # Быстрые +/- для SPH/CYL через клавиши (локальные биндинги)
+        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+        if hasattr(self, "sph_entry") and hasattr(self, "cyl_entry"):
+            for seq in ("<KeyPress-plus>", "<KeyPress-KP_Add>", "<KeyPress-=>"):
+                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, +1), "break"))
+                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, +1), "break"))
+            for seq in ("<KeyPress-minus>", "<KeyPress-KP_Subtract>"):
+                self.sph_entry.bind(seq, lambda e: (_nudge(self.sph_var, -30.0, 30.0, 0.25, -1), "break"))
+                self.cyl_entry.bind(seq, lambda e: (_nudge(self.cyl_var, -10.0, 10.0, 0.25, -1), "break"))
 
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
-    
+    def _load_tree_mkl(self):
+        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска."""
+        if not getattr(self, "_db", None) or not hasattr(self, "tree"):
+            return
+        term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
+        self.tree.delete(*self.tree.get_children())
+        # Получаем группы
+        try:
+            groups = self._db.list_product_groups()
+        except Exception:
+            groups = []
+        if not groups:
+            # Покажем плоский список всех товаров
+            try:
+                all_prods = self._db.list_products()
+            except Exception:
+                all_prods = []
+            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            any_found = False
+            for p in all_prods:
+                name = p.get("name", "") or ""
+                if term and term not in name.lower():
+                    continue
+                any_found = True
+                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            if term and not any_found:
+                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
+            return
+        # Есть группы
+        any_found_total = False
+        for g in groups:
+            try:
+                prods = self._db.list_products_by_group(g["id"])
+            except Exception:
+                prods = []
+            # Фильтрация
+            matched = []
+            if term:
+                for p in prods:
+                    name = (p.get("name", "") or "")
+                    if term in name.lower():
+                        matched.append(p)
+            else:
+                matched = prods
+            if not matched and term:
+                continue
+            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
+            for p in matched:
+                name = p.get("name", "") or ""
+                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                any_found_total = True
+        if term and not any_found_total:
+            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
+
+    def _on_tree_dbl_mkl(self, event):
+        if not hasattr(self, "tree"):
+            return
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        tags = set(self.tree.item(item, "tags") or [])
+        text = self.tree.item(item, "text") or ""
+        if "group" in tags:
+            is_open = self.tree.item(item, "open")
+            self.tree.item(item, open=not is_open)
+            return
+        if "product" in tags:
+            self.product_var.set(text)
+
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -81,7 +173,7 @@ class OrderForm(tk.Toplevel):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection with autocomplete
+        # Product selection (простая строка с автодополнением)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
@@ -92,11 +184,55 @@ class OrderForm(tk.Toplevel):
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+
+        # Local nudge for buttons inside this method
+        def _nudge_local(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+
+        # Row 4: entries with inline − / + controls
+        sph_row = ttk.Frame(card, style="Card.TFrame")
+        sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_row.columnconfigure(1, weight=1)
+        btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, -1))
+        btn_sph_dec.grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        btn_sph_inc = ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, +1))
+        btn_sph_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_sph_dec, "SPH: уменьшить на 0.25. Диапазон: −30.00…+30.00")
+            create_tooltip(btn_sph_inc, "SPH: увеличить на 0.25. Диапазон: −30.00…+30.00")
+        except Exception:
+            pass
+
+        cyl_row = ttk.Frame(card, style="Card.TFrame")
+        cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.columnconfigure(1, weight=1)
+        btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, -1))
+        btn_cyl_dec.grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        btn_cyl_inc = ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, +1))
+        btn_cyl_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_cyl_dec, "CYL: уменьшить на 0.25. Диапазон: −10.00…+10.00")
+            create_tooltip(btn_cyl_inc, "CYL: увеличить на 0.25. Диапазон: −10.00…+10.00")
+        except Exception:
+            pass
+
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
@@ -139,7 +275,14 @@ class OrderForm(tk.Toplevel):
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
-    # Helpers
+    def _go_back(self):
+        try:
+            self.destroy()
+        finally:
+            if callable(self.on_back):
+                self.on_back()
+
+    # Helpers: values for combo and filtering
     def _client_values(self):
         values = []
         for c in self.clients:
@@ -348,6 +491,71 @@ class MKLOrderEditorView(ttk.Frame):
 
         self._build_ui()
 
+    def _load_tree_mkl(self):
+        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска для встроенного редактора."""
+        if not getattr(self, "db", None) or not hasattr(self, "tree"):
+            return
+        term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
+        self.tree.delete(*self.tree.get_children())
+        try:
+            groups = self.db.list_product_groups()
+        except Exception:
+            groups = []
+        if not groups:
+            try:
+                all_prods = self.db.list_products()
+            except Exception:
+                all_prods = []
+            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            any_found = False
+            for p in all_prods:
+                name = p.get("name", "") or ""
+                if term and term not in name.lower():
+                    continue
+                any_found = True
+                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            if term and not any_found:
+                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
+            return
+        any_found_total = False
+        for g in groups:
+            try:
+                prods = self.db.list_products_by_group(g["id"])
+            except Exception:
+                prods = []
+            matched = []
+            if term:
+                for p in prods:
+                    name = (p.get("name", "") or "")
+                    if term in name.lower():
+                        matched.append(p)
+            else:
+                matched = prods
+            if not matched and term:
+                continue
+            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
+            for p in matched:
+                name = p.get("name", "") or ""
+                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                any_found_total = True
+        if term and not any_found_total:
+            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
+
+    def _on_tree_dbl_mkl(self, event):
+        if not hasattr(self, "tree"):
+            return
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        tags = set(self.tree.item(item, "tags") or [])
+        text = self.tree.item(item, "text") or ""
+        if "group" in tags:
+            is_open = self.tree.item(item, "open")
+            self.tree.item(item, open=not is_open)
+            return
+        if "product" in tags:
+            self.product_var.set(text)
+
     def _build_ui(self):
         # Toolbar with back
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
@@ -365,7 +573,7 @@ class MKLOrderEditorView(ttk.Frame):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection
+        # Product selection (простая строка с автодополнением)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
@@ -373,14 +581,56 @@ class MKLOrderEditorView(ttk.Frame):
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
+        # Local nudge for +/- buttons
+        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
-        # Row 4: plain entries (без выпадающих списков)
-        self.sph_entry = ttk.Entry(card, textvariable=self.sph_var)
-        self.sph_entry.grid(row=4, column=0, sticky="ew", padx=(0, 8))
-        self.cyl_entry = ttk.Entry(card, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        # Row 4: entries with inline − / + controls
+        sph_row = ttk.Frame(card, style="Card.TFrame")
+        sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_row.columnconfigure(1, weight=1)
+        btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1))
+        btn_sph_dec.grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        btn_sph_inc = ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1))
+        btn_sph_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_sph_dec, "SPH: уменьшить на 0.25. Диапазон: −30.00…+30.00")
+            create_tooltip(btn_sph_inc, "SPH: увеличить на 0.25. Диапазон: −30.00…+30.00")
+        except Exception:
+            pass
+
+        cyl_row = ttk.Frame(card, style="Card.TFrame")
+        cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.columnconfigure(1, weight=1)
+        btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1))
+        btn_cyl_dec.grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        btn_cyl_inc = ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1))
+        btn_cyl_inc.grid(row=0, column=2, sticky="e")
+        try:
+            create_tooltip(btn_cyl_dec, "CYL: уменьшить на 0.25. Диапазон: −10.00…+10.00")
+            create_tooltip(btn_cyl_inc, "CYL: увеличить на 0.25. Диапазон: −10.00…+10.00")
+        except Exception:
+            pass
         sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
         self.sph_entry.configure(validate="key", validatecommand=sph_vcmd)
         self.sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
@@ -534,13 +784,13 @@ class MKLOrderEditorView(ttk.Frame):
         if "—" in t:
             parts = t.split("—", 1)
             fio = parts[0].strip()
-            phone_digits = re.sub(r"\\D", "", parts[1])
+            phone_digits = re.sub(r"\D", "", parts[1])
             return fio, phone_digits
         term = t.lower()
         for c in self.clients:
             if term in c.get("fio", "").lower() or term in c.get("phone", "").lower():
                 return c.get("fio", ""), c.get("phone", "")
-        return t, re.sub(r"\\D", "", t)
+        return t, re.sub(r"\D", "", t)
 
     def _parse_product(self, text: str) -> str:
         t = (text or "").strip()

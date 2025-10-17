@@ -112,15 +112,7 @@ class AstigCalcView(ttk.Frame):
         self._render_initial_example()
 
     def _render_initial_example(self):
-        example = (
-            "Пример:\n"
-            "Ваш рецепт:\n"
-            "OD: Сфера(Sph) +3.00 Цилиндр(Cyl) -0.25 Ось(ax) 90°\n"
-            "OS: Сфера(Sph) +2.50 Цилиндр(Cyl) -3.00 Ось(ax) 60°\n\n"
-            "Результат:\n"
-            "OD: Sph +2.75 Cyl +0.25 ax 180°\n"
-            "OS: Sph -0.50 Cyl +3.00 ax 150°\n"
-        )
+        example = "Результат:"
         try:
             self.result_text.delete("1.0", "end")
             self.result_text.insert("1.0", example)
@@ -153,10 +145,6 @@ class AstigCalcView(ttk.Frame):
         os_s, os_c, os_a = os
 
         text = []
-        text.append("Ваш рецепт:")
-        text.append(f"OD: Сфера(Sph) {self.od_sph.get()} Цилиндр(Cyl) {self.od_cyl.get()} Ось(ax) {self.od_ax.get()}°")
-        text.append(f"OS: Сфера(Sph) {self.os_sph.get()} Цилиндр(Cyl) {self.os_cyl.get()} Ось(ax) {self.os_ax.get()}°")
-        text.append("")
         text.append("Результат:")
         text.append(f"OD: Sph {_format_signed(od_s)} Cyl {_format_signed(od_c)} ax {od_a}°")
         text.append(f"OS: Sph {_format_signed(os_s)} Cyl {_format_signed(os_c)} ax {os_a}°")
