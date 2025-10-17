@@ -92,7 +92,75 @@ class OrderForm(tk.Toplevel):
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
-    
+    def _load_tree_mkl(self):
+        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска."""
+        if not getattr(self, "_db", None) or not hasattr(self, "tree"):
+            return
+        term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
+        self.tree.delete(*self.tree.get_children())
+        # Получаем группы
+        try:
+            groups = self._db.list_product_groups()
+        except Exception:
+            groups = []
+        if not groups:
+            # Покажем плоский список всех товаров
+            try:
+                all_prods = self._db.list_products()
+            except Exception:
+                all_prods = []
+            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            any_found = False
+            for p in all_prods:
+                name = p.get("name", "") or ""
+                if term and term not in name.lower():
+                    continue
+                any_found = True
+                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            if term and not any_found:
+                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
+            return
+        # Есть группы
+        any_found_total = False
+        for g in groups:
+            try:
+                prods = self._db.list_products_by_group(g["id"])
+            except Exception:
+                prods = []
+            # Фильтрация
+            matched = []
+            if term:
+                for p in prods:
+                    name = (p.get("name", "") or "")
+                    if term in name.lower():
+                        matched.append(p)
+            else:
+                matched = prods
+            if not matched and term:
+                continue
+            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
+            for p in matched:
+                name = p.get("name", "") or ""
+                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                any_found_total = True
+        if term and not any_found_total:
+            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
+
+    def _on_tree_dbl_mkl(self, event):
+        if not hasattr(self, "tree"):
+            return
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        tags = set(self.tree.item(item, "tags") or [])
+        text = self.tree.item(item, "text") or ""
+        if "group" in tags:
+            is_open = self.tree.item(item, "open")
+            self.tree.item(item, open=not is_open)
+            return
+        if "product" in tags:
+            self.product_var.set(text)
+
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
@@ -105,11 +173,45 @@ class OrderForm(tk.Toplevel):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection with autocomplete
-        ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-        self.product_combo.grid(row=1, column=1, sticky="ew")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        # Product selection: try grouped tree if DB is available, otherwise fallback to combobox
+        ttk.Label(card, text="Товар (группы → товары)", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
+        self._db = None
+        try:
+            # try to discover db up the chain
+            node = self
+            while node is not None and self._db is None:
+                self._db = getattr(node, "db", None)
+                node = getattr(node, "master", None)
+        except Exception:
+            self._db = None
+
+        if self._db:
+            # Search + tree with groups/products
+            prod_wrap = ttk.Frame(card, style="Card.TFrame")
+            prod_wrap.grid(row=1, column=1, sticky="nsew")
+            card.rowconfigure(1, weight=1)
+            prod_wrap.columnconfigure(0, weight=1)
+            ttk.Label(prod_wrap, text="Поиск:", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+            self.search_var = tk.StringVar()
+            ent_search = ttk.Entry(prod_wrap, textvariable=self.search_var)
+            ent_search.grid(row=1, column=0, sticky="ew", pady=(4, 8))
+            ent_search.bind("<KeyRelease>", lambda e: self._load_tree_mkl())
+
+            self.tree = ttk.Treeview(prod_wrap, show="tree", style="Data.Treeview")
+            self.tree.column("#0", width=420, stretch=True)
+            y_scroll = ttk.Scrollbar(prod_wrap, orient="vertical", command=self.tree.yview)
+            self.tree.configure(yscroll=y_scroll.set)
+            self.tree.grid(row=2, column=0, sticky="nsew")
+            y_scroll.grid(row=2, column=1, sticky="ns")
+            prod_wrap.rowconfigure(2, weight=1)
+            self.tree.bind("<Double-1>", self._on_tree_dbl_mkl)
+
+            self._load_tree_mkl()
+        else:
+            # Fallback combobox
+            self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+            self.product_combo.grid(row=1, column=1, sticky="ew")
+            self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
@@ -423,6 +525,71 @@ class MKLOrderEditorView(ttk.Frame):
 
         self._build_ui()
 
+    def _load_tree_mkl(self):
+        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска для встроенного редактора."""
+        if not getattr(self, "db", None) or not hasattr(self, "tree"):
+            return
+        term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
+        self.tree.delete(*self.tree.get_children())
+        try:
+            groups = self.db.list_product_groups()
+        except Exception:
+            groups = []
+        if not groups:
+            try:
+                all_prods = self.db.list_products()
+            except Exception:
+                all_prods = []
+            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            any_found = False
+            for p in all_prods:
+                name = p.get("name", "") or ""
+                if term and term not in name.lower():
+                    continue
+                any_found = True
+                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            if term and not any_found:
+                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
+            return
+        any_found_total = False
+        for g in groups:
+            try:
+                prods = self.db.list_products_by_group(g["id"])
+            except Exception:
+                prods = []
+            matched = []
+            if term:
+                for p in prods:
+                    name = (p.get("name", "") or "")
+                    if term in name.lower():
+                        matched.append(p)
+            else:
+                matched = prods
+            if not matched and term:
+                continue
+            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
+            for p in matched:
+                name = p.get("name", "") or ""
+                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                any_found_total = True
+        if term and not any_found_total:
+            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
+
+    def _on_tree_dbl_mkl(self, event):
+        if not hasattr(self, "tree"):
+            return
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        tags = set(self.tree.item(item, "tags") or [])
+        text = self.tree.item(item, "text") or ""
+        if "group" in tags:
+            is_open = self.tree.item(item, "open")
+            self.tree.item(item, open=not is_open)
+            return
+        if "product" in tags:
+            self.product_var.set(text)
+
     def _build_ui(self):
         # Toolbar with back
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
@@ -440,11 +607,34 @@ class MKLOrderEditorView(ttk.Frame):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection
-        ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-        self.product_combo.grid(row=1, column=1, sticky="ew")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        # Product selection (grouped when DB is available)
+        ttk.Label(card, text="Товар (группы → товары)", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
+        self._db = self.db
+        if self._db:
+            prod_wrap = ttk.Frame(card, style="Card.TFrame")
+            prod_wrap.grid(row=1, column=1, sticky="nsew")
+            card.rowconfigure(1, weight=1)
+            prod_wrap.columnconfigure(0, weight=1)
+            ttk.Label(prod_wrap, text="Поиск:", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+            self.search_var = tk.StringVar()
+            ent_search = ttk.Entry(prod_wrap, textvariable=self.search_var)
+            ent_search.grid(row=1, column=0, sticky="ew", pady=(4, 8))
+            ent_search.bind("<KeyRelease>", lambda e: self._load_tree_mkl())
+
+            self.tree = ttk.Treeview(prod_wrap, show="tree", style="Data.Treeview")
+            self.tree.column("#0", width=420, stretch=True)
+            y_scroll = ttk.Scrollbar(prod_wrap, orient="vertical", command=self.tree.yview)
+            self.tree.configure(yscroll=y_scroll.set)
+            self.tree.grid(row=2, column=0, sticky="nsew")
+            y_scroll.grid(row=2, column=1, sticky="ns")
+            prod_wrap.rowconfigure(2, weight=1)
+            self.tree.bind("<Double-1>", self._on_tree_dbl_mkl)
+
+            self._load_tree_mkl()
+        else:
+            self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
+            self.product_combo.grid(row=1, column=1, sticky="ew")
+            self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
