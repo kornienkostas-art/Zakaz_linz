@@ -378,17 +378,28 @@ class OrderForm(tk.Toplevel):
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        # Авто-раскрытие выпадающего списка (fallback для разных платформ/версий Tk)
+        # Авто-раскрытие без смены курсора: сохраняем позицию каретки и фокус
         if values:
             try:
-                # стандартный способ
-                self.client_combo.tk.call(self.client_combo._w, "post")
-            except Exception:
+                # Текущая позиция каретки и выделение
                 try:
-                    # альтернативный способ
-                    self.client_combo.event_generate("<Down>")
+                    insert_idx = int(self.client_combo.index("insert"))
+                except Exception:
+                    insert_idx = None
+                current_text = self.client_var.get()
+                # Показать выпадающий список
+                self.client_combo.tk.call(self.client_combo._w, "post")
+                # Вернуть фокус и каретку, убрать выделение
+                self.client_combo.focus_set()
+                if insert_idx is None:
+                    insert_idx = len(current_text)
+                self.client_combo.icursor(insert_idx)
+                try:
+                    self.client_combo.selection_clear()
                 except Exception:
                     pass
+            except Exception:
+                pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
@@ -726,15 +737,28 @@ class MKLOrderEditorView(ttk.Frame):
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        # Авто-раскрытие выпадающего списка (fallback для разных платформ/версий Tk)
+        # Авто-раскрытие без смены курсора: сохраняем позицию каретки и фокус
         if values:
             try:
-                self.client_combo.tk.call(self.client_combo._w, "post")
-            except Exception:
+                # сохранить позицию курсора
                 try:
-                    self.client_combo.event_generate("<Down>")
+                    insert_idx = int(self.client_combo.index("insert"))
+                except Exception:
+                    insert_idx = None
+                current_text = self.client_var.get()
+                # показать список
+                self.client_combo.tk.call(self.client_combo._w, "post")
+                # вернуть фокус и каретку, убрать выделение
+                self.client_combo.focus_set()
+                if insert_idx is None:
+                    insert_idx = len(current_text)
+                self.client_combo.icursor(insert_idx)
+                try:
+                    self.client_combo.selection_clear()
                 except Exception:
                     pass
+            except Exception:
+                pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
