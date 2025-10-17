@@ -251,21 +251,21 @@ class OrderForm(tk.Toplevel):
         # Client selection with autocomplete + button
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
         client_row = ttk.Frame(card, style="Card.TFrame")
-        client_row.grid(row=1, column=0, sticky="ew")
-        client_row.columnconfigure(0, weight=1)
+        client_row.grid(row=1, column=0, sticky="w")
+        client_row.columnconfigure(0, weight=0)
         self.client_combo = ttk.Combobox(client_row, textvariable=self.client_var, values=self._client_values(), height=10, width=40)
         self.client_combo.grid(row=0, column=0, sticky="w")
-        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients(open_dropdown=True))
+        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients(open_dropdown=False))
         ttk.Button(client_row, text="Выбрать", style="Menu.TButton", command=self._pick_client).grid(row=0, column=1, padx=(8, 0))
 
         # Product selection (автодополнение) + button
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         product_row = ttk.Frame(card, style="Card.TFrame")
-        product_row.grid(row=1, column=1, sticky="ew")
-        product_row.columnconfigure(0, weight=1)
+        product_row.grid(row=1, column=1, sticky="w")
+        product_row.columnconfigure(0, weight=0)
         self.product_combo = ttk.Combobox(product_row, textvariable=self.product_var, values=self._product_values(), height=10, width=40)
         self.product_combo.grid(row=0, column=0, sticky="w")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products(open_dropdown=True))
+        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products(open_dropdown=False))
         ttk.Button(product_row, text="Выбрать", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, padx=(8, 0))
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
@@ -389,13 +389,7 @@ class OrderForm(tk.Toplevel):
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        try:
-            self.client_combo.focus_set()
-            if open_dropdown:
-                # открыть список подсказок и оставить курсор в поле
-                self.client_combo.event_generate("<Down>")
-        except Exception:
-            pass
+        # Не переводим фокус и не открываем дропдаун автоматически, чтобы курсор не «сбивался»
 
     def _filter_products(self, open_dropdown: bool = False):
         term = self.product_var.get().strip().lower()
@@ -563,7 +557,7 @@ class MKLOrderEditorView(ttk.Frame):
 
         # Load datasets
         self.clients = self.db.list_clients() if self.db else []
-        self.products = self.db.list_products_mkl() if self.db else []
+        self.products = self.db.list_products() if self.db else []
 
         # Vars
         self.client_var = tk.StringVar()
