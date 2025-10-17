@@ -1043,9 +1043,70 @@ class MeridianOrderEditorView(ttk.Frame):
         MeridianItemForm(self, products=[], on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
 
     def _edit_item(self):
-        # Функция редактирования позиции во встроенном редакторе отключена по запросу
-        messagebox.showinfo("Редактирование", "Редактирование позиции отключено.")
-        return
+        idx = self._selected_item_index()
+        if idx is None:
+            return
+        current = self.items[idx].copy()
+
+        # Полноэкранное редактирование позиции во встроенном редакторе
+        def _cancel():
+            try:
+                if self._picker_panel is not None:
+                    self._picker_panel.destroy()
+            except Exception:
+                pass
+            self._picker_panel = None
+            # Вернуть основной интерфейс
+            try:
+                if hasattr(self, "_items_frame"):
+                    self._items_frame.grid()
+                if hasattr(self, "_items_toolbar"):
+                    self._items_toolbar.grid()
+                if hasattr(self, "_footer_btns"):
+                    self._footer_btns.grid()
+                try:
+                    self._card.rowconfigure(5, weight=0)
+                    self._card.rowconfigure(2, weight=1)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        def on_done(items):
+            if items:
+                try:
+                    self.items[idx] = items[0]
+                except Exception:
+                    pass
+                self._refresh_items_view()
+            _cancel()
+
+        # Скрыть основной интерфейс и показать панель редактирования
+        try:
+            if hasattr(self, "_picker_panel") and self._picker_panel is not None:
+                self._picker_panel.destroy()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_items_frame"):
+                self._items_frame.grid_remove()
+            if hasattr(self, "_items_toolbar"):
+                self._items_toolbar.grid_remove()
+            if hasattr(self, "_footer_btns"):
+                self._footer_btns.grid_remove()
+            try:
+                self._card.rowconfigure(2, weight=0)
+                self._card.rowconfigure(5, weight=1)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        self._picker_panel = MeridianProductPickerInline(self._card, self.db, on_done=on_done, on_cancel=_cancel, initial_item=current)
+        try:
+            self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
+        except Exception:
+            self._picker_panel.pack(fill="both", expand=True, pady=(0, 0))
 
     def _apply_item_update(self, idx: int, it: dict):
         try:
