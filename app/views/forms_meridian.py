@@ -135,7 +135,7 @@ class MeridianProductPickerInline(ttk.Frame):
         # Basket controls
         ctl = ttk.Frame(self, style="Card.TFrame")
         ctl.grid(row=2, column=1, sticky="ew", pady=(8, 4))
-        ttk.Button(ctl, text="Добавить в список", style="Menu.TButton", command=self._add_to_basket).pack(side="left")
+        ttk.Button(ctl, text="Добавить в список", style="Accent.TButton", command=self._add_to_basket).pack(side="left")
         ttk.Button(ctl, text="Удалить выбранное", style="Menu.TButton", command=self._remove_selected).pack(side="left", padx=(8, 0))
         ttk.Button(ctl, text="Очистить список", style="Menu.TButton", command=self._clear_basket).pack(side="left", padx=(8, 0))
 
