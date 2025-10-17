@@ -373,31 +373,40 @@ class OrderForm(tk.Toplevel):
         return values
 
     def _filter_clients(self):
-        term = self.client_var.get().strip().lower()
+        term_text = self.client_var.get()
+        term = term_text.strip().lower()
         values = self._client_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        # Авто-раскрытие без смены курсора: сохраняем позицию каретки и фокус
-        if values:
+
+        # Мягкое авто-раскрытие: через after, без смены каретки/фокуса
+        if term and values:
             try:
-                # Текущая позиция каретки и выделение
+                insert_idx = None
                 try:
                     insert_idx = int(self.client_combo.index("insert"))
                 except Exception:
-                    insert_idx = None
-                current_text = self.client_var.get()
-                # Показать выпадающий список
-                self.client_combo.tk.call(self.client_combo._w, "post")
-                # Вернуть фокус и каретку, убрать выделение
-                self.client_combo.focus_set()
-                if insert_idx is None:
-                    insert_idx = len(current_text)
-                self.client_combo.icursor(insert_idx)
-                try:
-                    self.client_combo.selection_clear()
-                except Exception:
                     pass
+                def _post():
+                    # Проверяем, что текст не изменился за это время
+                    if (self.client_var.get() or "") != (term_text or ""):
+                        return
+                    try:
+                        self.client_combo.tk.call(self.client_combo._w, "post")
+                        self.client_combo.focus_set()
+                        if insert_idx is None:
+                            self.client_combo.icursor(len(term_text))
+                        else:
+                            self.client_combo.icursor(insert_idx)
+                        try:
+                            self.client_combo.selection_clear()
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                # Отложим на один тик UI, чтобы не сбивать ввод
+                self.after(1, _post)
             except Exception:
                 pass
 
@@ -732,31 +741,38 @@ class MKLOrderEditorView(ttk.Frame):
         return values
 
     def _filter_clients(self):
-        term = self.client_var.get().strip().lower()
+        term_text = self.client_var.get()
+        term = term_text.strip().lower()
         values = self._client_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        # Авто-раскрытие без смены курсора: сохраняем позицию каретки и фокус
-        if values:
+
+        # Мягкое авто-раскрытие через after, не трогаем каретку пользователя
+        if term and values:
             try:
-                # сохранить позицию курсора
+                insert_idx = None
                 try:
                     insert_idx = int(self.client_combo.index("insert"))
                 except Exception:
-                    insert_idx = None
-                current_text = self.client_var.get()
-                # показать список
-                self.client_combo.tk.call(self.client_combo._w, "post")
-                # вернуть фокус и каретку, убрать выделение
-                self.client_combo.focus_set()
-                if insert_idx is None:
-                    insert_idx = len(current_text)
-                self.client_combo.icursor(insert_idx)
-                try:
-                    self.client_combo.selection_clear()
-                except Exception:
                     pass
+                def _post():
+                    if (self.client_var.get() or "") != (term_text or ""):
+                        return
+                    try:
+                        self.client_combo.tk.call(self.client_combo._w, "post")
+                        self.client_combo.focus_set()
+                        if insert_idx is None:
+                            self.client_combo.icursor(len(term_text))
+                        else:
+                            self.client_combo.icursor(insert_idx)
+                        try:
+                            self.client_combo.selection_clear()
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                self.after(1, _post)
             except Exception:
                 pass
 
