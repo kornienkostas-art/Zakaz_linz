@@ -225,7 +225,6 @@ class ProductsMeridianView(ttk.Frame):
         card.rowconfigure(3, weight=1)
 
         # Double-click expand/collapse only on groups (по всей строке)
-        self.tree.bind("<Double-1>", self._on_double_click)ouble-click expand/collapse only on groups
         self.tree.bind("<Double-1>", self._on_double_click)
 
     def _go_back(self):
@@ -517,7 +516,8 @@ class ProductsMeridianView(ttk.Frame):
             messagebox.showinfo("Товар", "Выберите товар.")
             return
         try:
+            og, sel = self._capture_state()
             self.db.move_product_meridian(info["pid"], direction)
-            self._reload()
+            self._reload(preserve_state=True, open_gids=og, select_pref=sel)
         except Exception as e:
             messagebox.showerror("Товар", f"Не удалось переместить товар:\n{e}")
