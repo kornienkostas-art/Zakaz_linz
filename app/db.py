@@ -26,7 +26,17 @@ class AppDB:
             );
             """
         )
-        # Products (generic, kept for backward compatibility)
+        # Product groups (hierarchy depth=1)
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product_groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            );
+            """
+        )
+        # Products (generic)
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS products (
@@ -35,12 +45,32 @@ class AppDB:
             );
             """
         )
+        # Migrations: add group_id and sort_order to products if missing
+        try:
+            cur.execute("ALTER TABLE products ADD COLUMN group_id INTEGER REFERENCES product_groups(id) ON DELETE SET NULL;")
+        except Exception:
+            pass
+        try:
+            cur.execute("ALTER TABLE products ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;")
+        except Exception:
+            pass
+
         # Separate product catalogs for MKL and Meridian
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS products_mkl (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL
+            );
+            """
+        )
+        # Meridian product groups and products
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product_groups_meridian (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0
             );
             """
         )
@@ -52,7 +82,16 @@ class AppDB:
             );
             """
         )
-        # MKL orders (flat structure for now)
+        # Migrations for meridian products: add group_id and sort_order if missing
+        try:
+            cur.execute("ALTER TABLE products_meridian ADD COLUMN group_id INTEGER REFERENCES product_groups_meridian(id) ON DELETE SET NULL;")
+        except Exception:
+            pass
+        try:
+            cur.execute("ALTER TABLE products_meridian ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;")
+        except Exception:
+            pass
+        # MKL orders
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS mkl_orders (
@@ -86,8 +125,6 @@ class AppDB:
             );
             """
         )
-        
-
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS meridian_items (
@@ -135,22 +172,110 @@ class AppDB:
         self.conn.execute("DELETE FROM clients WHERE id=?;", (client_id,))
         self.conn.commit()
 
+    # --- Product Groups ---
+    def list_product_groups(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name, sort_order FROM product_groups ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"]} for r in rows]
+
+    def _next_group_sort(self) -> int:
+        row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups;").fetchone()
+        return (row["m"] or 0) + 1
+
+    def add_product_group(self, name: str) -> int:
+        sort_order = self._next_group_sort()
+        cur = self.conn.execute("INSERT INTO product_groups (name, sort_order) VALUES (?, ?);", (name, sort_order))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_product_group(self, group_id: int, name: str):
+        self.conn.execute("UPDATE product_groups SET name=? WHERE id=?;", (name, group_id))
+        self.conn.commit()
+
+    def delete_product_group(self, group_id: int):
+        # Detach products from group, then delete group
+        self.conn.execute("UPDATE products SET group_id=NULL WHERE group_id=?;", (group_id,))
+        self.conn.execute("DELETE FROM product_groups WHERE id=?;", (group_id,))
+        self.conn.commit()
+
+    def move_group(self, group_id: int, direction: int):
+        # direction: -1 up, +1 down
+        rows = self.conn.execute("SELECT id, sort_order FROM product_groups ORDER BY sort_order ASC, id ASC;").fetchall()
+        idx = None
+        for i, r in enumerate(rows):
+            if r["id"] == group_id:
+                idx = i
+                break
+        if idx is None:
+            return
+        j = idx + (1 if direction > 0 else -1)
+        if j < 0 or j >= len(rows):
+            return
+        a = rows[idx]
+        b = rows[j]
+        self.conn.execute("UPDATE product_groups SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
+        self.conn.execute("UPDATE product_groups SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
+        self.conn.commit()
+
     # --- Products (generic) ---
     def list_products(self) -> list[dict]:
         rows = self.conn.execute("SELECT id, name FROM products ORDER BY name COLLATE NOCASE;").fetchall()
         return [{"id": r["id"], "name": r["name"]} for r in rows]
 
-    def add_product(self, name: str) -> int:
-        cur = self.conn.execute("INSERT INTO products (name) VALUES (?);", (name,))
+    def list_products_by_group(self, group_id: int | None) -> list[dict]:
+        if group_id is None:
+            rows = self.conn.execute("SELECT id, name, group_id, sort_order FROM products WHERE group_id IS NULL ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        else:
+            rows = self.conn.execute("SELECT id, name, group_id, sort_order FROM products WHERE group_id=? ORDER BY sort_order ASC, name COLLATE NOCASE;", (group_id,)).fetchall()
+        return [{"id": r["id"], "name": r["name"], "group_id": r["group_id"], "sort_order": r["sort_order"]} for r in rows]
+
+    def _next_product_sort(self, group_id: int | None) -> int:
+        if group_id is None:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM products WHERE group_id IS NULL;").fetchone()
+        else:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM products WHERE group_id=?;", (group_id,)).fetchone()
+        return (row["m"] or 0) + 1
+
+    def add_product(self, name: str, group_id: int | None = None) -> int:
+        sort_order = self._next_product_sort(group_id)
+        cur = self.conn.execute("INSERT INTO products (name, group_id, sort_order) VALUES (?, ?, ?);", (name, group_id, sort_order))
         self.conn.commit()
         return cur.lastrowid
 
-    def update_product(self, product_id: int, name: str):
-        self.conn.execute("UPDATE products SET name=? WHERE id=?;", (name, product_id))
+    def update_product(self, product_id: int, name: str, group_id: int | None = None):
+        if group_id is None:
+            self.conn.execute("UPDATE products SET name=? WHERE id=?;", (name, product_id))
+        else:
+            self.conn.execute("UPDATE products SET name=?, group_id=? WHERE id=?;", (name, group_id, product_id))
         self.conn.commit()
 
     def delete_product(self, product_id: int):
         self.conn.execute("DELETE FROM products WHERE id=?;", (product_id,))
+        self.conn.commit()
+
+    def move_product(self, product_id: int, direction: int):
+        # direction: -1 up, +1 down within the same group
+        r = self.conn.execute("SELECT id, group_id, sort_order FROM products WHERE id=?;", (product_id,)).fetchone()
+        if not r:
+            return
+        gid = r["group_id"]
+        rows = self.conn.execute(
+            "SELECT id, sort_order FROM products WHERE (group_id IS ? OR group_id = ?) ORDER BY sort_order ASC, id ASC;",
+            (None if gid is None else gid, gid),
+        ).fetchall()
+        idx = None
+        for i, row in enumerate(rows):
+            if row["id"] == product_id:
+                idx = i
+                break
+        if idx is None:
+            return
+        j = idx + (1 if direction > 0 else -1)
+        if j < 0 or j >= len(rows):
+            return
+        a = rows[idx]
+        b = rows[j]
+        self.conn.execute("UPDATE products SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
+        self.conn.execute("UPDATE products SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
 
     # --- Products MKL ---
@@ -171,22 +296,105 @@ class AppDB:
         self.conn.execute("DELETE FROM products_mkl WHERE id=?;", (product_id,))
         self.conn.commit()
 
-    # --- Products Meridian ---
-    def list_products_meridian(self) -> list[dict]:
-        rows = self.conn.execute("SELECT id, name FROM products_meridian ORDER BY name COLLATE NOCASE;").fetchall()
-        return [{"id": r["id"], "name": r["name"]} for r in rows]
+    # --- Products Meridian with Groups ---
+    def list_product_groups_meridian(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name, sort_order FROM product_groups_meridian ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"]} for r in rows]
 
-    def add_product_meridian(self, name: str) -> int:
-        cur = self.conn.execute("INSERT INTO products_meridian (name) VALUES (?);", (name,))
+    def _next_group_sort_meridian(self) -> int:
+        row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_meridian;").fetchone()
+        return (row["m"] or 0) + 1
+
+    def add_product_group_meridian(self, name: str) -> int:
+        sort_order = self._next_group_sort_meridian()
+        cur = self.conn.execute("INSERT INTO product_groups_meridian (name, sort_order) VALUES (?, ?);", (name, sort_order))
         self.conn.commit()
         return cur.lastrowid
 
-    def update_product_meridian(self, product_id: int, name: str):
-        self.conn.execute("UPDATE products_meridian SET name=? WHERE id=?;", (name, product_id))
+    def update_product_group_meridian(self, group_id: int, name: str):
+        self.conn.execute("UPDATE product_groups_meridian SET name=? WHERE id=?;", (name, group_id))
+        self.conn.commit()
+
+    def delete_product_group_meridian(self, group_id: int):
+        self.conn.execute("UPDATE products_meridian SET group_id=NULL WHERE group_id=?;", (group_id,))
+        self.conn.execute("DELETE FROM product_groups_meridian WHERE id=?;", (group_id,))
+        self.conn.commit()
+
+    def move_group_meridian(self, group_id: int, direction: int):
+        rows = self.conn.execute("SELECT id, sort_order FROM product_groups_meridian ORDER BY sort_order ASC, id ASC;").fetchall()
+        idx = None
+        for i, r in enumerate(rows):
+            if r["id"] == group_id:
+                idx = i
+                break
+        if idx is None:
+            return
+        j = idx + (1 if direction > 0 else -1)
+        if j < 0 or j >= len(rows):
+            return
+        a = rows[idx]
+        b = rows[j]
+        self.conn.execute("UPDATE product_groups_meridian SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
+        self.conn.execute("UPDATE product_groups_meridian SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
+        self.conn.commit()
+
+    def list_products_meridian(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name, group_id, sort_order FROM products_meridian ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "group_id": r["group_id"], "sort_order": r["sort_order"]} for r in rows]
+
+    def list_products_meridian_by_group(self, group_id: int | None) -> list[dict]:
+        if group_id is None:
+            rows = self.conn.execute("SELECT id, name, group_id, sort_order FROM products_meridian WHERE group_id IS NULL ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        else:
+            rows = self.conn.execute("SELECT id, name, group_id, sort_order FROM products_meridian WHERE group_id=? ORDER BY sort_order ASC, name COLLATE NOCASE;", (group_id,)).fetchall()
+        return [{"id": r["id"], "name": r["name"], "group_id": r["group_id"], "sort_order": r["sort_order"]} for r in rows]
+
+    def _next_product_sort_meridian(self, group_id: int | None) -> int:
+        if group_id is None:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM products_meridian WHERE group_id IS NULL;").fetchone()
+        else:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM products_meridian WHERE group_id=?;", (group_id,)).fetchone()
+        return (row["m"] or 0) + 1
+
+    def add_product_meridian(self, name: str, group_id: int | None = None) -> int:
+        cur = self.conn.execute("INSERT INTO products_meridian (name, group_id, sort_order) VALUES (?, ?, ?);", (name, group_id, self._next_product_sort_meridian(group_id)))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_product_meridian(self, product_id: int, name: str, group_id: int | None = None):
+        if group_id is None:
+            self.conn.execute("UPDATE products_meridian SET name=? WHERE id=?;", (name, product_id))
+        else:
+            self.conn.execute("UPDATE products_meridian SET name=?, group_id=? WHERE id=?;", (name, group_id, product_id))
         self.conn.commit()
 
     def delete_product_meridian(self, product_id: int):
         self.conn.execute("DELETE FROM products_meridian WHERE id=?;", (product_id,))
+        self.conn.commit()
+
+    def move_product_meridian(self, product_id: int, direction: int):
+        r = self.conn.execute("SELECT id, group_id, sort_order FROM products_meridian WHERE id=?;", (product_id,)).fetchone()
+        if not r:
+            return
+        gid = r["group_id"]
+        rows = self.conn.execute(
+            "SELECT id, sort_order FROM products_meridian WHERE (group_id IS ? OR group_id = ?) ORDER BY sort_order ASC, id ASC;",
+            (None if gid is None else gid, gid),
+        ).fetchall()
+        idx = None
+        for i, row in enumerate(rows):
+            if row["id"] == product_id:
+                idx = i
+                break
+        if idx is None:
+            return
+        j = idx + (1 if direction > 0 else -1)
+        if j < 0 or j >= len(rows):
+            return
+        a = rows[idx]
+        b = rows[j]
+        self.conn.execute("UPDATE products_meridian SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
+        self.conn.execute("UPDATE products_meridian SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
 
     # --- MKL Orders ---

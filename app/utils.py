@@ -349,3 +349,85 @@ def apply_builtins_fresh_style(root: tk.Tk):
         pass
 
 
+class Tooltip:
+    """
+    Простой тултип для виджетов Tk/ttk с переносами строк.
+    Показывается с задержкой, позиционируется около курсора.
+    """
+    def __init__(self, widget: tk.Widget, text: str, delay_ms: int = 500, wraplength: int = 320):
+        self.widget = widget
+        self.text = text
+        self.delay_ms = delay_ms
+        self.wraplength = wraplength
+        self._id = None
+        self._tip = None
+        try:
+            widget.bind("<Enter>", self._on_enter, add="+")
+            widget.bind("<Leave>", self._on_leave, add="+")
+            widget.bind("<ButtonPress>", self._on_leave, add="+")
+        except Exception:
+            pass
+
+    def _on_enter(self, _event=None):
+        self._schedule()
+
+    def _on_leave(self, _event=None):
+        self._unschedule()
+        self._hide()
+
+    def _schedule(self):
+        self._unschedule()
+        try:
+            self._id = self.widget.after(self.delay_ms, self._show)
+        except Exception:
+            self._id = None
+
+    def _unschedule(self):
+        try:
+            if self._id is not None:
+                self.widget.after_cancel(self._id)
+        except Exception:
+            pass
+        self._id = None
+
+    def _show(self):
+        if self._tip or not self.widget.winfo_ismapped():
+            return
+        try:
+            x = self.widget.winfo_rootx() + 16
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 8
+        except Exception:
+            x, y = 0, 0
+        try:
+            tip = tk.Toplevel(self.widget)
+            tip.wm_overrideredirect(True)
+            tip.attributes("-topmost", True)
+            frame = tk.Frame(tip, background="#111827", borderwidth=0)
+            frame.pack(fill="both", expand=True)
+            lbl = tk.Label(frame, text=self.text, justify="left", background="#111827", foreground="#F9FAFB",
+                           relief="flat", borderwidth=0, padx=8, pady=6, wraplength=self.wraplength)
+            lbl.pack()
+            tip.wm_geometry(f"+{x}+{y}")
+            self._tip = tip
+        except Exception:
+            self._tip = None
+
+    def _hide(self):
+        try:
+            if self._tip is not None:
+                self._tip.destroy()
+        except Exception:
+            pass
+        self._tip = None
+
+
+def create_tooltip(widget: tk.Widget, text: str, delay_ms: int = 500, wraplength: int = 320) -> Tooltip:
+    """
+    Упрощенный интерфейс для создания тултипов.
+    """
+    try:
+        return Tooltip(widget, text, delay_ms=delay_ms, wraplength=wraplength)
+    except Exception:
+        return None  # type: ignore
+
+
