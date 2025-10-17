@@ -619,56 +619,9 @@ class MeridianOrderForm(tk.Toplevel):
         MeridianItemForm(self, products=[], on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
 
     def _edit_item(self):
-        idx = self._selected_item_index()
-        if idx is None:
-            return
-        current = self.items[idx].copy()
-        db = self._find_db()
-        if db:
-            # Редактирование во всю область через встроенную панель
-            def on_done(items):
-                if items:
-                    # Берем первую позицию из результатов для замены
-                    try:
-                        self.items[idx] = items[0]
-                    except Exception:
-                        pass
-                    self._refresh_items_view()
-                self._close_picker()
-            # спрятать части формы и показать панель с предзаполнением
-            try:
-                if hasattr(self, "_items_frame"):
-                    self._items_frame.grid_remove()
-                if hasattr(self, "_items_toolbar"):
-                    self._items_toolbar.grid_remove()
-                if hasattr(self, "_footer_btns"):
-                    self._footer_btns.grid_remove()
-                try:
-                    self._card.rowconfigure(2, weight=0)
-                    self._card.rowconfigure(5, weight=1)
-                except Exception:
-                    pass
-            except Exception:
-                pass
-            try:
-                if self._picker_panel is not None:
-                    self._picker_panel.destroy()
-            except Exception:
-                pass
-            self._picker_panel = MeridianProductPickerInline(self._card, db, on_done=on_done, on_cancel=self._close_picker, initial_item=current)
-            try:
-                self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
-            except Exception:
-                self._picker_panel.pack(fill="both", expand=True, pady=(0, 0))
-            return
-        # Fallback на старую модалку
-        products = []
-        try:
-            if hasattr(self, "db") and self.db:
-                products = self.db.list_products_meridian()
-        except Exception:
-            products = []
-        MeridianItemForm(self, products=products, initial=current, on_save=lambda it: (self._apply_item_update(idx, it), self._refresh_items_view()))
+        # Функция редактирования позиции отключена по запросу
+        messagebox.showinfo("Редактирование", "Редактирование позиции отключено.")
+        return
 
     def _apply_item_update(self, idx: int, it: dict):
         self.items[idx] = it
@@ -1087,55 +1040,9 @@ class MeridianOrderEditorView(ttk.Frame):
         MeridianItemForm(self, products=[], on_save=lambda it: (self.items.append(it), self._refresh_items_view()))
 
     def _edit_item(self):
-        idx = self._selected_item_index()
-        if idx is None:
-            return
-        current = self.items[idx].copy()
-        db = self._find_db()
-        if db:
-            # Редактирование во всю область через встроенную панель с предзаполнением
-            def on_done(items):
-                if items:
-                    try:
-                        self.items[idx] = items[0]
-                    except Exception:
-                        pass
-                    self._refresh_items_view()
-                self._close_picker()
-            # спрятать части формы и показать панель
-            try:
-                if hasattr(self, "_items_frame"):
-                    self._items_frame.grid_remove()
-                if hasattr(self, "_items_toolbar"):
-                    self._items_toolbar.grid_remove()
-                if hasattr(self, "_footer_btns"):
-                    self._footer_btns.grid_remove()
-                try:
-                    self._card.rowconfigure(2, weight=0)
-                    self._card.rowconfigure(5, weight=1)
-                except Exception:
-                    pass
-            except Exception:
-                pass
-            try:
-                if self._picker_panel is not None:
-                    self._picker_panel.destroy()
-            except Exception:
-                pass
-            self._picker_panel = MeridianProductPickerInline(self._card, db, on_done=on_done, on_cancel=self._close_picker, initial_item=current)
-            try:
-                self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
-            except Exception:
-                self._picker_panel.pack(fill="both", expand=True, pady=(0, 0))
-            return
-        # Fallback на старую модалку
-        products = []
-        try:
-            if hasattr(self, "db") and self.db:
-                products = self.db.list_products_meridian()
-        except Exception:
-            products = []
-        MeridianItemForm(self, products=products, initial=current, on_save=lambda it: (self._apply_item_update(idx, it), self._refresh_items_view()))
+        # Функция редактирования позиции во встроенном редакторе отключена по запросу
+        messagebox.showinfo("Редактирование", "Редактирование позиции отключено.")
+        return
 
     def _apply_item_update(self, idx: int, it: dict):
         try:
