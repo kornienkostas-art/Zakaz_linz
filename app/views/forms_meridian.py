@@ -1091,9 +1091,47 @@ class MeridianOrderEditorView(ttk.Frame):
         if idx is None:
             return
         current = self.items[idx].copy()
+        db = self._find_db()
+        if db:
+            # Редактирование во всю область через встроенную панель с предзаполнением
+            def on_done(items):
+                if items:
+                    try:
+                        self.items[idx] = items[0]
+                    except Exception:
+                        pass
+                    self._refresh_items_view()
+                self._close_picker()
+            # спрятать части формы и показать панель
+            try:
+                if hasattr(self, "_items_frame"):
+                    self._items_frame.grid_remove()
+                if hasattr(self, "_items_toolbar"):
+                    self._items_toolbar.grid_remove()
+                if hasattr(self, "_footer_btns"):
+                    self._footer_btns.grid_remove()
+                try:
+                    self._card.rowconfigure(2, weight=0)
+                    self._card.rowconfigure(5, weight=1)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            try:
+                if self._picker_panel is not None:
+                    self._picker_panel.destroy()
+            except Exception:
+                pass
+            self._picker_panel = MeridianProductPickerInline(self._card, db, on_done=on_done, on_cancel=self._close_picker, initial_item=current)
+            try:
+                self._picker_panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
+            except Exception:
+                self._picker_panel.pack(fill="both", expand=True, pady=(0, 0))
+            return
+        # Fallback на старую модалку
         products = []
         try:
-            if self.db:
+            if hasattr(self, "db") and self.db:
                 products = self.db.list_products_meridian()
         except Exception:
             products = []
