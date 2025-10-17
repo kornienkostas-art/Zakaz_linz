@@ -233,23 +233,45 @@ def apply_builtins_fresh_style(root: tk.Tk):
     except Exception:
         pass
 
-    # Buttons
+    # Buttons (make default buttons neutral; accent buttons – colored)
     try:
+        # Neutral default button
         style.configure(
             "TButton",
             padding=(16, 10),
             foreground=fg,
-            background=acc,
-            bordercolor=acc,
+            background="#FFFFFF",
+            bordercolor=border,
             focusthickness=1,
             focuscolor=acc,
         )
         style.map(
             "TButton",
-            background=[("active", acc_active), ("pressed", acc_active), ("hover", acc_hover)],
+            background=[("active", "#F3F4F6"), ("pressed", "#E5E7EB"), ("hover", "#F3F4F6")],
             bordercolor=[("focus", acc)],
             foreground=[("disabled", "#9AA0A6")],
         )
+
+        # Accent button – highlighted primary action
+        primary = acc
+        primary_hover = acc_hover
+        primary_active = acc_active
+        style.configure(
+            "Accent.TButton",
+            padding=(16, 10),
+            foreground="#FFFFFF",
+            background=primary,
+            bordercolor=primary,
+            focusthickness=1,
+            focuscolor=primary,
+        )
+        style.map(
+            "Accent.TButton",
+            background=[("active", primary_active), ("pressed", primary_active), ("hover", primary_hover)],
+            bordercolor=[("focus", primary)],
+            foreground=[("disabled", "#E5E7EB")],
+        )
+
         # Keep existing Big.TButton, just ensure padding
         style.configure("Big.TButton", padding=(24, 14))
     except Exception:
