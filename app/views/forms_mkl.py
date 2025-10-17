@@ -378,11 +378,17 @@ class OrderForm(tk.Toplevel):
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        # Автоматически открывать список подходящих значений
-        try:
-            self.client_combo.tk.call(self.client_combo._w, "post")
-        except Exception:
-            pass
+        # Авто-раскрытие выпадающего списка (fallback для разных платформ/версий Tk)
+        if values:
+            try:
+                # стандартный способ
+                self.client_combo.tk.call(self.client_combo._w, "post")
+            except Exception:
+                try:
+                    # альтернативный способ
+                    self.client_combo.event_generate("<Down>")
+                except Exception:
+                    pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
@@ -720,11 +726,15 @@ class MKLOrderEditorView(ttk.Frame):
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-        # Автоматически показывать выпадающий список при вводе
-        try:
-            self.client_combo.tk.call(self.client_combo._w, "post")
-        except Exception:
-            pass
+        # Авто-раскрытие выпадающего списка (fallback для разных платформ/версий Tk)
+        if values:
+            try:
+                self.client_combo.tk.call(self.client_combo._w, "post")
+            except Exception:
+                try:
+                    self.client_combo.event_generate("<Down>")
+                except Exception:
+                    pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
