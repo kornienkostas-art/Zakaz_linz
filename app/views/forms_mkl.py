@@ -10,6 +10,134 @@ from app.utils import format_phone_mask  # used for displaying client phones
 from app.utils import create_tooltip
 
 
+class MKLProductPickerDialog(tk.Toplevel):
+    """Окно выбора товара из каталога (product_groups + products) с поиском."""
+    def __init__(self, master, db: Optional[AppDB], title: str = "Выбор товара"):
+        super().__init__(master)
+        self.title(title)
+        self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=760, min_h=520, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+
+        self.db = db
+        self.result: Optional[str] = None
+
+        root = ttk.Frame(self, style="Card.TFrame", padding=16)
+        root.pack(fill="both", expand=True)
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(2, weight=1)
+
+        ttk.Label(root, text="Поиск по товарам", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        self.search_var = tk.StringVar()
+        ent = ttk.Entry(root, textvariable=self.search_var)
+        ent.grid(row=1, column=0, sticky="ew", pady=(4, 8))
+        ent.bind("<KeyRelease>", lambda e: self._reload())
+
+        self.tree = ttk.Treeview(root, show="tree", style="Data.Treeview")
+        self.tree.column("#0", width=700, stretch=True)
+        y_scroll = ttk.Scrollbar(root, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscroll=y_scroll.set)
+        self.tree.grid(row=2, column=0, sticky="nsew")
+        y_scroll.grid(row=2, column=1, sticky="ns")
+        self.tree.bind("<Double-1>", self._on_dbl)
+
+        btns = ttk.Frame(root, style="Card.TFrame")
+        btns.grid(row=3, column=0, sticky="e", pady=(12, 0))
+        ttk.Button(btns, text="Выбрать", style="Menu.TButton", command=self._ok).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=self._cancel).pack(side="right", padx=(8, 0))
+
+        self._reload()
+        try:
+            ent.focus_set()
+        except Exception:
+            pass
+
+    def _reload(self):
+        term = (self.search_var.get() or "").strip().lower()
+        self.tree.delete(*self.tree.get_children())
+        groups = []
+        if self.db:
+            try:
+                groups = self.db.list_product_groups()
+            except Exception:
+                groups = []
+        if not groups:
+            all_prods = []
+            if self.db:
+                try:
+                    all_prods = self.db.list_products()
+                except Exception:
+                    all_prods = []
+            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            any_found = False
+            for p in all_prods:
+                name = p.get("name", "") or ""
+                if term and term not in name.lower():
+                    continue
+                any_found = True
+                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            if term and not any_found:
+                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
+            return
+
+        any_found_total = False
+        for g in groups:
+            prods = []
+            if self.db:
+                try:
+                    prods = self.db.list_products_by_group(g["id"])
+                except Exception:
+                    prods = []
+            matched = []
+            if term:
+                for p in prods:
+                    name = (p.get("name", "") or "")
+                    if term in name.lower():
+                        matched.append(p)
+            else:
+                matched = prods
+            if not matched and term:
+                continue
+            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
+            for p in matched:
+                self.tree.insert(node, "end", text=p.get("name", "") or "", tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                any_found_total = True
+        if term and not any_found_total:
+            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
+
+    def _on_dbl(self, event):
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        tags = set(self.tree.item(item, "tags") or [])
+        if "group" in tags:
+            is_open = self.tree.item(item, "open")
+            self.tree.item(item, open=not is_open)
+            return
+        if "product" in tags:
+            self.result = (self.tree.item(item, "text") or "").strip()
+            self.destroy()
+
+    def _ok(self):
+        sel = self.tree.selection()
+        if not sel:
+            self.result = None
+        else:
+            it = sel[0]
+            tags = set(self.tree.item(it, "tags") or [])
+            if "product" in tags:
+                self.result = (self.tree.item(it, "text") or "").strip()
+            else:
+                self.result = None
+        self.destroy()
+
+    def _cancel(self):
+        self.result = None
+        self.destroy()
+
+
 class OrderForm(tk.Toplevel):
     """Форма создания/редактирования заказа МКЛ."""
     def __init__(
@@ -92,74 +220,24 @@ class OrderForm(tk.Toplevel):
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
-    def _load_tree_mkl(self):
-        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска."""
-        if not getattr(self, "_db", None) or not hasattr(self, "tree"):
-            return
-        term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
-        self.tree.delete(*self.tree.get_children())
-        # Получаем группы
+    def _open_product_picker(self):
+        # Открыть диалог выбора товара (группы/товары), при этом свободный ввод сохраняется в product_var
+        # products переданы списком, но для групп нужен доступ к БД из master
+        db = None
         try:
-            groups = self._db.list_product_groups()
+            node = self
+            while node is not None and db is None:
+                db = getattr(node, "db", None)
+                node = getattr(node, "master", None)
         except Exception:
-            groups = []
-        if not groups:
-            # Покажем плоский список всех товаров
+            db = None
+        dlg = MKLProductPickerDialog(self, db=db, title="Выбор товара")
+        self.wait_window(dlg)
+        if dlg.result:
             try:
-                all_prods = self._db.list_products()
+                self.product_var.set(dlg.result)
             except Exception:
-                all_prods = []
-            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
-            any_found = False
-            for p in all_prods:
-                name = p.get("name", "") or ""
-                if term and term not in name.lower():
-                    continue
-                any_found = True
-                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
-            if term and not any_found:
-                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
-            return
-        # Есть группы
-        any_found_total = False
-        for g in groups:
-            try:
-                prods = self._db.list_products_by_group(g["id"])
-            except Exception:
-                prods = []
-            # Фильтрация
-            matched = []
-            if term:
-                for p in prods:
-                    name = (p.get("name", "") or "")
-                    if term in name.lower():
-                        matched.append(p)
-            else:
-                matched = prods
-            if not matched and term:
-                continue
-            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
-            for p in matched:
-                name = p.get("name", "") or ""
-                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
-                any_found_total = True
-        if term and not any_found_total:
-            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
-
-    def _on_tree_dbl_mkl(self, event):
-        if not hasattr(self, "tree"):
-            return
-        item = self.tree.identify_row(event.y)
-        if not item:
-            return
-        tags = set(self.tree.item(item, "tags") or [])
-        text = self.tree.item(item, "text") or ""
-        if "group" in tags:
-            is_open = self.tree.item(item, "open")
-            self.tree.item(item, open=not is_open)
-            return
-        if "product" in tags:
-            self.product_var.set(text)
+                pass
 
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
@@ -167,17 +245,20 @@ class OrderForm(tk.Toplevel):
         card.columnconfigure(0, weight=1)
         card.columnconfigure(1, weight=1)
 
-        # Client selection with autocomplete
+        # Client selection with autocomplete (оставляем свободный ввод + автоподбор и автопоказ списка)
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
         self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection (простая строка с автодополнением)
+        # Product selection: свободный ввод + кнопка выбора из каталога (вместо выпадашки)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-        self.product_combo.grid(row=1, column=1, sticky="ew")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        prod_row = ttk.Frame(card, style="Card.TFrame")
+        prod_row.grid(row=1, column=1, sticky="ew")
+        prod_row.columnconfigure(0, weight=1)
+        self.product_entry = ttk.Entry(prod_row, textvariable=self.product_var)
+        self.product_entry.grid(row=0, column=0, sticky="ew")
+        ttk.Button(prod_row, text="Выбрать…", style="Menu.TButton", command=self._open_product_picker).grid(row=0, column=1, padx=(8, 0))
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
@@ -255,7 +336,7 @@ class OrderForm(tk.Toplevel):
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
+        for w in (self.client_combo, self.product_entry, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
@@ -291,22 +372,17 @@ class OrderForm(tk.Toplevel):
             values.append(f"{fio} — {phone}".strip(" —"))
         return values
 
-    def _product_values(self):
-        return [p.get("name", "") for p in self.products]
-
     def _filter_clients(self):
         term = self.client_var.get().strip().lower()
         values = self._client_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-
-    def _filter_products(self):
-        term = self.product_var.get().strip().lower()
-        values = self._product_values()
-        if term:
-            values = [v for v in values if term in v.lower()]
-        self.product_combo["values"] = values
+        # Автоматически открывать список подходящих значений
+        try:
+            self.client_combo.tk.call(self.client_combo._w, "post")
+        except Exception:
+            pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
@@ -396,12 +472,13 @@ class OrderForm(tk.Toplevel):
 
     def _parse_product(self, text: str) -> str:
         t = (text or "").strip()
+        # products: список dict с name из БД (общий каталог)
         for p in self.products:
-            if t.lower() == p.get("name", "").lower():
-                return p.get("name", "")
+            if t.lower() == (p.get("name", "") or "").lower():
+                return p.get("name", "") or ""
         for p in self.products:
-            if t.lower() in p.get("name", "").lower():
-                return p.get("name", "")
+            if t.lower() in (p.get("name", "") or "").lower():
+                return p.get("name", "") or ""
         return t
 
     def _save(self):
@@ -461,7 +538,8 @@ class MKLOrderEditorView(ttk.Frame):
 
         # Load datasets
         self.clients = self.db.list_clients() if self.db else []
-        self.products = self.db.list_products_mkl() if self.db else []
+        # Встроенный редактор теперь тоже использует общий каталог (products) в диалоге выбора
+        self.products = self.db.list_products() if self.db else []
 
         # Vars
         self.client_var = tk.StringVar()
@@ -491,70 +569,14 @@ class MKLOrderEditorView(ttk.Frame):
 
         self._build_ui()
 
-    def _load_tree_mkl(self):
-        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска для встроенного редактора."""
-        if not getattr(self, "db", None) or not hasattr(self, "tree"):
-            return
-        term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
-        self.tree.delete(*self.tree.get_children())
-        try:
-            groups = self.db.list_product_groups()
-        except Exception:
-            groups = []
-        if not groups:
+    def _open_product_picker(self):
+        dlg = MKLProductPickerDialog(self, db=self.db, title="Выбор товара")
+        self.wait_window(dlg)
+        if dlg.result:
             try:
-                all_prods = self.db.list_products()
+                self.product_var.set(dlg.result)
             except Exception:
-                all_prods = []
-            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
-            any_found = False
-            for p in all_prods:
-                name = p.get("name", "") or ""
-                if term and term not in name.lower():
-                    continue
-                any_found = True
-                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
-            if term and not any_found:
-                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
-            return
-        any_found_total = False
-        for g in groups:
-            try:
-                prods = self.db.list_products_by_group(g["id"])
-            except Exception:
-                prods = []
-            matched = []
-            if term:
-                for p in prods:
-                    name = (p.get("name", "") or "")
-                    if term in name.lower():
-                        matched.append(p)
-            else:
-                matched = prods
-            if not matched and term:
-                continue
-            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
-            for p in matched:
-                name = p.get("name", "") or ""
-                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
-                any_found_total = True
-        if term and not any_found_total:
-            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
-
-    def _on_tree_dbl_mkl(self, event):
-        if not hasattr(self, "tree"):
-            return
-        item = self.tree.identify_row(event.y)
-        if not item:
-            return
-        tags = set(self.tree.item(item, "tags") or [])
-        text = self.tree.item(item, "text") or ""
-        if "group" in tags:
-            is_open = self.tree.item(item, "open")
-            self.tree.item(item, open=not is_open)
-            return
-        if "product" in tags:
-            self.product_var.set(text)
+                pass
 
     def _build_ui(self):
         # Toolbar with back
@@ -573,11 +595,14 @@ class MKLOrderEditorView(ttk.Frame):
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
 
-        # Product selection (простая строка с автодополнением)
+        # Product selection: свободный ввод + кнопка выбора
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
-        self.product_combo.grid(row=1, column=1, sticky="ew")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        prod_row = ttk.Frame(card, style="Card.TFrame")
+        prod_row.grid(row=1, column=1, sticky="ew")
+        prod_row.columnconfigure(0, weight=1)
+        self.product_entry = ttk.Entry(prod_row, textvariable=self.product_var)
+        self.product_entry.grid(row=0, column=0, sticky="ew")
+        ttk.Button(prod_row, text="Выбрать…", style="Menu.TButton", command=self._open_product_picker).grid(row=0, column=1, padx=(8, 0))
 
         ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
 
@@ -653,7 +678,7 @@ class MKLOrderEditorView(ttk.Frame):
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
+        for w in (self.client_combo, self.product_entry, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
@@ -689,22 +714,17 @@ class MKLOrderEditorView(ttk.Frame):
             values.append(f"{fio} — {phone}".strip(" —"))
         return values
 
-    def _product_values(self):
-        return [p.get("name", "") for p in self.products]
-
     def _filter_clients(self):
         term = self.client_var.get().strip().lower()
         values = self._client_values()
         if term:
             values = [v for v in values if term in v.lower()]
         self.client_combo["values"] = values
-
-    def _filter_products(self):
-        term = self.product_var.get().strip().lower()
-        values = self._product_values()
-        if term:
-            values = [v for v in values if term in v.lower()]
-        self.product_combo["values"] = values
+        # Автоматически показывать выпадающий список при вводе
+        try:
+            self.client_combo.tk.call(self.client_combo._w, "post")
+        except Exception:
+            pass
 
     def _bind_clear_shortcuts(self, widget):
         def clear():
@@ -795,11 +815,11 @@ class MKLOrderEditorView(ttk.Frame):
     def _parse_product(self, text: str) -> str:
         t = (text or "").strip()
         for p in self.products:
-            if t.lower() == p.get("name", "").lower():
-                return p.get("name", "")
+            if t.lower() == (p.get("name", "") or "").lower():
+                return p.get("name", "") or ""
         for p in self.products:
-            if t.lower() in p.get("name", "").lower():
-                return p.get("name", "")
+            if t.lower() in (p.get("name", "") or "").lower():
+                return p.get("name", "") or ""
         return t
 
     def _save(self):
