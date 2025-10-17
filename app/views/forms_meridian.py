@@ -15,6 +15,11 @@ class MeridianProductPickerInline(ttk.Frame):
         self.on_cancel = on_cancel
         self._basket: list[dict] = []
         self._build_ui()
+        # Гарантируем начальное наполнение (если таблицы пустые)
+        try:
+            self._ensure_seed()
+        except Exception:
+            pass
         self._load_tree()
 
     def _build_ui(self):
@@ -124,6 +129,131 @@ class MeridianProductPickerInline(ttk.Frame):
         ttk.Button(foot, text="Добавить в заказ", style="Menu.TButton", command=self._done).pack(side="right")
         ttk.Button(foot, text="Отмена", style="Menu.TButton", command=self._cancel).pack(side="right", padx=(8, 0))
 
+    def _ensure_seed(self):
+        # Если и групп, и товаров нет — наполняем дефолтными группами/товарами
+        try:
+            groups = self.db.list_product_groups_meridian()
+            prods = self.db.list_products_meridian()
+        except Exception:
+            return
+        if groups or prods:
+            return
+
+        def clean(s: str) -> str:
+            return " ".join((s or "").split())
+
+        seed = [
+            ("ПОЛИМЕРНЫЕ ЛИНЗЫ", [
+                "1.81 ASPHERIC HMC KOREA",
+                "1.76 SUPER+ASPHERIC, BLUE KOREA",
+                "1.74 ASPHERIC HMC KOREA",
+                "1.67 ASPHERIC HMC/EMI KOREA",
+                "1.67 ASPHERIC KOREA",
+                "1.67 AS BLUE BLOCKER KOREA",
+                "1.67 DOUBLE ASPHERIC, BLUE BLOCKER KOREA",
+                "1.61 ASPHERIC HMC/EMI",
+                "1.61 BLUE LIGHT BLOCKER",
+                "1.61 SPH HMC MR-8",
+                "1.61 BLUE LIGHT LOCKER HARD CLEAN COATED",
+                "1.61 BLUE LIGHT BLOCKER MR-8",
+                "1.61 AS MR-8",
+                "1.61 PERIFOCAL KOREA",
+                "1.61 ANTI-FOG AR UV420",
+                "1.61 Defocus BLUE LIGHT BLOCKER UV420",
+                "1.61 STELLEST LENSES",
+                "1.56 BLUE LIGHT BLOCKER",
+                "1.56 AS COMPUTRON",
+                "1.56 HI-MAX HMC",
+                "1.56 KINDER HMC",
+                "1.56 GOLD HMC/EMI",
+                "1.56 ASPHERIC NEW MIRACLE HMC/EMI",
+                "1.56 ANTI-FOG BLUE LIGHT BLOCKER",
+                "1.56 SPH под ПОКРАСКУ",
+                "1.49 CR-39 глаукомные",
+                "1.49 SPH",
+            ]),
+            ("ПОЛИМЕРНЫЕ ПОЛЯРИЗАЦИОННЫЕ ЛИНЗЫ", [
+                "1.61 POLARIZED GREY HC",
+                "1.61 POLARIZED Brown HC",
+                "1.56 POLARIZED GREY",
+                "1.56 POLARIZED Brown",
+                "1.56 POLARIZED HMC GREY",
+                "1.56 POLARIZED HMC Brown",
+                "1.56 MIRROR POLARIZED",
+            ]),
+            ("ПОЛИМЕРНЫЕ ТОНИРОВАННЫЕ ЛИНЗЫ", [
+                "1.61 AS HI-MAX НМС 80% GREY",
+                "1.61 AS HI-MAX НМС 80% Brown",
+                "1.56 HI-MAX 20% GREY",
+                "1.56 HI-MAX 20% Brown",
+                "1.56 HI-MAX 50% GREY",
+                "1.56 HI-MAX 50% Brown",
+                "1.56 GRADIENT GREY",
+                "1.56 GRADIENT Brown",
+            ]),
+            ("ПОЛИМЕРНЫЕ ФОТОХРОМНЫЕ ЛИНЗЫ", [
+                "1.74 PHOTOCHROMIC HMC GREY",
+                "1.74 PHOTOCHROMIC HMC Brown",
+                "1.67 PHOTOCHROMIC BLUE BLOCKER GREY",
+                "1.67 PHOTOCHROMIC BLUE BLOCKER Brown",
+                "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA GREY",
+                "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA Brown",
+                "1.61 PHOTOCHROMIC HMC GREY",
+                "1.61 PHOTOCHROMIC HMC Brown",
+                "1.61 TRANSITIONS BLUE BLOCKER PHOTO GREY",
+                "1.56 PHOTOCHROMIC GREY",
+                "1.56 PHOTOCHROMIC Brown",
+                "1.56 PHOTOCHROMIC TRANSITIONS GREY",
+                "1.56 PHOTOCHROMIC TRANSITIONS Brown",
+                "1.56 TRANSITIONS BLUE LIGHT BLOCKER PHOTO GREY",
+                "1.56 PHOTOCHROMIC HMC GREY",
+                "1.56 PHOTOCHROMIC HMC Brown",
+                "1.56 POLARIZED PHOTOCHROMIC GREY HMC",
+            ]),
+            ("ПОЛИМЕРНЫЕ БИФОКАЛЬНЫЕ, ПРОГРЕССИВНЫЕ ЛИНЗЫ", [
+                "1.56 PROGRESSIVE",
+                "1.56 PROGRESSIVE HMC",
+                "1.59 POLYCARBONATE PROGRESSIVE HMC",
+                "1.56 OFFICE BLUE LIGHT BLOCKER",
+                "1.56 OFFICE HMC",
+                "1.56 BIFOCAL F TOP HMC",
+                "1.49 BIFOCAL F TOP",
+                "1.56 PHOTOCHROMIC PROGRESSIVE GREY",
+                "1.56 PHOTOCHROMIC PROGRESSIVE Brown",
+                "1.56 PHOTOCHROMIC BIFOCAL GREY",
+                "1.56 PHOTOCHROMIC BIFOCAL Brown",
+            ]),
+            ("ПОЛИМЕРНЫЕ ЛИНЗЫ ДЛЯ ВОЖДЕНИЯ", [
+                "1.61 AS DRIVING LENS BLUE LOCKER (AR/blue) KOREA",
+                "1.56 YELLOW FARA EMI (AR/blue)",
+                "1.56 YELLOW-FARA POLARIZED (AR/blue)",
+                "1.56 YELLOW-FARA PHOTOCHROMIC GREY (AR/green)",
+            ]),
+            ("ПОЛИКАРБОНАТНЫЕ ЛИНЗЫ", [
+                "1.59 POLYCARBONAT HMC",
+                "1.59 POLYCARBONAT",
+                "1.59 POLYCARBONAT BLUE LIGHT BLOCKER",
+                "1.59 POLYCARBONAT PHOTOCHROMIC GREY",
+            ]),
+            ("МИНЕРАЛЬНЫЕ ЛИНЗЫ", [
+                "1.71 GLASS COMPUTRON GREEN",
+                "1.71 GLASS COMPUTRON BLUE",
+                "1.71 WHITE GLASS HI-INDEX",
+                "1.523 WHITE GLASS",
+                "1.523 GLASS PHOTOCHROMIC GREY",
+                "1.523 GLASS PHOTOCHROMIC BROWN",
+                "1.523 GLASS GREY",
+                "1.523 GLASS BROWN",
+                "1.523 GLASS GREEN",
+                "1.523 GLASS YELLOW FARA",
+                "1.523 GLASS BIFOCAL F-TOP",
+            ]),
+        ]
+        for gname, items in seed:
+            gid = self.db.add_product_group_meridian(clean(gname))
+            for nm in items:
+                self.db.add_product_meridian(clean(nm), gid)
+
     def _load_tree(self):
         term = (self.search_var.get() or "").strip().lower()
         self.tree.delete(*self.tree.get_children())
@@ -151,13 +281,11 @@ class MeridianProductPickerInline(ttk.Frame):
                 prods = self.db.list_products_meridian_by_group(g["id"])
             except Exception:
                 prods = []
-            any_added = False
             for p in prods:
                 name = p["name"]
                 if term and term not in name.lower():
                     continue
                 self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
-                any_added = True
             # Если по фильтру в группе нет элементов — скрывать группу не будем, просто останется пустой
 
     def _on_tree_dbl(self, event):
