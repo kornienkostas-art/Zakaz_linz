@@ -164,10 +164,7 @@ class MKLOrdersView(ttk.Frame):
                 from app.views.forms_mkl import NewMKLOrderView
                 from app.views.main import MainWindow
                 def on_submit(client_payload: dict):
-                    try:
-                        messagebox.showinfo("Клиент и товар", f"ФИО: {client_payload.get('fio','')}\nТелефон: {client_payload.get('phone','')}\nТовар: {client_payload.get('product','')}")
-                    except Exception:
-                        pass
+                    # После создания заказа не показываем уведомление, сразу возвращаемся к списку
                     MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
                 NewMKLOrderView(
                     self.master,
