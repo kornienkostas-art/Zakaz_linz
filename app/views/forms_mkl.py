@@ -288,6 +288,9 @@ class NewMKLOrderView(ttk.Frame):
         self.product_entry = ttk.Entry(prow, textvariable=self.product_var)
         self.product_entry.grid(row=0, column=0, sticky="ew")
 
+        # Product picker directly under the input
+        ttk.Button(prow, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=1, column=0, sticky="w", pady=(8, 0))
+
         # Lens params labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(12, 0))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(12, 0))
@@ -360,10 +363,9 @@ class NewMKLOrderView(ttk.Frame):
         ttk.Separator(card).grid(row=13, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
         actions.grid(row=14, column=0, columnspan=2, sticky="ew")
-        # Bottom-left: pick product
-        ttk.Button(actions, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).pack(side="left")
         # Bottom-right: proceed/cancel
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._submit).pack(side="right")
+        ttk.Button(actions, text="Отмена", style="   ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
     def _safe_build_ui(self):
