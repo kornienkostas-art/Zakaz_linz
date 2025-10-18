@@ -179,7 +179,7 @@ class NewMKLOrderView(ttk.Frame):
         self.fio_var = tk.StringVar()
         self.phone_var = tk.StringVar()
 
-        self._build_ui()
+        self._safe_build_ui()
 
     def _build_ui(self):
         # Toolbar
@@ -221,7 +221,7 @@ class NewMKLOrderView(ttk.Frame):
 
         self.product_var = tk.StringVar()
         self.product_entry = ttk.Entry(prow, textvariable=self.product_var)
-        self.product_entry.grid(row=0, column=0, sticky="_code        ttk.Button(prow, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.product_entry.grid(row=0, column=0, sticky="ew")
 
         # Footer actions
         ttk.Separator(card).grid(row=5, column=0, columnspan=2, sticky="ew", pady=(12, 12))
@@ -232,6 +232,17 @@ class NewMKLOrderView(ttk.Frame):
         # Bottom-right: proceed/cancel
         ttk.Button(actions, text="Продолжить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
+
+    def _safe_build_ui(self):
+        try:
+            self._build_ui()
+        except Exception as e:
+            # Fallback content to avoid blank screen
+            holder = ttk.Frame(self, padding=16)
+            holder.pack(fill="both", expand=True)
+            ttk.Label(holder, text="Ошибка при построении формы нового заказа.", anchor="w").pack(anchor="w")
+            ttk.Label(holder, text=f"{e}", anchor="w", foreground="#7f1d1d").pack(anchor="w", pady=(4, 12))
+            ttk.Button(holder, text="← Назад", command=self._go_back).pack(anchor="w")
 
     def _pick_client(self):
         def on_select(fio, phone_mask):
