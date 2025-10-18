@@ -155,8 +155,20 @@ class MKLOrdersView(ttk.Frame):
             return None
 
     def _new_order(self):
-        # Функционал 'Новый заказ' временно отключён — будем возвращать по шагам.
-        messagebox.showinfo("Новый заказ", "Форма нового заказа временно отключена. Будем возвращать её по шагам."):
+        clients = self.db.list_clients() if self.db else []
+        products = self.db.list_products_mkl() if self.db else []
+
+        def on_save(order: dict):
+            # Запись нового заказа в БД и обновление списка
+            if self.db:
+                try:
+                    self.db.add_mkl_order(order)
+                except Exception as e:
+                    messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
+            self._refresh_orders_view()
+
+        from app.views.forms_mkl import OrderForm
+        OrderForm(self, clients=clients, products=products, on_save=on_save, initial=None, statuses=self.STATUSES):
             try:
                 self.destroy()
             except Exception:
