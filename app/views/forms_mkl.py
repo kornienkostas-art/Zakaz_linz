@@ -162,28 +162,28 @@ class OrderForm(tk.Toplevel):
         card.pack(fill="both", expand=True)
         card.columnconfigure(0, weight=1)
         card.columnconfigure(1, weight=1)
-        card.columnconfigure(2, weight=0)
-        card.columnconfigure(3, weight=0)
 
-        # Client selection with autocomplete + pick button
+        # Client selection with autocomplete
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
         self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
-        ttk.Button(card, text="Выбрать клиента", style="Menu.TButton", command=self._pick_client).grid(row=1, column=2, sticky="w", padx=(8, 0))
 
-        # Product selection (строка с автодополнением) + pick button
+        # Product selection (строка с автодополнением)
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
-        ttk.Button(card, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=1, column=3, sticky="w", padx=(8, 0))
 
-        ttk.Separator(card).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(12, 12))
+        # Pick buttons below inputs
+        ttk.Button(card, text="Выбрать клиента", style="Menu.TButton", command=self._pick_client).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Button(card, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=2, column=1, sticky="w", pady=(8, 0))
 
-        # Row 3: labels
-        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
-        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=1, sticky="w", padx=(8, 0))
+        ttk.Separator(card).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+
+        # Row 4: labels
+        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", padx=(0, 8))
+        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", padx=(8, 0))
 
         # Local nudge for buttons inside this method
         def _nudge_local(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
@@ -202,9 +202,9 @@ class OrderForm(tk.Toplevel):
             snapped = max(min_v, min(max_v, snapped))
             var.set(f"{snapped:.2f}")
 
-        # Row 4: entries with inline − / + controls
+        # Row 5: entries with inline − / + controls
         sph_row = ttk.Frame(card, style="Card.TFrame")
-        sph_row.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        sph_row.grid(row=5, column=0, sticky="ew", padx=(0, 8))
         sph_row.columnconfigure(1, weight=1)
         btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge_local(self.sph_var, -30.0, 30.0, 0.25, -1))
         btn_sph_dec.grid(row=0, column=0, sticky="w")
@@ -219,7 +219,7 @@ class OrderForm(tk.Toplevel):
             pass
 
         cyl_row = ttk.Frame(card, style="Card.TFrame")
-        cyl_row.grid(row=4, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.grid(row=5, column=1, sticky="ew", padx=(8, 0))
         cyl_row.columnconfigure(1, weight=1)
         btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge_local(self.cyl_var, -10.0, 10.0, 0.25, -1))
         btn_cyl_dec.grid(row=0, column=0, sticky="w")
@@ -240,14 +240,14 @@ class OrderForm(tk.Toplevel):
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
-        # Row 5: labels
-        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
-        # Row 6: entries
+        # Row 6: labels
+        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=6, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=6, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+        # Row 7: entries
         self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=6, column=0, sticky="ew", padx=(0, 8))
+        self.ax_entry.grid(row=7, column=0, sticky="ew", padx=(0, 8))
         self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
-        self.bc_entry.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        self.bc_entry.grid(row=7, column=1, sticky="ew", padx=(8, 0))
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
@@ -258,20 +258,20 @@ class OrderForm(tk.Toplevel):
         for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
-        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=8, column=0, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.grid(row=8, column=0, sticky="w")
+        self.qty_spin.grid(row=9, column=0, sticky="w")
 
         # Comment field
-        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=8, column=1, sticky="w", pady=(8, 0))
         self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
-        self.comment_entry.grid(row=8, column=1, sticky="ew")
+        self.comment_entry.grid(row=9, column=1, sticky="ew")
 
         footer = ttk.Label(card, text="Дата устанавливается автоматически при создании/смене статуса", style="Subtitle.TLabel")
-        footer.grid(row=9, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        footer.grid(row=10, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         btns = ttk.Frame(card, style="Card.TFrame")
-        btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=11, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
@@ -287,8 +287,9 @@ class OrderForm(tk.Toplevel):
         try:
             self.destroy()
         finally:
-            if callable(self.on_back):
-                self.on_back()
+            cb = getattr(self, "on_back", None)
+            if callable(cb):
+                cb()
 
     # Helpers: values for combo and filtering
     def _client_values(self):
