@@ -248,8 +248,8 @@ class NewMKLOrderView(ttk.Frame):
         self.cyl_var = tk.StringVar()
         self.ax_var = tk.StringVar()
         self.bc_var = tk.StringVar()
-        self.qty_var = tk.StringVar()
-        self.comment_var = tk.StringVar()
+        self.qty_var = tk.IntVar(value=1)
+        # Комментарий будет в Text, поэтому отдельной StringVar не требуется
 
         self._safe_build_ui()
 
@@ -306,35 +306,76 @@ class NewMKLOrderView(ttk.Frame):
         for i in range(3):
             params.columnconfigure(i, weight=1)
 
-        ttk.Label(params, text="Sph", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
-        sph_entry = ttk.Entry(params, textvariable=self.sph_var)
-        sph_entry.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        # Local nudge helper for +/- snapping
+        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
 
-        ttk.Label(params, text="Cyl", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
-        cyl_entry = ttk.Entry(params, textvariable=self.cyl_var)
-        cyl_entry.grid(row=1, column=1, sticky="ew", padx=(0, 8))
+        # Sph with +/- and validation
+        ttk.Label(params, text="Sph (−30…+30, шаг 0.25)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        sph_row = ttk.Frame(params, style="Card.TFrame"); sph_row.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        sph_row.columnconfigure(1, weight=1)
+        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0)
+        self._sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var); self._sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
+        sph_vcmd = (self.register(lambda v: self._vc_decimal(v, -30.0, 30.0)), "%P")
+        self._sph_entry.configure(validate="key", validatecommand=sph_vcmd)
+        self._sph_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("sph"))
 
-        ttk.Label(params, text="Ax", style="Subtitle.TLabel").grid(row=0, column=2, sticky="w")
-        ax_entry = ttk.Entry(params, textvariable=self.ax_var)
-        ax_entry.grid(row=1, column=2, sticky="ew")
+        # Cyl with +/- and validation
+        ttk.Label(params, text="Cyl (−10…+10, шаг 0.25)", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
+        cyl_row = ttk.Frame(params, style="Card.TFrame"); cyl_row.grid(row=1, column=1, sticky="ew", padx=(0, 8))
+        cyl_row.columnconfigure(1, weight=1)
+        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
+        self._cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var); self._cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+        cyl_vcmd = (self.register(lambda v: self._vc_decimal(v, -10.0, 10.0)), "%P")
+        self._cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
+        self._cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
-        # Second row: BC, Количество, Комментарий
-        ttk.Label(params, text="BC", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        bc_entry = ttk.Entry(params, textvariable=self.bc_var)
-        bc_entry.grid(row=3, column=0, sticky="ew", padx=(0, 8))
+        # Ax integer 0..180
+        ttk.Label(params, text="Ax (0…180)", style="Subtitle.TLabel").grid(row=0, column=2, sticky="w")
+        self._ax_entry = ttk.Entry(params, textvariable=self.ax_var)
+        self._ax_entry.grid(row=1, column=2, sticky="ew")
+        ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
+        self._ax_entry.configure(validate="key", validatecommand=ax_vcmd)
+        self._ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
 
-        ttk.Label(params, text="Количество", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
-        qty_entry = ttk.Entry(params, textvariable=self.qty_var)
-        qty_entry.grid(row=3, column=1, sticky="ew", padx=(0, 8))
+        # Second row: BC (decimal with +/-), Количество (Spinbox), Комментарий (multi-line)
+        ttk.Label(params, text="BC (десятичное, шаг 0.1)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        bc_row = ttk.Frame(params, style="Card.TFrame"); bc_row.grid(row=3, column=0, sticky="ew", padx=(0, 8))
+        bc_row.columnconfigure(1, weight=1)
+        ttk.Button(bc_row, text="−", width=3, command=lambda: _nudge(self.bc_var, 6.0, 10.0, 0.1, -1)).grid(row=0, column=0)
+        self._bc_entry = ttk.Entry(bc_row, textvariable=self.bc_var); self._bc_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(bc_row, text="+", width=3, command=lambda: _nudge(self.bc_var, 6.0, 10.0, 0.1, +1)).grid(row=0, column=2)
+        bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 6.0, 10.0)), "%P")
+        self._bc_entry.configure(validate="key", validatecommand=bc_vcmd)
+        self._bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        ttk.Label(params, text="Комментарий", style="Subtitle.TLabel").grid(row=2, column=2, sticky="w", pady=(8, 0))
-        comment_entry = ttk.Entry(params, textvariable=self.comment_var)
-        comment_entry.grid(row=3, column=2, sticky="ew")
+        ttk.Label(params, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        self.qty_spin = ttk.Spinbox(params, from_=1, to=20, textvariable=self.qty_var, width=8)
+        self.qty_spin.grid(row=3, column=1, sticky="w", padx=(0, 8))
+
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=8, column=0, sticky="w", columnspan=2, pady=(12, 0))
+        self.comment_text = tk.Text(card, height=4)
+        self.comment_text.grid(row=9, column=0, columnspan=2, sticky="nsew")
 
         # Footer actions
-        ttk.Separator(card).grid(row=8, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        ttk.Separator(card).grid(row=10, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=9, column=0, columnspan=2, sticky="ew")
+        actions.grid(row=11, column=0, columnspan=2, sticky="ew")
         # Bottom-right: proceed/cancel
         ttk.Button(actions, text="Продолжить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
@@ -349,6 +390,70 @@ class NewMKLOrderView(ttk.Frame):
             ttk.Label(holder, text="Ошибка при построении формы нового заказа.", anchor="w").pack(anchor="w")
             ttk.Label(holder, text=f"{e}", anchor="w", foreground="#7f1d1d").pack(anchor="w", pady=(4, 12))
             ttk.Button(holder, text="← Назад", command=self._go_back).pack(anchor="w")
+
+    # Validation helpers and snapping (как было реализовано ранее)
+    def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
+        v = (new_value or "").replace(",", ".")
+        if v == "":
+            return True
+        if v in {"+", "-", ".", "-.", "+.", ",", "-,", "+,"}:
+            return True
+        try:
+            num = float(v)
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _vc_int(self, new_value: str, min_v: int, max_v: int) -> bool:
+        v = (new_value or "").strip()
+        if v == "":
+            return True
+        if v in {"+", "-"}:
+            return True
+        try:
+            num = int(float(v.replace(",", ".")))
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    @staticmethod
+    def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
+        text = (value_str or "").replace(",", ".").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = float(text)
+        except ValueError:
+            v = 0.0
+        v = max(min_v, min(max_v, v))
+        steps = round((v - min_v) / step)
+        snapped = min_v + steps * step
+        snapped = max(min_v, min(max_v, snapped))
+        return f"{snapped:.2f}"
+
+    @staticmethod
+    def _snap_int(value_str: str, min_v: int, max_v: int, allow_empty: bool = False) -> str:
+        text = (value_str or "").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = int(float(text.replace(",", ".")))
+        except ValueError:
+            v = min_v
+        v = max(min_v, min(max_v, v))
+        return str(v)
+
+    def _apply_snap_for(self, field: str):
+        if field == "sph":
+            self.sph_var.set(self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True))
+        elif field == "cyl":
+            self.cyl_var.set(self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True))
+        elif field == "ax":
+            self.ax_var.set(self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True))
+        elif field == "bc":
+            # BC snapping to 0.1 step within 6.0..10.0
+            txt = self._snap(self.bc_var.get(), 6.0, 10.0, 0.1, allow_empty=True)
+            self.bc_var.set(txt)
 
     def _pick_client(self):
         def on_select(fio, phone_mask):
@@ -387,16 +492,28 @@ class NewMKLOrderView(ttk.Frame):
             except Exception:
                 pass
             return
+        # Snap values before submit to ensure correct format
+        sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)
+        cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
+        ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
+        bc = self._snap(self.bc_var.get(), 6.0, 10.0, 0.1, allow_empty=True)
+        qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
+        comment = ""
+        try:
+            comment = (self.comment_text.get("1.0", "end") or "").strip()
+        except Exception:
+            comment = ""
+
         payload = {
             "fio": fio,
             "phone": phone,
             "product": product,
-            "sph": (self.sph_var.get() or "").strip(),
-            "cyl": (self.cyl_var.get() or "").strip(),
-            "ax": (self.ax_var.get() or "").strip(),
-            "bc": (self.bc_var.get() or "").strip(),
-            "qty": (self.qty_var.get() or "").strip(),
-            "comment": (self.comment_var.get() or "").strip(),
+            "sph": sph,
+            "cyl": cyl,
+            "ax": ax,
+            "bc": bc,
+            "qty": qty,
+            "comment": comment,
         }
         cb = getattr(self, "on_submit", None)
         if callable(cb):
