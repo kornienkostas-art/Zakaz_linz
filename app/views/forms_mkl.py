@@ -243,6 +243,13 @@ class NewMKLOrderView(ttk.Frame):
         # Vars
         self.fio_var = tk.StringVar()
         self.phone_var = tk.StringVar()
+        # Lens parameters and extras
+        self.sph_var = tk.StringVar()
+        self.cyl_var = tk.StringVar()
+        self.ax_var = tk.StringVar()
+        self.bc_var = tk.StringVar()
+        self.qty_var = tk.StringVar()
+        self.comment_var = tk.StringVar()
 
         self._safe_build_ui()
 
@@ -291,10 +298,43 @@ class NewMKLOrderView(ttk.Frame):
         # Place "Выбрать товар" button directly under the product input
         ttk.Button(card, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
+        # Lens parameters section
+        ttk.Label(card, text="Параметры линз", style="Subtitle.TLabel").grid(row=6, column=0, sticky="w", columnspan=2, pady=(12, 0))
+        params = ttk.Frame(card, style="Card.TFrame")
+        params.grid(row=7, column=0, columnspan=2, sticky="ew")
+        # 3 columns for Sph, Cyl, Ax
+        for i in range(3):
+            params.columnconfigure(i, weight=1)
+
+        ttk.Label(params, text="Sph", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        sph_entry = ttk.Entry(params, textvariable=self.sph_var)
+        sph_entry.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+
+        ttk.Label(params, text="Cyl", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
+        cyl_entry = ttk.Entry(params, textvariable=self.cyl_var)
+        cyl_entry.grid(row=1, column=1, sticky="ew", padx=(0, 8))
+
+        ttk.Label(params, text="Ax", style="Subtitle.TLabel").grid(row=0, column=2, sticky="w")
+        ax_entry = ttk.Entry(params, textvariable=self.ax_var)
+        ax_entry.grid(row=1, column=2, sticky="ew")
+
+        # Second row: BC, Количество, Комментарий
+        ttk.Label(params, text="BC", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        bc_entry = ttk.Entry(params, textvariable=self.bc_var)
+        bc_entry.grid(row=3, column=0, sticky="ew", padx=(0, 8))
+
+        ttk.Label(params, text="Количество", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        qty_entry = ttk.Entry(params, textvariable=self.qty_var)
+        qty_entry.grid(row=3, column=1, sticky="ew", padx=(0, 8))
+
+        ttk.Label(params, text="Комментарий", style="Subtitle.TLabel").grid(row=2, column=2, sticky="w", pady=(8, 0))
+        comment_entry = ttk.Entry(params, textvariable=self.comment_var)
+        comment_entry.grid(row=3, column=2, sticky="ew")
+
         # Footer actions
-        ttk.Separator(card).grid(row=6, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        ttk.Separator(card).grid(row=8, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=7, column=0, columnspan=2, sticky="ew")
+        actions.grid(row=9, column=0, columnspan=2, sticky="ew")
         # Bottom-right: proceed/cancel
         ttk.Button(actions, text="Продолжить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
@@ -351,6 +391,12 @@ class NewMKLOrderView(ttk.Frame):
             "fio": fio,
             "phone": phone,
             "product": product,
+            "sph": (self.sph_var.get() or "").strip(),
+            "cyl": (self.cyl_var.get() or "").strip(),
+            "ax": (self.ax_var.get() or "").strip(),
+            "bc": (self.bc_var.get() or "").strip(),
+            "qty": (self.qty_var.get() or "").strip(),
+            "comment": (self.comment_var.get() or "").strip(),
         }
         cb = getattr(self, "on_submit", None)
         if callable(cb):
