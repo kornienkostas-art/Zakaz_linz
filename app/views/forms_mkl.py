@@ -236,9 +236,15 @@ class NewMKLOrderView(ttk.Frame):
         self.master.rowconfigure(0, weight=1)
         self.grid(sticky="nsew")
 
-        # Data
-        self.clients = self.db.list_clients() if self.db else []
-        self.products = self.db.list_products_mkl() if self.db else []
+        # Data (безопасная загрузка)
+        try:
+            self.clients = self.db.list_clients() if self.db else []
+        except Exception:
+            self.clients = []
+        try:
+            self.products = self.db.list_products_mkl() if self.db else []
+        except Exception:
+            self.products = []
 
         # Vars
         self.fio_var = tk.StringVar()

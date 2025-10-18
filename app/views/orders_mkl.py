@@ -185,12 +185,8 @@ class MKLOrdersView(ttk.Frame):
                     pass
                 from app.views.main import MainWindow
                 MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
-        try:
-            from app.utils import fade_transition
-            fade_transition(self.master, swap)
-        except Exception:
-            # Если плавный переход не удался, просто переключим
-            swap()
+        # Отключаем плавный переход, чтобы избежать пустого экрана при ошибке построения
+        swap()
 
     def _edit_order(self):
         idx = self._selected_index()
