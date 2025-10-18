@@ -17,8 +17,7 @@ class SelectClientDialog(tk.Toplevel):
         set_initial_geometry(self, min_w=520, min_h=420, center_to=master)
         self.transient(master)
         self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.dest_coderonewy</)
-roy)
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
 
         self._clients = clients[:]
         self._on_select = on_select
@@ -99,7 +98,7 @@ class SelectProductDialog(tk.Toplevel):
         set_initial_geometry(self, min_w=560, min_h=480, center_to=master)
         self.transient(master)
         self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", selfroy)
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
 
         self._db = db
         self._on_select = on_select
@@ -327,7 +326,7 @@ class NewMKLOrderView(ttk.Frame):
     def _pick_product(self):
         def on_select(name: str):
             self.product_var.set(name)
-        SelectProductDialog(self, self.products, on_select=on_select)
+        SelectProductDialog(self, self.db, on_select=on_select)
 
     def _submit(self):
         fio = (self.fio_var.get() or "").strip()
