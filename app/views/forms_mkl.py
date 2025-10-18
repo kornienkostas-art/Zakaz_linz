@@ -518,6 +518,10 @@ class NewMKLOrderView(ttk.Frame):
         cb = getattr(self, "on_submit", None)
         if callable(cb):
             cb(payload)
-        self._go_back()
+        # Закрыть форму без вызова on_back, навигация выполняется в on_submit
+        try:
+            self.destroy()
+        except Exception:
+            pass
 
 
