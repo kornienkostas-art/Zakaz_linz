@@ -5,6 +5,7 @@ from datetime import datetime
 from app.utils import fade_transition
 from app.utils import create_tooltip
 from app.utils import format_phone_mask
+from app.utils import set_initial_geometry
 
 
 class SelectClientDialog(tk.Toplevel):
@@ -13,9 +14,11 @@ class SelectClientDialog(tk.Toplevel):
         super().__init__(master)
         self.title("Выбор клиента")
         self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=520, min_h=420, center_to=master)
         self.transient(master)
         self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.protocol("WM_DELETE_WINDOW", self.dest_coderonewy</)
+roy)
 
         self._clients = clients[:]
         self._on_select = on_select
@@ -93,9 +96,10 @@ class SelectProductDialog(tk.Toplevel):
         super().__init__(master)
         self.title("Выбор товара")
         self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=560, min_h=480, center_to=master)
         self.transient(master)
         self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.protocol("WM_DELETE_WINDOW", selfroy)
 
         self._db = db
         self._on_select = on_select
