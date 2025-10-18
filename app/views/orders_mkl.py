@@ -155,7 +155,30 @@ class MKLOrdersView(ttk.Frame):
             return None
 
     def _new_order(self):
-        messagebox.showinfo("Новый заказ", "Форма нового заказа будет добавлена позже. Кнопка оставлена, функционал временно отключен.")
+        def swap():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            from app.views.forms_mkl import NewMKLOrderView
+            from app.views.main import MainWindow
+            def on_submit(client_payload: dict):
+                # Пока только клиент; дальнейшие шаги будут добавляться
+                # Можно сохранить промежуточно или перейти к следующему экрану
+                # Здесь просто показываем подтверждение и возвращаемся
+                try:
+                    messagebox.showinfo("Клиент выбран", f"ФИО: {client_payload.get('fio','')}\nТелефон: {client_payload.get('phone','')}")
+                except Exception:
+                    pass
+                MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+            NewMKLOrderView(
+                self.master,
+                db=self.db,
+                on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                on_submit=on_submit
+            )
+        from app.utils import fade_transition
+        fade_transition(self.master, swap)
 
     def _edit_order(self):
         idx = self._selected_index()
