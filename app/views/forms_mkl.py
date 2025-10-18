@@ -365,7 +365,6 @@ class NewMKLOrderView(ttk.Frame):
         actions.grid(row=14, column=0, columnspan=2, sticky="ew")
         # Bottom-right: proceed/cancel
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._submit).pack(side="right")
-        ttk.Button(actions, text="Отмена", style="   ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
     def _safe_build_ui(self):
