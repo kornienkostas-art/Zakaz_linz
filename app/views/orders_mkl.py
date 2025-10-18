@@ -155,30 +155,8 @@ class MKLOrdersView(ttk.Frame):
             return None
 
     def _new_order(self):
-        try:
-            from app.views.forms_mkl import NewMKLOrderView
-            from app.views.main import MainWindow
-            def on_submit(order_payload: dict):
-                # Возврат осуществляет NewMKLOrderView через on_back; здесь ничего не делаем.
-                return
-            # Сначала создаём новый вид
-            new_view = NewMKLOrderView(
-                self.master,
-                db=self.db,
-                on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_submit=on_submit
-            )
-            # Затем удаляем текущий
-            try:
-                self.destroy()
-            except Exception:
-                pass
-        except Exception as e:
-            # Если не удалось открыть форму, покажем ошибку и оставим текущий список
-            try:
-                messagebox.showerror("Новый заказ", f"Ошибка открытия формы:\n{e}")
-            except Exception:
-                pass:
+        # Функционал 'Новый заказ' временно отключён — будем возвращать по шагам.
+        messagebox.showinfo("Новый заказ", "Форма нового заказа временно отключена. Будем возвращать её по шагам."):
             try:
                 self.destroy()
             except Exception:
