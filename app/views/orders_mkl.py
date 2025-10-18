@@ -33,7 +33,8 @@ class MKLOrdersView(ttk.Frame):
 
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Явно размещаем представление в (row=0, column=0), чтобы избежать «пустой» верхней области
+        self.grid(row=0, column=0, sticky="nsew")
 
         self.orders: list[dict] = []
 
