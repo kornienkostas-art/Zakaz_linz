@@ -288,12 +288,13 @@ class NewMKLOrderView(ttk.Frame):
         self.product_entry = ttk.Entry(prow, textvariable=self.product_var)
         self.product_entry.grid(row=0, column=0, sticky="ew")
 
+        # Place "Выбрать товар" button directly under the product input
+        ttk.Button(card, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
+
         # Footer actions
-        ttk.Separator(card).grid(row=5, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        ttk.Separator(card).grid(row=6, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=6, column=0, columnspan=2, sticky="ew")
-        # Bottom-left: pick product
-        ttk.Button(actions, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).pack(side="left")
+        actions.grid(row=7, column=0, columnspan=2, sticky="ew")
         # Bottom-right: proceed/cancel
         ttk.Button(actions, text="Продолжить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
