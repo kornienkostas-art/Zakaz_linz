@@ -173,6 +173,7 @@ class NewMKLOrderView(ttk.Frame):
 
         # Data
         self.clients = self.db.list_clients() if self.db else []
+        self.products = self.db.list_products_mkl() if self.db else []
 
         # Vars
         self.fio_var = tk.StringVar()
@@ -220,13 +221,15 @@ class NewMKLOrderView(ttk.Frame):
 
         self.product_var = tk.StringVar()
         self.product_entry = ttk.Entry(prow, textvariable=self.product_var)
-        self.product_entry.grid(row=0, column=0, sticky="ew")
-        ttk.Button(prow, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.product_entry.grid(row=0, column=0, sticky="_code        ttk.Button(prow, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, sticky="w", padx=(8, 0))
 
         # Footer actions
         ttk.Separator(card).grid(row=5, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=6, column=0, columnspan=2, sticky="e")
+        actions.grid(row=6, column=0, columnspan=2, sticky="ew")
+        # Bottom-left: pick product
+        ttk.Button(actions, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).pack(side="left")
+        # Bottom-right: proceed/cancel
         ttk.Button(actions, text="Продолжить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
