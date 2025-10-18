@@ -87,6 +87,76 @@ class SelectClientDialog(tk.Toplevel):
             self.destroy()
 
 
+class SelectProductDialog(tk.Toplevel):
+    """Диалог выбора товара (список товаров МКЛ) с поиском."""
+    def __init__(self, master, products: list[dict], on_select):
+        super().__init__(master)
+        self.title("Выбор товара")
+        self.configure(bg="#f8fafc")
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+        self._products = products[:]
+        self._on_select = on_select
+
+        card = ttk.Frame(self, style="Card.TFrame", padding=12)
+        card.pack(fill="both", expand=True)
+        card.columnconfigure(0, weight=1)
+
+        ttk.Label(card, text="Поиск", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        self.search_var = tk.StringVar()
+        ent = ttk.Entry(card, textvariable=self.search_var)
+        ent.grid(row=1, column=0, sticky="ew")
+        ent.bind("<KeyRelease>", lambda e: self._filter())
+
+        self.listbox = tk.Listbox(card)
+        self.listbox.grid(row=2, column=0, sticky="nsew", pady=(8, 8))
+        y = ttk.Scrollbar(card, orient="vertical", command=self.listbox.yview)
+        self.listbox.configure(yscrollcommand=y.set)
+        y.grid(row=2, column=0, sticky="nse")
+        card.rowconfigure(2, weight=1)
+
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.grid(row=3, column=0, sticky="e")
+        ttk.Button(btns, text="ОК", style="Menu.TButton", command=self._ok).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Back.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+        self.listbox.bind("<Double-Button-1>", lambda e: self._ok())
+        self._reload(self._products)
+
+    def _format_item(self, p: dict) -> str:
+        return (p.get("name", "") or "").strip()
+
+    def _reload(self, products: list[dict]):
+        self.listbox.delete(0, "end")
+        for p in products:
+            self.listbox.insert("end", self._format_item(p))
+
+    def _filter(self):
+        term = (self.search_var.get() or "").strip().lower()
+        if not term:
+            self._reload(self._products)
+            return
+        filtered = []
+        for p in self._products:
+            name = (p.get("name", "") or "").lower()
+            if term in name:
+                filtered.append(p)
+        self._reload(filtered)
+
+    def _ok(self):
+        try:
+            idxs = self.listbox.curselection()
+            if not idxs:
+                return
+            text = self.listbox.get(idxs[0]).strip()
+            if callable(self._on_select):
+                self._on_select(text)
+        finally:
+            self.destroy()
+
+
 class NewMKLOrderView(ttk.Frame):
     """Полноэкранная форма нового заказа МКЛ внутри приложения."""
     def __init__(self, master: tk.Tk, db, on_back, on_submit):
@@ -142,10 +212,21 @@ class NewMKLOrderView(ttk.Frame):
         pick_row.grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
         ttk.Button(pick_row, text="Выбрать клиента", style="Menu.TButton", command=self._pick_client).pack(side="left")
 
+        # Product section
+        ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", columnspan=2, pady=(12, 0))
+        prow = ttk.Frame(card, style="Card.TFrame")
+        prow.grid(row=4, column=0, columnspan=2, sticky="ew")
+        prow.columnconfigure(0, weight=1)
+
+        self.product_var = tk.StringVar()
+        self.product_entry = ttk.Entry(prow, textvariable=self.product_var)
+        self.product_entry.grid(row=0, column=0, sticky="ew")
+        ttk.Button(prow, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, sticky="w", padx=(8, 0))
+
         # Footer actions
-        ttk.Separator(card).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        ttk.Separator(card).grid(row=5, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=4, column=0, columnspan=2, sticky="e")
+        actions.grid(row=6, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Продолжить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
@@ -163,20 +244,33 @@ class NewMKLOrderView(ttk.Frame):
             if callable(cb):
                 cb()
 
+    def _pick_product(self):
+        def on_select(name: str):
+            self.product_var.set(name)
+        SelectProductDialog(self, self.products, on_select=on_select)
+
     def _submit(self):
         fio = (self.fio_var.get() or "").strip()
         phone = (self.phone_var.get() or "").strip()
+        product = (self.product_var.get() or "").strip()
         if not fio and not phone:
-            # minimal check
             try:
                 from tkinter import messagebox
                 messagebox.showinfo("Проверка", "Введите клиента или выберите из списка.")
             except Exception:
                 pass
             return
+        if not product:
+            try:
+                from tkinter import messagebox
+                messagebox.showinfo("Проверка", "Введите товар или выберите из списка.")
+            except Exception:
+                pass
+            return
         payload = {
             "fio": fio,
             "phone": phone,
+            "product": product,
         }
         cb = getattr(self, "on_submit", None)
         if callable(cb):
