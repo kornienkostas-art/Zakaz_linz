@@ -160,23 +160,35 @@ class MKLOrdersView(ttk.Frame):
                 self.destroy()
             except Exception:
                 pass
-            from app.views.forms_mkl import MKLOrderEditorView
-            from app.views.main import MainWindow
-            def on_save(order: dict):
-                # Save to DB only; view will be recreated by on_back of editor
-                if self.db:
+            try:
+                from app.views.forms_mkl import NewMKLOrderView
+                from app.views.main import MainWindow
+                def on_submit(client_payload: dict):
                     try:
-                        self.db.add_mkl_order(order)
-                    except Exception as e:
-                        messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
-            MKLOrderEditorView(
-                self.master,
-                db=self.db,
-                on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_save=on_save,
-                initial=None
-            )
-        fade_transition(self.master, swap)
+                        messagebox.showinfo("Клиент и товар", f"ФИО: {client_payload.get('fio','')}\nТелефон: {client_payload.get('phone','')}\nТовар: {client_payload.get('product','')}")
+                    except Exception:
+                        pass
+                    MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+                NewMKLOrderView(
+                    self.master,
+                    db=self.db,
+                    on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                    on_submit=on_submit
+                )
+            except Exception as e:
+                # Покажем ошибку и восстановим список заказов
+                try:
+                    messagebox.showerror("Новый заказ", f"Ошибка открытия формы:\n{e}")
+                except Exception:
+                    pass
+                from app.views.main import MainWindow
+                MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
+        try:
+            from app.utils import fade_transition
+            fade_transition(self.master, swap)
+        except Exception:
+            # Если плавный переход не удался, просто переключим
+            swap()
 
     def _edit_order(self):
         idx = self._selected_index()
@@ -200,7 +212,7 @@ class MKLOrdersView(ttk.Frame):
             self._refresh_orders_view()
 
         from app.views.forms_mkl import OrderForm
-        OrderForm(self, clients=clients, products=products, on_save=on_save, initial=current, statuses=self.STATUSES)
+        OrderForm(self, clients=clients, products=products, on_save=on_save, initial=current, statuses=self.STATUSES, db=self.db)
 
     def _delete_order(self):
         idx = self._selected_index()
