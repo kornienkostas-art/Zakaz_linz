@@ -140,9 +140,8 @@ class OrderForm(tk.Toplevel):
         row1 = ttk.Frame(card, style="Card.TFrame")
         row1.grid(row=1, column=0, columnspan=2, sticky="ew")
         row1.columnconfigure(0, weight=1)
-        self.client_combo = ttk.Combobox(row1, textvariable=self.client_var, values=self._client_values(), height=10)
-        self.client_combo.grid(row=0, column=0, sticky="ew")
-        self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
+        self.client_entry = ttk.Entry(row1, textvariable=self.client_var)
+        self.client_entry.grid(row=0, column=0, sticky="ew")
         ttk.Button(row1, text="Выбрать клиента", style="Menu.TButton", command=self._pick_client).grid(row=0, column=1, sticky="w", padx=(8, 0))
 
         # Product (below)
@@ -150,9 +149,8 @@ class OrderForm(tk.Toplevel):
         row3 = ttk.Frame(card, style="Card.TFrame")
         row3.grid(row=3, column=0, columnspan=2, sticky="ew")
         row3.columnconfigure(0, weight=1)
-        self.product_combo = ttk.Combobox(row3, textvariable=self.product_var, values=self._product_values(), height=10)
-        self.product_combo.grid(row=0, column=0, sticky="ew")
-        self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        self.product_entry = ttk.Entry(row3, textvariable=self.product_var)
+        self.product_entry.grid(row=0, column=0, sticky="ew")
         ttk.Button(row3, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=0, column=1, sticky="w", padx=(8, 0))
 
         ttk.Separator(card).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(12, 12))
@@ -230,7 +228,7 @@ class OrderForm(tk.Toplevel):
         self.bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self.bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        for w in (self.client_combo, self.product_combo, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
+        for w in (self.client_entry, self.product_entry, self.sph_entry, self.cyl_entry, self.ax_entry, self.bc_entry):
             self._bind_clear_shortcuts(w)
 
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=9, column=0, sticky="w", pady=(8, 0))
