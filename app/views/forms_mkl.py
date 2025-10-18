@@ -288,14 +288,82 @@ class NewMKLOrderView(ttk.Frame):
         self.product_entry = ttk.Entry(prow, textvariable=self.product_var)
         self.product_entry.grid(row=0, column=0, sticky="ew")
 
+        # Lens params labels
+        ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(12, 0))
+        ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(12, 0))
+
+        # Local +/- helper
+        def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
+            txt = (var.get() or "").replace(",", ".").strip()
+            if txt == "":
+                cur = 0.0
+            else:
+                try:
+                    cur = float(txt)
+                except ValueError:
+                    cur = 0.0 if (min_v <= 0.0 <= max_v) else min_v
+            cur += step * (1 if direction >= 0 else -1)
+            cur = max(min_v, min(max_v, cur))
+            steps = round((cur - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            var.set(f"{snapped:.2f}")
+
+        # SPH/CYL entries with +/- buttons
+        self.sph_var = tk.StringVar()
+        self.cyl_var = tk.StringVar()
+        sph_row = ttk.Frame(card, style="Card.TFrame")
+        sph_row.grid(row=6, column=0, sticky="ew", padx=(0, 8))
+        sph_row.columnconfigure(1, weight=1)
+        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
+        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+
+        cyl_row = ttk.Frame(card, style="Card.TFrame")
+        cyl_row.grid(row=6, column=1, sticky="ew", padx=(8, 0))
+        cyl_row.columnconfigure(1, weight=1)
+        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0, sticky="w")
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
+
+        # AX/BC
+        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+        self.ax_var = tk.StringVar()
+        self.bc_var = tk.StringVar()
+        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
+        self.ax_entry.grid(row=8, column=0, sticky="ew", padx=(0, 8))
+        self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
+        self.bc_entry.grid(row=8, column=1, sticky="ew", padx=(8, 0))
+
+        # Qty and Comment
+        ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=9, column=0, sticky="w", pady=(8, 0))
+        self.qty_var = tk.IntVar(value=1)
+        self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
+        self.qty_spin.grid(row=10, column=0, sticky="w")
+
+        ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=9, column=1, sticky="w", pady=(8, 0))
+        self.comment_var = tk.StringVar()
+        self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
+        self.comment_entry.grid(row=10, column=1, sticky="ew")
+
+        # Status
+        ttk.Label(card, text="Статус", style="Subtitle.TLabel").grid(row=11, column=0, sticky="w", pady=(8, 0))
+        self.statuses = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
+        self.status_var = tk.StringVar(value="Не заказан")
+        self.status_combo = ttk.Combobox(card, textvariable=self.status_var, values=self.statuses, height=6)
+        self.status_combo.grid(row=12, column=0, sticky="w")
+
         # Footer actions
-        ttk.Separator(card).grid(row=5, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        ttk.Separator(card).grid(row=13, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=6, column=0, columnspan=2, sticky="ew")
+        actions.grid(row=14, column=0, columnspan=2, sticky="ew")
         # Bottom-left: pick product
         ttk.Button(actions, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).pack(side="left")
         # Bottom-right: proceed/cancel
-        ttk.Button(actions, text="Продолжить", style="Menu.TButton", command=self._submit).pack(side="right")
+        ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
     def _safe_build_ui(self):
@@ -328,6 +396,58 @@ class NewMKLOrderView(ttk.Frame):
             self.product_var.set(name)
         SelectProductDialog(self, self.db, on_select=on_select)
 
+    # Validation helpers
+    def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
+        v = (new_value or "").replace(",", ".")
+        if v == "":
+            return True
+        if v in {"+", "-", ".", "-.", "+.", ",", "-,", "+,"}:
+            return True
+        try:
+            num = float(v)
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    def _vc_int(self, new_value: str, min_v: int, max_v: int) -> bool:
+        v = (new_value or "").strip()
+        if v == "":
+            return True
+        if v in {"+", "-"}:
+            return True
+        try:
+            num = int(float(v.replace(",", ".")))
+        except ValueError:
+            return False
+        return (min_v <= num <= max_v)
+
+    @staticmethod
+    def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
+        text = (value_str or "").replace(",", ".").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = float(text)
+        except ValueError:
+            v = 0.0 if min_v <= 0.0 <= max_v else min_v
+        v = max(min_v, min(max_v, v))
+        steps = round((v - min_v) / step)
+        snapped = min_v + steps * step
+        snapped = max(min_v, min(max_v, snapped))
+        return f"{snapped:.2f}"
+
+    @staticmethod
+    def _snap_int(value_str: str, min_v: int, max_v: int, allow_empty: bool = False) -> str:
+        text = (value_str or "").strip()
+        if allow_empty and text == "":
+            return ""
+        try:
+            v = int(float(text.replace(",", ".")))
+        except ValueError:
+            v = min_v
+        v = max(min_v, min(max_v, v))
+        return str(v)
+
     def _submit(self):
         fio = (self.fio_var.get() or "").strip()
         phone = (self.phone_var.get() or "").strip()
@@ -346,14 +466,41 @@ class NewMKLOrderView(ttk.Frame):
             except Exception:
                 pass
             return
-        payload = {
+        # Lens params
+        sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=False)
+        cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
+        ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
+        bc = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
+        qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
+        status = (self.status_var.get() or "Не заказан").strip()
+
+        order = {
             "fio": fio,
             "phone": phone,
             "product": product,
+            "sph": sph,
+            "cyl": cyl,
+            "ax": ax,
+            "bc": bc,
+            "qty": qty,
+            "status": status,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "comment": (self.comment_var.get() or "").strip(),
         }
+        # Save to DB directly
+        try:
+            if self.db:
+                self.db.add_mkl_order(order)
+        except Exception:
+            try:
+                from tkinter import messagebox
+                messagebox.showerror("Сохранение", "Не удалось сохранить заказ в БД.")
+            except Exception:
+                pass
+        # Notify external callback if any
         cb = getattr(self, "on_submit", None)
         if callable(cb):
-            cb(payload)
+            cb(order)
         self._go_back()
 
 
