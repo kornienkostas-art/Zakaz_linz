@@ -2,10 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
 
-from app.utils import fade_transition
-from app.utils import create_tooltip
-from app.utils import format_phone_mask
-from app.utils import set_initial_geometry
+from app.utils import format_phone_mask, set_initial_geometry
 
 
 class SelectClientDialog(tk.Toplevel):
@@ -75,7 +72,6 @@ class SelectClientDialog(tk.Toplevel):
             if not idxs:
                 return
             text = self.listbox.get(idxs[0])
-            # naive parse: split on em dash to extract phone
             if "—" in text:
                 fio, phone_mask = text.split("—", 1)
                 fio = fio.strip()
@@ -134,18 +130,14 @@ class SelectProductDialog(tk.Toplevel):
         # Clear
         for iid in self.tree.get_children():
             self.tree.delete(iid)
-        groups = []
         try:
             groups = self._db.list_product_groups_mkl()
         except Exception:
             groups = []
-        # Ungrouped first
-        ungrouped = []
         try:
             ungrouped = self._db.list_products_mkl_by_group(None)
         except Exception:
             ungrouped = []
-        # If no groups at all, show flat list under a single root
         if not groups:
             root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
             any_found = False
@@ -159,7 +151,6 @@ class SelectProductDialog(tk.Toplevel):
                 self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
             return
 
-        # Ungrouped section
         if ungrouped:
             node = self.tree.insert("", "end", text="Без группы", open=bool(term), tags=("group", "gid:None"))
             for p in ungrouped:
@@ -168,22 +159,13 @@ class SelectProductDialog(tk.Toplevel):
                     continue
                 self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
 
-        # Groups section
         any_found = False
         for g in groups:
             try:
                 prods = self._db.list_products_mkl_by_group(g["id"])
             except Exception:
                 prods = []
-            matched = []
-            if term:
-                for p in prods:
-                    n = (p.get("name", "") or "")
-                    if term in n.lower():
-                        matched.append(p)
-            else:
-                matched = prods
-            # If searching, only show groups with matches
+            matched = [p for p in prods if not term or term in (p.get("name", "") or "").lower()]
             if term and not matched:
                 continue
             node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
@@ -201,7 +183,6 @@ class SelectProductDialog(tk.Toplevel):
         tags = set(self.tree.item(item, "tags") or [])
         text = self.tree.item(item, "text") or ""
         if "group" in tags:
-            # Toggle expand/collapse
             is_open = self.tree.item(item, "open")
             self.tree.item(item, open=not is_open)
             return
@@ -211,7 +192,6 @@ class SelectProductDialog(tk.Toplevel):
             self.destroy()
 
     def _ok(self):
-        # Select currently focused product if any
         item = self.tree.focus()
         if not item:
             return
@@ -223,7 +203,7 @@ class SelectProductDialog(tk.Toplevel):
 
 
 class NewMKLOrderView(ttk.Frame):
-    """Полноэкранная форма нового заказа МКЛ внутри приложения."""
+    """Полноэкранная форма нового заказа МКЛ."""
     def __init__(self, master: tk.Tk, db, on_back, on_submit):
         super().__init__(master, style="Card.TFrame", padding=0)
         self.master = master
@@ -231,41 +211,32 @@ class NewMKLOrderView(ttk.Frame):
         self.on_back = on_back
         self.on_submit = on_submit
 
-        # Fill window
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
         self.grid(sticky="nsew")
 
-        # Data (безопасная загрузка)
         try:
             self.clients = self.db.list_clients() if self.db else []
         except Exception:
             self.clients = []
-        try:
-            self.products = self.db.list_products_mkl() if self.db else []
-        except Exception:
-            self.products = []
 
-        # Vars
         self.fio_var = tk.StringVar()
         self.phone_var = tk.StringVar()
+        self.product_var = tk.StringVar()
 
-        self._safe_build_ui()
+        self._build_ui()
 
     def _build_ui(self):
-        # Toolbar
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
         toolbar.pack(fill="x")
         ttk.Button(toolbar, text="← Назад", style="Back.TButton", command=self._go_back).pack(side="left")
         ttk.Label(toolbar, text="Новый заказ МКЛ", style="Title.TLabel").pack(side="left", padx=(12, 0))
 
-        # Content
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
         for i in range(2):
             card.columnconfigure(i, weight=1)
 
-        # Client section
         ttk.Label(card, text="Клиент", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", columnspan=2)
         row = ttk.Frame(card, style="Card.TFrame")
         row.grid(row=1, column=0, columnspan=2, sticky="ew")
@@ -284,24 +255,18 @@ class NewMKLOrderView(ttk.Frame):
         pick_row.grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
         ttk.Button(pick_row, text="Выбрать клиента", style="Menu.TButton", command=self._pick_client).pack(side="left")
 
-        # Product section
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", columnspan=2, pady=(12, 0))
         prow = ttk.Frame(card, style="Card.TFrame")
         prow.grid(row=4, column=0, columnspan=2, sticky="ew")
         prow.columnconfigure(0, weight=1)
 
-        self.product_var = tk.StringVar()
         self.product_entry = ttk.Entry(prow, textvariable=self.product_var)
         self.product_entry.grid(row=0, column=0, sticky="ew")
-
-        # Product picker directly under the input
         ttk.Button(prow, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=1, column=0, sticky="w", pady=(8, 0))
 
-        # Lens params labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=(12, 0))
         ttk.Label(card, text="CYL (−10.0…+10.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=5, column=1, sticky="w", padx=(8, 0), pady=(12, 0))
 
-        # Local +/- helper
         def _nudge(var: tk.StringVar, min_v: float, max_v: float, step: float, direction: int):
             txt = (var.get() or "").replace(",", ".").strip()
             if txt == "":
@@ -318,9 +283,9 @@ class NewMKLOrderView(ttk.Frame):
             snapped = max(min_v, min(max_v, snapped))
             var.set(f"{snapped:.2f}")
 
-        # SPH/CYL entries with +/- buttons
         self.sph_var = tk.StringVar()
         self.cyl_var = tk.StringVar()
+
         sph_row = ttk.Frame(card, style="Card.TFrame")
         sph_row.grid(row=6, column=0, sticky="ew", padx=(0, 8))
         sph_row.columnconfigure(1, weight=1)
@@ -337,7 +302,6 @@ class NewMKLOrderView(ttk.Frame):
         self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2, sticky="e")
 
-        # AX/BC
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=7, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
         ttk.Label(card, text="BC (8.0…9.0, шаг 0.1)", style="Subtitle.TLabel").grid(row=7, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
         self.ax_var = tk.StringVar()
@@ -347,7 +311,6 @@ class NewMKLOrderView(ttk.Frame):
         self.bc_entry = ttk.Entry(card, textvariable=self.bc_var)
         self.bc_entry.grid(row=8, column=1, sticky="ew", padx=(8, 0))
 
-        # Qty and Comment
         ttk.Label(card, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=9, column=0, sticky="w", pady=(8, 0))
         self.qty_var = tk.IntVar(value=1)
         self.qty_spin = ttk.Spinbox(card, from_=1, to=20, textvariable=self.qty_var, width=8)
@@ -358,37 +321,28 @@ class NewMKLOrderView(ttk.Frame):
         self.comment_entry = ttk.Entry(card, textvariable=self.comment_var)
         self.comment_entry.grid(row=10, column=1, sticky="ew")
 
-        # Status
         ttk.Label(card, text="Статус", style="Subtitle.TLabel").grid(row=11, column=0, sticky="w", pady=(8, 0))
         self.statuses = ["Не заказан", "Заказан", "Прозвонен", "Вручен"]
         self.status_var = tk.StringVar(value="Не заказан")
         self.status_combo = ttk.Combobox(card, textvariable=self.status_var, values=self.statuses, height=6)
         self.status_combo.grid(row=12, column=0, sticky="w")
 
-        # Footer actions
         ttk.Separator(card).grid(row=13, column=0, columnspan=2, sticky="ew", pady=(12, 12))
         actions = ttk.Frame(card, style="Card.TFrame")
-        actions.grid(row=14, column=0, columnspan=2, sticky="ew")
-        # Bottom-right: proceed/cancel
+        actions.grid(row=14, column=0, columnspan=2, sticky="e")
         ttk.Button(actions, text="Сохранить", style="Menu.TButton", command=self._submit).pack(side="right")
         ttk.Button(actions, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
-
-    def _safe_build_ui(self):
-        try:
-            self._build_ui()
-        except Exception as e:
-            # Fallback content to avoid blank screen
-            holder = ttk.Frame(self, padding=16)
-            holder.pack(fill="both", expand=True)
-            ttk.Label(holder, text="Ошибка при построении формы нового заказа.", anchor="w").pack(anchor="w")
-            ttk.Label(holder, text=f"{e}", anchor="w", foreground="#7f1d1d").pack(anchor="w", pady=(4, 12))
-            ttk.Button(holder, text="← Назад", command=self._go_back).pack(anchor="w")
 
     def _pick_client(self):
         def on_select(fio, phone_mask):
             self.fio_var.set(fio)
             self.phone_var.set(phone_mask)
         SelectClientDialog(self, self.clients, on_select=on_select)
+
+    def _pick_product(self):
+        def on_select(name: str):
+            self.product_var.set(name)
+        SelectProductDialog(self, self.db, on_select=on_select)
 
     def _go_back(self):
         try:
@@ -397,36 +351,6 @@ class NewMKLOrderView(ttk.Frame):
             cb = getattr(self, "on_back", None)
             if callable(cb):
                 cb()
-
-    def _pick_product(self):
-        def on_select(name: str):
-            self.product_var.set(name)
-        SelectProductDialog(self, self.db, on_select=on_select)
-
-    # Validation helpers
-    def _vc_decimal(self, new_value: str, min_v: float, max_v: float) -> bool:
-        v = (new_value or "").replace(",", ".")
-        if v == "":
-            return True
-        if v in {"+", "-", ".", "-.", "+.", ",", "-,", "+,"}:
-            return True
-        try:
-            num = float(v)
-        except ValueError:
-            return False
-        return (min_v <= num <= max_v)
-
-    def _vc_int(self, new_value: str, min_v: int, max_v: int) -> bool:
-        v = (new_value or "").strip()
-        if v == "":
-            return True
-        if v in {"+", "-"}:
-            return True
-        try:
-            num = int(float(v.replace(",", ".")))
-        except ValueError:
-            return False
-        return (min_v <= num <= max_v)
 
     @staticmethod
     def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
@@ -459,6 +383,7 @@ class NewMKLOrderView(ttk.Frame):
         fio = (self.fio_var.get() or "").strip()
         phone = (self.phone_var.get() or "").strip()
         product = (self.product_var.get() or "").strip()
+
         if not fio and not phone:
             try:
                 from tkinter import messagebox
@@ -473,7 +398,7 @@ class NewMKLOrderView(ttk.Frame):
             except Exception:
                 pass
             return
-        # Lens params
+
         sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=False)
         cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
@@ -494,7 +419,7 @@ class NewMKLOrderView(ttk.Frame):
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "comment": (self.comment_var.get() or "").strip(),
         }
-        # Save to DB directly
+
         try:
             if self.db:
                 self.db.add_mkl_order(order)
@@ -504,7 +429,7 @@ class NewMKLOrderView(ttk.Frame):
                 messagebox.showerror("Сохранение", "Не удалось сохранить заказ в БД.")
             except Exception:
                 pass
-        # Notify external callback if any
+
         cb = getattr(self, "on_submit", None)
         if callable(cb):
             cb(order)
