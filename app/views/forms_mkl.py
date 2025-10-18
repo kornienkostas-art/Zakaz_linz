@@ -88,8 +88,8 @@ class SelectClientDialog(tk.Toplevel):
 
 
 class SelectProductDialog(tk.Toplevel):
-    """Диалог выбора товара (список товаров МКЛ) с поиском."""
-    def __init__(self, master, products: list[dict], on_select):
+    """Диалог выбора товара МКЛ с группами (Treeview) и поиском."""
+    def __init__(self, master, db, on_select):
         super().__init__(master)
         self.title("Выбор товара")
         self.configure(bg="#f8fafc")
@@ -97,7 +97,7 @@ class SelectProductDialog(tk.Toplevel):
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
 
-        self._products = products[:]
+        self._db = db
         self._on_select = on_select
 
         card = ttk.Frame(self, style="Card.TFrame", padding=12)
@@ -108,12 +108,13 @@ class SelectProductDialog(tk.Toplevel):
         self.search_var = tk.StringVar()
         ent = ttk.Entry(card, textvariable=self.search_var)
         ent.grid(row=1, column=0, sticky="ew")
-        ent.bind("<KeyRelease>", lambda e: self._filter())
+        ent.bind("<KeyRelease>", lambda e: self._reload_tree())
 
-        self.listbox = tk.Listbox(card)
-        self.listbox.grid(row=2, column=0, sticky="nsew", pady=(8, 8))
-        y = ttk.Scrollbar(card, orient="vertical", command=self.listbox.yview)
-        self.listbox.configure(yscrollcommand=y.set)
+        # Tree with groups and products
+        self.tree = ttk.Treeview(card, show="tree")
+        self.tree.grid(row=2, column=0, sticky="nsew", pady=(8, 8))
+        y = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=y.set)
         y.grid(row=2, column=0, sticky="nse")
         card.rowconfigure(2, weight=1)
 
@@ -122,38 +123,99 @@ class SelectProductDialog(tk.Toplevel):
         ttk.Button(btns, text="ОК", style="Menu.TButton", command=self._ok).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
 
-        self.listbox.bind("<Double-Button-1>", lambda e: self._ok())
-        self._reload(self._products)
+        self.tree.bind("<Double-Button-1>", self._on_dbl_click)
+        self._reload_tree()
 
-    def _format_item(self, p: dict) -> str:
-        return (p.get("name", "") or "").strip()
-
-    def _reload(self, products: list[dict]):
-        self.listbox.delete(0, "end")
-        for p in products:
-            self.listbox.insert("end", self._format_item(p))
-
-    def _filter(self):
+    def _reload_tree(self):
         term = (self.search_var.get() or "").strip().lower()
-        if not term:
-            self._reload(self._products)
-            return
-        filtered = []
-        for p in self._products:
-            name = (p.get("name", "") or "").lower()
-            if term in name:
-                filtered.append(p)
-        self._reload(filtered)
-
-    def _ok(self):
+        # Clear
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
+        groups = []
         try:
-            idxs = self.listbox.curselection()
-            if not idxs:
-                return
-            text = self.listbox.get(idxs[0]).strip()
+            groups = self._db.list_product_groups_mkl()
+        except Exception:
+            groups = []
+        # Ungrouped first
+        ungrouped = []
+        try:
+            ungrouped = self._db.list_products_mkl_by_group(None)
+        except Exception:
+            ungrouped = []
+        # If no groups at all, show flat list under a single root
+        if not groups:
+            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
+            any_found = False
+            for p in ungrouped:
+                name = (p.get("name", "") or "")
+                if term and term not in name.lower():
+                    continue
+                any_found = True
+                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+            if term and not any_found:
+                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
+            return
+
+        # Ungrouped section
+        if ungrouped:
+            node = self.tree.insert("", "end", text="Без группы", open=bool(term), tags=("group", "gid:None"))
+            for p in ungrouped:
+                name = (p.get("name", "") or "")
+                if term and term not in name.lower():
+                    continue
+                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
+
+        # Groups section
+        any_found = False
+        for g in groups:
+            try:
+                prods = self._db.list_products_mkl_by_group(g["id"])
+            except Exception:
+                prods = []
+            matched = []
+            if term:
+                for p in prods:
+                    n = (p.get("name", "") or "")
+                    if term in n.lower():
+                        matched.append(p)
+            else:
+                matched = prods
+            # If searching, only show groups with matches
+            if term and not matched:
+                continue
+            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
+            for p in matched:
+                name = (p.get("name", "") or "")
+                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                any_found = True
+        if term and not any_found and not ungrouped:
+            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
+
+    def _on_dbl_click(self, event):
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        tags = set(self.tree.item(item, "tags") or [])
+        text = self.tree.item(item, "text") or ""
+        if "group" in tags:
+            # Toggle expand/collapse
+            is_open = self.tree.item(item, "open")
+            self.tree.item(item, open=not is_open)
+            return
+        if "product" in tags:
             if callable(self._on_select):
                 self._on_select(text)
-        finally:
+            self.destroy()
+
+    def _ok(self):
+        # Select currently focused product if any
+        item = self.tree.focus()
+        if not item:
+            return
+        tags = set(self.tree.item(item, "tags") or [])
+        text = self.tree.item(item, "text") or ""
+        if "product" in tags and callable(self._on_select):
+            self._on_select(text)
             self.destroy()
 
 
