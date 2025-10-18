@@ -164,11 +164,14 @@ class MKLOrdersView(ttk.Frame):
                 from app.views.forms_mkl import NewMKLOrderView
                 from app.views.main import MainWindow
                 def on_submit(client_payload: dict):
+                    # Ничего не создаём здесь. Возврат осуществляет NewMKLOrderView через on_back.
                     try:
-                        messagebox.showinfo("Клиент и товар", f"ФИО: {client_payload.get('fio','')}\nТелефон: {client_payload.get('phone','')}\nТовар: {client_payload.get('product','')}")
+                        messagebox.showinfo(
+                            "Клиент и товар",
+                            f"ФИО: {client_payload.get('fio','')}\nТелефон: {client_payload.get('phone','')}\nТовар: {client_payload.get('product','')}"
+                        )
                     except Exception:
                         pass
-                    MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
                 NewMKLOrderView(
                     self.master,
                     db=self.db,
