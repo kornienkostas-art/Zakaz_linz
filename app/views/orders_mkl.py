@@ -157,6 +157,32 @@ class MKLOrdersView(ttk.Frame):
     def _new_order(self):
         def swap():
             try:
+                from app.views.forms_mkl import NewMKLOrderView
+                from app.views.main import MainWindow
+                def on_submit(client_payload: dict):
+                    # Возврат осуществляет NewMKLOrderView через on_back.
+                    return
+                # Создаём новый вид. Не уничтожаем текущий до успешного создания.
+                NewMKLOrderView(
+                    self.master,
+                    db=self.db,
+                    on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                    on_submit=on_submit
+                )
+                # Успешно создан — удаляем текущий
+                try:
+                    self.destroy()
+                except Exception:
+                    pass
+            except Exception as e:
+                # Покажем ошибку и оставим текущий список заказов
+                try:
+                    messagebox.showerror("Новый заказ", f"Ошибка открытия формы:\n{e}")
+                except Exception:
+                    pass
+        # Без анимации — простой переключатель
+        swap():
+            try:
                 self.destroy()
             except Exception:
                 pass
