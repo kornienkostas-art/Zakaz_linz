@@ -10,6 +10,71 @@ from app.utils import format_phone_mask  # used for displaying client phones
 from app.utils import create_tooltip
 
 
+class SelectDialog(tk.Toplevel):
+    """Простое диалоговое окно выбора из списка с поиском."""
+    def __init__(self, master, title: str, values: list[str], on_select):
+        super().__init__(master)
+        self.title(title)
+        self.configure(bg="#f8fafc")
+        set_initial_geometry(self, min_w=520, min_h=420, center_to=master)
+        self.transient(master)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+        self._all_values = values[:]
+        self._on_select = on_select
+        self._build_ui()
+
+    def _build_ui(self):
+        card = ttk.Frame(self, style="Card.TFrame", padding=12)
+        card.pack(fill="both", expand=True)
+        card.columnconfigure(0, weight=1)
+
+        ttk.Label(card, text="Поиск", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
+        self.search_var = tk.StringVar()
+        ent = ttk.Entry(card, textvariable=self.search_var)
+        ent.grid(row=1, column=0, sticky="ew")
+        ent.bind("<KeyRelease>", lambda e: self._filter())
+
+        self.listbox = tk.Listbox(card)
+        self.listbox.grid(row=2, column=0, sticky="nsew", pady=(8, 8))
+        y = ttk.Scrollbar(card, orient="vertical", command=self.listbox.yview)
+        self.listbox.configure(yscrollcommand=y.set)
+        y.grid(row=2, column=0, sticky="nse")
+        card.rowconfigure(2, weight=1)
+
+        btns = ttk.Frame(card, style="Card.TFrame")
+        btns.grid(row=3, column=0, sticky="e")
+        ttk.Button(btns, text="ОК", style="Menu.TButton", command=self._ok).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Back.TButton", command=self.destroy).pack(side="right", padx=(8, 0))
+
+        self.listbox.bind("<Double-Button-1>", lambda e: self._ok())
+        self._reload(self._all_values)
+
+    def _reload(self, values: list[str]):
+        self.listbox.delete(0, "end")
+        for v in values:
+            self.listbox.insert("end", v)
+
+    def _filter(self):
+        term = (self.search_var.get() or "").strip().lower()
+        values = self._all_values
+        if term:
+            values = [v for v in values if term in v.lower()]
+        self._reload(values)
+
+    def _ok(self):
+        try:
+            idx = self.listbox.curselection()
+            if not idx:
+                return
+            value = self.listbox.get(idx[0])
+            if callable(self._on_select):
+                self._on_select(value)
+        finally:
+            self.destroy()
+
+
 class OrderForm(tk.Toplevel):
     """Форма создания/редактирования заказа МКЛ."""
     def __init__(
@@ -24,7 +89,7 @@ class OrderForm(tk.Toplevel):
         super().__init__(master)
         self.title("Редактирование заказа" if initial else "Новый заказ")
         self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=820, min_h=680, center_to=master)
+        set_initial_geometry(self, min_w=860, min_h=700, center_to=master)
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -92,94 +157,29 @@ class OrderForm(tk.Toplevel):
         # Hotkeys: Esc closes form
         self.bind("<Escape>", lambda e: self.destroy())
 
-    def _load_tree_mkl(self):
-        """Загрузка дерева групп/товаров (МКЛ) с учетом поиска."""
-        if not getattr(self, "_db", None) or not hasattr(self, "tree"):
-            return
-        term = (getattr(self, "search_var", tk.StringVar()).get() or "").strip().lower()
-        self.tree.delete(*self.tree.get_children())
-        # Получаем группы
-        try:
-            groups = self._db.list_product_groups()
-        except Exception:
-            groups = []
-        if not groups:
-            # Покажем плоский список всех товаров
-            try:
-                all_prods = self._db.list_products()
-            except Exception:
-                all_prods = []
-            root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
-            any_found = False
-            for p in all_prods:
-                name = p.get("name", "") or ""
-                if term and term not in name.lower():
-                    continue
-                any_found = True
-                self.tree.insert(root, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
-            if term and not any_found:
-                self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
-            return
-        # Есть группы
-        any_found_total = False
-        for g in groups:
-            try:
-                prods = self._db.list_products_by_group(g["id"])
-            except Exception:
-                prods = []
-            # Фильтрация
-            matched = []
-            if term:
-                for p in prods:
-                    name = (p.get("name", "") or "")
-                    if term in name.lower():
-                        matched.append(p)
-            else:
-                matched = prods
-            if not matched and term:
-                continue
-            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
-            for p in matched:
-                name = p.get("name", "") or ""
-                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
-                any_found_total = True
-        if term and not any_found_total:
-            self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
-
-    def _on_tree_dbl_mkl(self, event):
-        if not hasattr(self, "tree"):
-            return
-        item = self.tree.identify_row(event.y)
-        if not item:
-            return
-        tags = set(self.tree.item(item, "tags") or [])
-        text = self.tree.item(item, "text") or ""
-        if "group" in tags:
-            is_open = self.tree.item(item, "open")
-            self.tree.item(item, open=not is_open)
-            return
-        if "product" in tags:
-            self.product_var.set(text)
-
     def _build_ui(self):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         card.pack(fill="both", expand=True)
         card.columnconfigure(0, weight=1)
         card.columnconfigure(1, weight=1)
+        card.columnconfigure(2, weight=0)
+        card.columnconfigure(3, weight=0)
 
-        # Client selection with autocomplete
+        # Client selection with autocomplete + pick button
         ttk.Label(card, text="Клиент (ФИО или телефон)", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w")
         self.client_combo = ttk.Combobox(card, textvariable=self.client_var, values=self._client_values(), height=10)
         self.client_combo.grid(row=1, column=0, sticky="ew")
         self.client_combo.bind("<KeyRelease>", lambda e: self._filter_clients())
+        ttk.Button(card, text="Выбрать клиента", style="Menu.TButton", command=self._pick_client).grid(row=1, column=2, sticky="w", padx=(8, 0))
 
-        # Product selection (простая строка с автодополнением)
+        # Product selection (строка с автодополнением) + pick button
         ttk.Label(card, text="Товар", style="Subtitle.TLabel").grid(row=0, column=1, sticky="w")
         self.product_combo = ttk.Combobox(card, textvariable=self.product_var, values=self._product_values(), height=10)
         self.product_combo.grid(row=1, column=1, sticky="ew")
         self.product_combo.bind("<KeyRelease>", lambda e: self._filter_products())
+        ttk.Button(card, text="Выбрать товар", style="Menu.TButton", command=self._pick_product).grid(row=1, column=3, sticky="w", padx=(8, 0))
 
-        ttk.Separator(card).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 12))
+        ttk.Separator(card).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(12, 12))
 
         # Row 3: labels
         ttk.Label(card, text="SPH (−30.0…+30.0, шаг 0.25)", style="Subtitle.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 8))
@@ -274,6 +274,14 @@ class OrderForm(tk.Toplevel):
         btns.grid(row=10, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(btns, text="Сохранить", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(btns, text="Отмена", style="Back.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
+
+    def _pick_client(self):
+        values = self._client_values()
+        SelectDialog(self, "Выбор клиента", values, on_select=lambda v: self.client_var.set(v))
+
+    def _pick_product(self):
+        values = self._product_values()
+        SelectDialog(self, "Выбор товара", values, on_select=lambda v: self.product_var.set(v))
 
     def _go_back(self):
         try:
@@ -435,11 +443,10 @@ class OrderForm(tk.Toplevel):
             "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "comment": (self.comment_var.get() or "").strip(),
         }
-        if callable(self.on_save):
-            self.on_save(order)
-        # Close via unified back handler
-        try:
-            self._go_back()
+        cb = getattr(self, "on_save", None)
+        if callable(cb):
+            cb(order)
+        self._go_back()
         except Exception:
             self.destroy()
 
