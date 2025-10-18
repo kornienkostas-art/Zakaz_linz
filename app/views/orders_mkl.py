@@ -155,28 +155,7 @@ class MKLOrdersView(ttk.Frame):
             return None
 
     def _new_order(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.forms_mkl import MKLOrderEditorView
-            from app.views.main import MainWindow
-            def on_save(order: dict):
-                # Save to DB only; view will be recreated by on_back of editor
-                if self.db:
-                    try:
-                        self.db.add_mkl_order(order)
-                    except Exception as e:
-                        messagebox.showerror("База данных", f"Не удалось сохранить заказ МКЛ:\n{e}")
-            MKLOrderEditorView(
-                self.master,
-                db=self.db,
-                on_back=lambda: MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_save=on_save,
-                initial=None
-            )
-        fade_transition(self.master, swap)
+        messagebox.showinfo("Новый заказ", "Форма нового заказа будет добавлена позже. Кнопка оставлена, функционал временно отключен.")
 
     def _edit_order(self):
         idx = self._selected_index()
