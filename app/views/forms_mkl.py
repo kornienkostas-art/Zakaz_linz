@@ -357,10 +357,10 @@ class NewMKLOrderView(ttk.Frame):
         ttk.Label(params, text="BC (десятичное, шаг 0.1)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
         bc_row = ttk.Frame(params, style="Card.TFrame"); bc_row.grid(row=3, column=0, sticky="ew", padx=(0, 8))
         bc_row.columnconfigure(1, weight=1)
-        ttk.Button(bc_row, text="−", width=3, command=lambda: _nudge(self.bc_var, 6.0, 10.0, 0.1, -1)).grid(row=0, column=0)
+        ttk.Button(bc_row, text="−", width=3, command=lambda: _nudge(self.bc_var, 8.0, 9.0, 0.1, -1)).grid(row=0, column=0)
         self._bc_entry = ttk.Entry(bc_row, textvariable=self.bc_var); self._bc_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(bc_row, text="+", width=3, command=lambda: _nudge(self.bc_var, 6.0, 10.0, 0.1, +1)).grid(row=0, column=2)
-        bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 6.0, 10.0)), "%P")
+        ttk.Button(bc_row, text="+", width=3, command=lambda: _nudge(self.bc_var, 8.0, 9.0, 0.1, +1)).grid(row=0, column=2)
+        bc_vcmd = (self.register(lambda v: self._vc_decimal(v, 8.0, 9.0)), "%P")
         self._bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self._bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
@@ -451,8 +451,8 @@ class NewMKLOrderView(ttk.Frame):
         elif field == "ax":
             self.ax_var.set(self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True))
         elif field == "bc":
-            # BC snapping to 0.1 step within 6.0..10.0
-            txt = self._snap(self.bc_var.get(), 6.0, 10.0, 0.1, allow_empty=True)
+            # BC snapping to 0.1 step within 8.0..9.0
+            txt = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
             self.bc_var.set(txt)
 
     def _pick_client(self):
@@ -496,7 +496,7 @@ class NewMKLOrderView(ttk.Frame):
         sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)
         cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
-        bc = self._snap(self.bc_var.get(), 6.0, 10.0, 0.1, allow_empty=True)
+        bc = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
         qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
         comment = ""
         try:
