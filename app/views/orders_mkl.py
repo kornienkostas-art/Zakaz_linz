@@ -164,7 +164,15 @@ class MKLOrdersView(ttk.Frame):
                 from app.views.forms_mkl import NewMKLOrderView
                 from app.views.main import MainWindow
                 def on_submit(client_payload: dict):
-                    # После создания заказа не показываем уведомление, сразу возвращаемся к списку
+                    # Сохранить новый заказ в базу и вернуться к списку
+                    try:
+                        if self.db:
+                            self.db.add_mkl_order(client_payload)
+                    except Exception as e:
+                        try:
+                            messagebox.showerror("База данных", f"Не удалось добавить заказ МКЛ:\\n{e}")
+                        except Exception:
+                            pass
                     MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
                 NewMKLOrderView(
                     self.master,
