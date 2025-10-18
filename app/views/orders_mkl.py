@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition, format_phone_mask
+from app.utils import fade_transition, format_phone_mask, center_on_screen
 from app.db import AppDB  # type hint only
 
 
@@ -259,6 +259,11 @@ class MKLOrdersView(ttk.Frame):
         dialog = tk.Toplevel(self)
         dialog.title("Сменить статус")
         dialog.configure(bg="#f8fafc")
+        # Центрировать диалог относительно экрана
+        try:
+            center_on_screen(dialog)
+        except Exception:
+            pass
         dialog.transient(self)
         dialog.grab_set()
 
