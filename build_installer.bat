@@ -3,33 +3,41 @@ setlocal EnableDelayedExpansion
 
 REM Build installer for UssurochkiRF using Inno Setup (ISCC).
 REM Prerequisites:
-REM   1) Python + PyInstaller to produce the app binaries (use build_exe.bat)
+REM   1) Python + PyInstaller to produce the app binaries (use build_exe.bat / build_exe_onefile.bat)
 REM   2) Inno Setup installed (ISCC.exe available) — https://jrsoftware.org/isdl.php
 
 set "APP_NAME=UssurochkiRF"
-set "DIST_DIR=dist\%APP_NAME%"
-set "ISS_FILE=installer\%APP_NAME%.iss"
+set "DIST_DIR_FOLDER=dist\%APP_NAME%"
+set "DIST_ONEFILE=dist\%APP_NAME%.exe"
+set "ISS_FILE_FOLDER=installer\%APP_NAME%.iss"
+set "ISS_FILE_ONEFILE=installer\%APP_NAME%_onefile.iss"
 
-REM 0) Build the application binaries first (spec-based build)
+REM 0) Build the application binaries first (prefer spec-based build)
 if exist build_exe.bat (
   call build_exe.bat
 ) else (
   echo [WARN] build_exe.bat not found. Trying one-file build...
   if exist build_exe_onefile.bat (
     call build_exe_onefile.bat
-    REM After onefile build, adjust DIST_DIR
-    set "DIST_DIR=dist"
   )
 )
 
-if not exist "%DIST_DIR%" (
-  echo [ERROR] Build output not found: "%DIST_DIR%"
+REM 1) Determine which build output exists
+set "ISS_FILE="
+if exist "%DIST_DIR_FOLDER%" (
+  set "ISS_FILE=%ISS_FILE_FOLDER%"
+  echo Using folder build: "%DIST_DIR_FOLDER%"
+) else if exist "%DIST_ONEFILE%" (
+  set "ISS_FILE=%ISS_FILE_ONEFILE%"
+  echo Using one-file build: "%DIST_ONEFILE%"
+) else (
+  echo [ERROR] Build output not found: "%DIST_DIR_FOLDER%" or "%DIST_ONEFILE%"
   echo Make sure the build step completed successfully.
   pause
   exit /b 1
 )
 
-REM 1) Locate Inno Setup compiler (ISCC.exe)
+REM 2) Locate Inno Setup compiler (ISCC.exe)
 set "ISCC="
 for %%P in (
   "C:\Program Files\Inno Setup 6\ISCC.exe"
@@ -56,10 +64,9 @@ if "%ISCC%"=="" (
 
 echo Using Inno Setup: "%ISCC%"
 
-REM 2) Compile installer script
+REM 3) Compile installer script (folder vs onefile)
 if not exist "%ISS_FILE%" (
   echo [ERROR] Installer script not found: "%ISS_FILE%"
-  echo The repository should contain installer\%APP_NAME%.iss
   pause
   exit /b 1
 )
@@ -73,7 +80,7 @@ if errorlevel 1 (
 
 echo.
 echo [OK] Installer built successfully.
-echo Check the Output folder near the .iss file (installer\Output\%APP_NAME%*.exe)
+echo Check: installer\Output\%APP_NAME%*.exe
 echo.
 pause
 
