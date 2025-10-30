@@ -122,15 +122,22 @@ class AppDB:
                 cyl TEXT,
                 ax TEXT,
                 bc TEXT,
+                add TEXT,
                 qty TEXT,
                 status TEXT NOT NULL,
-                date TEXT NOT NULL
+                date TEXT NOT NULL,
+                comment TEXT
             );
             """
         )
-        # Add 'comment' column if it doesn't exist
+        # Add 'comment' column if it doesn't exist (for older DBs)
         try:
             cur.execute("ALTER TABLE mkl_orders ADD COLUMN comment TEXT;")
+        except Exception:
+            pass
+        # Add 'add' column if it doesn't exist (for very old DBs)
+        try:
+            cur.execute("ALTER TABLE mkl_orders ADD COLUMN add TEXT;")
         except Exception:
             pass
         # Meridian orders (header) + items
@@ -504,7 +511,7 @@ class AppDB:
     # --- MKL Orders ---
     def list_mkl_orders(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, fio, phone, product, sph, cyl, ax, bc, qty, status, date, COALESCE(comment,'') AS comment FROM mkl_orders ORDER BY id DESC;"
+            "SELECT id, fio, phone, product, sph, cyl, ax, bc, add, qty, status, date, COALESCE(comment,'') AS comment FROM mkl_orders ORDER BY id DESC;"
         ).fetchall()
         return [
             {
@@ -516,6 +523,7 @@ class AppDB:
                 "cyl": r["cyl"] or "",
                 "ax": r["ax"] or "",
                 "bc": r["bc"] or "",
+                "add": r["add"] or "",
                 "qty": r["qty"] or "",
                 "status": r["status"],
                 "date": r["date"],
@@ -527,8 +535,8 @@ class AppDB:
     def add_mkl_order(self, order: dict) -> int:
         cur = self.conn.execute(
             """
-            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, bc, qty, status, date, comment)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, bc, add, qty, status, date, comment)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 order.get("fio", ""),
@@ -538,6 +546,7 @@ class AppDB:
                 order.get("cyl", ""),
                 order.get("ax", ""),
                 order.get("bc", ""),
+                order.get("add", ""),
                 order.get("qty", ""),
                 order.get("status", "Не заказан"),
                 order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
@@ -551,7 +560,7 @@ class AppDB:
         # Only update provided fields
         cols = []
         vals = []
-        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date", "comment"):
+        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "add", "qty", "status", "date", "comment"):
             if k in fields:
                 cols.append(f"{k}=?")
                 vals.append(fields[k])

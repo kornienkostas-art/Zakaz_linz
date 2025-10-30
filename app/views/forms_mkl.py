@@ -248,6 +248,7 @@ class NewMKLOrderView(ttk.Frame):
         self.cyl_var = tk.StringVar()
         self.ax_var = tk.StringVar()
         self.bc_var = tk.StringVar()
+        self.add_var = tk.StringVar()  # ADD: 0..10, step 0.25, default empty
         self.qty_var = tk.IntVar(value=1)
         # Комментарий будет в Text, поэтому отдельной StringVar не требуется
 
@@ -353,7 +354,7 @@ class NewMKLOrderView(ttk.Frame):
         self._ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self._ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
 
-        # Second row: BC (decimal with +/-), Количество (Spinbox), Комментарий (multi-line)
+        # Second row: BC (decimal with +/-), ADD (0..10 step 0.25), Количество (Spinbox)
         ttk.Label(params, text="BC (десятичное, шаг 0.1)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
         bc_row = ttk.Frame(params, style="Card.TFrame"); bc_row.grid(row=3, column=0, sticky="ew", padx=(0, 8))
         bc_row.columnconfigure(1, weight=1)
@@ -364,9 +365,19 @@ class NewMKLOrderView(ttk.Frame):
         self._bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self._bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        ttk.Label(params, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(params, text="ADD (0…10, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        add_row = ttk.Frame(params, style="Card.TFrame"); add_row.grid(row=3, column=1, sticky="ew", padx=(0, 8))
+        add_row.columnconfigure(1, weight=1)
+        ttk.Button(add_row, text="−", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1)).grid(row=0, column=0)
+        self._add_entry = ttk.Entry(add_row, textvariable=self.add_var); self._add_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(add_row, text="+", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+        add_vcmd = (self.register(lambda v: self._vc_decimal(v, 0.0, 10.0)), "%P")
+        self._add_entry.configure(validate="key", validatecommand=add_vcmd)
+        self._add_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("add"))
+
+        ttk.Label(params, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=2, column=2, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(params, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.grid(row=3, column=1, sticky="w", padx=(0, 8))
+        self.qty_spin.grid(row=3, column=2, sticky="w", padx=(0, 8))
 
         ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=8, column=0, sticky="w", columnspan=2, pady=(12, 0))
         self.comment_text = tk.Text(card, height=4)
@@ -454,6 +465,9 @@ class NewMKLOrderView(ttk.Frame):
             # BC snapping to 0.1 step within 8.0..9.0
             txt = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
             self.bc_var.set(txt)
+        elif field == "add":
+            # ADD snapping to 0.25 within 0..10
+            self.add_var.set(self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True)</)
 
     def _pick_client(self):
         def on_select(fio, phone_mask):
@@ -497,6 +511,7 @@ class NewMKLOrderView(ttk.Frame):
         cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
         bc = self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True)
+        add = self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True)
         qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
         comment = ""
         try:
@@ -512,6 +527,7 @@ class NewMKLOrderView(ttk.Frame):
             "cyl": cyl,
             "ax": ax,
             "bc": bc,
+            "add": add,
             "qty": qty,
             "comment": comment,
         }
@@ -553,6 +569,7 @@ class OrderForm(tk.Toplevel):
         self.cyl_var = tk.StringVar(value=(initial or {}).get("cyl", ""))
         self.ax_var = tk.StringVar(value=(initial or {}).get("ax", ""))
         self.bc_var = tk.StringVar(value=(initial or {}).get("bc", ""))
+        self.add_var = tk.StringVar(value=(initial or {}).get("add", ""))  # ADD field
         # qty stored as text in DB; use IntVar for UI convenience
         try:
             self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
@@ -624,6 +641,8 @@ class OrderForm(tk.Toplevel):
             self.ax_var.set(self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True))
         elif field == "bc":
             self.bc_var.set(self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True))
+        elif field == "add":
+            self.add_var.set(self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True))
 
     def _build_ui(self, initial: dict):
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
@@ -716,9 +735,19 @@ class OrderForm(tk.Toplevel):
         self._bc_entry.configure(validate="key", validatecommand=bc_vcmd)
         self._bc_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("bc"))
 
-        ttk.Label(params, text="Количество (1…20)").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(params, text="ADD (0…10, шаг 0.25)").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        add_row = ttk.Frame(params, style="Card.TFrame"); add_row.grid(row=3, column=1, sticky="ew", padx=(0, 8))
+        add_row.columnconfigure(1, weight=1)
+        ttk.Button(add_row, text="−", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1)).grid(row=0, column=0)
+        self._add_entry = ttk.Entry(add_row, textvariable=self.add_var); self._add_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(add_row, text="+", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+        add_vcmd = (self.register(lambda v: self._vc_decimal(v, 0.0, 10.0)), "%P")
+        self._add_entry.configure(validate="key", validatecommand=add_vcmd)
+        self._add_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("add"))
+
+        ttk.Label(params, text="Количество (1…20)").grid(row=2, column=2, sticky="w", pady=(8, 0))
         self.qty_spin = ttk.Spinbox(params, from_=1, to=20, textvariable=self.qty_var, width=8)
-        self.qty_spin.grid(row=3, column=1, sticky="w", padx=(0, 8))
+        self.qty_spin.grid(row=3, column=2, sticky="w", padx=(0, 8))
 
         ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=8, column=0, sticky="w", columnspan=2, pady=(12, 0))
         self.comment_text = tk.Text(card, height=4)
@@ -764,6 +793,7 @@ class OrderForm(tk.Toplevel):
             "cyl": self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True),
             "ax": self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True),
             "bc": self._snap(self.bc_var.get(), 8.0, 9.0, 0.1, allow_empty=True),
+            "add": self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True),
             "qty": self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False),
             "status": (self.status_var.get() or "Не заказан").strip(),
             "comment": "",
