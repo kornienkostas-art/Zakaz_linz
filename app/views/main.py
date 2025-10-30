@@ -24,8 +24,15 @@ class MainWindow:
         self._refresh_stats()
 
     def _build_ui(self):
+        # Use grid for root to avoid mixing geometry managers with other views
+        try:
+            self.root.columnconfigure(0, weight=1)
+            self.root.rowconfigure(0, weight=1)
+        except Exception:
+            pass
+
         container = ttk.Frame(self.root)
-        container.pack(fill="both", expand=True)
+        container.grid(row=0, column=0, sticky="nsew")
 
         # Configure large button style for better visibility
         try:
@@ -39,7 +46,12 @@ class MainWindow:
 
         # Main menu - vertical stack: MKL, Meridian, Prices, Astig Calc, Settings
         menu = ttk.Frame(container)
-        menu.pack(fill="both", expand=True, padx=48, pady=48)
+        menu.grid(row=0, column=0, sticky="nsew", padx=48, pady=48)
+        try:
+            container.columnconfigure(0, weight=1)
+            container.rowconfigure(0, weight=1)
+        except Exception:
+            pass
 
         btn_opts = dict(width=30, style="Big.TButton")
         ttk.Button(menu, text="Заказы МКЛ", command=self._open_mkl, **btn_opts).pack(fill="x", pady=10)

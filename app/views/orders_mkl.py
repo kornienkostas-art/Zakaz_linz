@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition, format_phone_mask
+from app.utils import fade_transition, format_phone_mask, center_on_screen
 from app.db import AppDB  # type hint only
 
 
@@ -33,7 +33,8 @@ class MKLOrdersView(ttk.Frame):
 
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
-        self.grid(sticky="nsew")
+        # Явно размещаем представление в (row=0, column=0), чтобы избежать «пустой» верхней области
+        self.grid(row=0, column=0, sticky="nsew")
 
         self.orders: list[dict] = []
 
@@ -164,10 +165,15 @@ class MKLOrdersView(ttk.Frame):
                 from app.views.forms_mkl import NewMKLOrderView
                 from app.views.main import MainWindow
                 def on_submit(client_payload: dict):
+                    # Сохранить новый заказ в базу и вернуться к списку
                     try:
-                        messagebox.showinfo("Клиент и товар", f"ФИО: {client_payload.get('fio','')}\nТелефон: {client_payload.get('phone','')}\nТовар: {client_payload.get('product','')}")
-                    except Exception:
-                        pass
+                        if self.db:
+                            self.db.add_mkl_order(client_payload)
+                    except Exception as e:
+                        try:
+                            messagebox.showerror("База данных", f"Не удалось добавить заказ МКЛ:\\n{e}")
+                        except Exception:
+                            pass
                     MKLOrdersView(self.master, on_back=lambda: MainWindow(self.master))
                 NewMKLOrderView(
                     self.master,
@@ -253,6 +259,11 @@ class MKLOrdersView(ttk.Frame):
         dialog = tk.Toplevel(self)
         dialog.title("Сменить статус")
         dialog.configure(bg="#f8fafc")
+        # Центрировать диалог относительно экрана
+        try:
+            center_on_screen(dialog)
+        except Exception:
+            pass
         dialog.transient(self)
         dialog.grab_set()
 
