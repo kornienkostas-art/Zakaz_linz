@@ -511,7 +511,7 @@ class AppDB:
     # --- MKL Orders ---
     def list_mkl_orders(self) -> list[dict]:
         rows = self.conn.execute(
-            'SELECT id, fio, phone, product, sph, cyl, ax, bc, "add" AS add, qty, status, date, COALESCE(comment,"") AS comment FROM mkl_orders ORDER BY id DESC;'
+            'SELECT id, fio, phone, product, sph, cyl, ax, bc, "add" AS add_value, qty, status, date, COALESCE(comment,"") AS comment FROM mkl_orders ORDER BY id DESC;'
         ).fetchall()
         return [
             {
@@ -523,7 +523,7 @@ class AppDB:
                 "cyl": r["cyl"] or "",
                 "ax": r["ax"] or "",
                 "bc": r["bc"] or "",
-                "add": r["add"] or "",
+                "add": r["add_value"] or "",
                 "qty": r["qty"] or "",
                 "status": r["status"],
                 "date": r["date"],
