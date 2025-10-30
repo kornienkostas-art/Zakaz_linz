@@ -40,7 +40,27 @@ class MKLOrdersView(ttk.Frame):
         self.orders: list[dict] = []
 
         self._build_toolbar()
-        self._build_table()
+        # Ensure tree attribute always exists even if UI build fails
+        self.tree = None
+        try:
+            self._build_table()
+        except Exception as e:
+            # Fallback minimal table to avoid blank screen
+            try:
+                container = ttk.Frame(self, style="Card.TFrame", padding=16)
+                container.pack(fill="both", expand=True)
+                ttk.Label(container, text="Ошибка построения таблицы заказов МКЛ", style="Subtitle.TLabel").pack(anchor="w")
+                ttk.Label(container, text=str(e), foreground="#7f1d1d").pack(anchor="w", pady=(4, 8))
+                table_frame = ttk.Frame(container, style="Card.TFrame")
+                table_frame.pack(fill="both", expand=True)
+                self.tree = ttk.Treeview(table_frame, columns=("fio", "phone"), show="headings")
+                self.tree.heading("fio", text="ФИО", anchor="w")
+                self.tree.heading("phone", text="Телефон", anchor="w")
+                self.tree.grid(row=0, column=0, sticky="nsew")
+                table_frame.columnconfigure(0, weight=1)
+                table_frame.rowconfigure(0, weight=1)
+            except Exception:
+                pass
         self._refresh_orders_view()
 
     def _build_toolbar(self):
@@ -69,7 +89,7 @@ class MKLOrdersView(ttk.Frame):
         container.pack(fill="both", expand=True)
 
         header = ttk.Label(container, text="Заказ МКЛ • Таблица данных", style="Title.TLabel")
-        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, ADD, Количество, Статус, Дата, Комментарий", style="Subtitleel")
+        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, ADD, Количество, Статус, Дата, Комментарий", style="Subtitle.TLabel")
         header.pack(anchor="w")
         sub.pack(anchor="w", pady=(4, 12))
 

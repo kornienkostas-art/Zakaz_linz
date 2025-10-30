@@ -467,7 +467,7 @@ class NewMKLOrderView(ttk.Frame):
             self.bc_var.set(txt)
         elif field == "add":
             # ADD snapping to 0.25 within 0..10
-            self.add_var.set(self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True)</)
+            self.add_var.set(self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True))
 
     def _pick_client(self):
         def on_select(fio, phone_mask):
