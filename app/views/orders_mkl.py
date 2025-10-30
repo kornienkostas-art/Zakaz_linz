@@ -2,6 +2,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+import tkinter.font as tkfont
 
 from app.utils import fade_transition, format_phone_mask
 from app.db import AppDB  # type hint only
@@ -112,6 +113,38 @@ class MKLOrdersView(ttk.Frame):
         self.menu.add_cascade(label="Статус", menu=status_menu)
         self.tree.bind("<Button-3>", self._show_context_menu)
         self.tree.bind("<Double-1>", lambda e: self._edit_order())
+
+    def _autosize_columns(self, max_width: int = 600, extra_padding: int = 16):
+        """
+        Подгоняет ширину столбцов Treeview под содержимое и заголовки,
+        чтобы длинные тексты были видны (горизонтальный скролл остаётся).
+        """
+        try:
+            # Получаем используемый шрифт для измерения текста
+            try:
+                font = tkfont.nametofont("TkDefaultFont")
+            except Exception:
+                font = tkfont.Font()  # запасной вариант
+
+            # Собираем максимальную ширину для каждого столбца
+            for col in self.COLUMNS:
+                header_text = self.HEADERS.get(col, col)
+                max_w = font.measure(str(header_text)) + extra_padding
+
+                # пройти по всем строкам и измерить ширину каждой ячейки
+                for iid in self.tree.get_children(""):
+                    val = self.tree.set(iid, col)
+                    w = font.measure(str(val)) + extra_padding
+                    if w > max_w:
+                        max_w = w
+
+                # ограничим очень длинные значения, но дадим достаточно места
+                max_w = min(max_w, max_width)
+                # применяем ширину столбца
+                self.tree.column(col, width=max_w, stretch=True)
+        except Exception:
+            # безопасно игнорируем проблемы измерения; оставим предыдущие размеры
+            pass
 
     def _show_context_menu(self, event):
         try:
@@ -353,6 +386,10 @@ class MKLOrdersView(ttk.Frame):
             )
             tag = f"status_{item.get('status','Не заказан')}"
             self.tree.insert("", "end", iid=str(idx), values=values, tags=(tag,))
+
+        # Автоподбор ширины столбцов после заполнения таблицы
+        self._autosize_columns()
+
         # Auto-select the latest (first row since orders are DESC by id)
         try:
             children = self.tree.get_children()
