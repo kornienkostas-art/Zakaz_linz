@@ -202,12 +202,12 @@ class ProductsMKLView(ttk.Frame):
             is_open = bool(open_gids and gid in open_gids)
             node = self.tree.insert(parent_tree_item, "end", text=group_dict["name"], open=is_open, tags=("group", f"gid:{gid}"))
             gid_to_node[gid] = node
-            # products under this group
-            for p in self._group_products.get(gid, []):
-                self.tree.insert(node, "end", text=p["name"], tags=("product", f"pid:{p['id']}", f"gid:{gid}"))
-            # child groups
+            # child groups first
             for child in children_map.get(gid, []):
                 add_group_node(node, child)
+            # then products under this group
+            for p in self._group_products.get(gid, []):
+                self.tree.insert(node, "end", text=p["name"], tags=("product", f"pid:{p['id']}", f"gid:{gid}"))
 
         # Top-level groups (parent_id is None)
         for g in children_map.get(None, []):
