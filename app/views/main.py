@@ -106,9 +106,37 @@ class MainWindow:
     def _open_meridian(self):
         def swap():
             self._clear_root_frames()
-            from app.views.orders_meridian import MeridianOrdersView
-            MeridianOrdersView(self.root, on_back=lambda: MainWindow(self.root))
+            try:
+                from app.views.orders_meridian import MeridianOrdersView
+                MeridianOrdersView(self.root, on_back=lambda: MainWindow(self.root))
+            except Exception as e:
+                # Fallback minimal screen to avoid blank window
+                container = ttk.Frame(self.root, padding=16)
+                container.grid(row=0, column=0, sticky="nsew")
+                ttk.Button(container, text="← Назад", style="Back.TButton", command=lambda: MainWindow(self.root)).pack(anchor="w")
+                ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                ttk.Label(container, text="Не удалось открыть 'Заказы Меридиан'. Упрощённый режим.",
+                          style="Subtitle.TLabel").pack(anchor="w", pady=(4, 12))
+                ttk.Button(container, text="Новый заказ", style="Menu.TButton",
+                           command=lambda: self._open_meridian_editor_fallback()).pack(anchor="w")
         fade_transition(self.root, swap)
+
+    def _open_meridian_editor_fallback(self):
+        # Open editor directly even if list view failed
+        try:
+            self._clear_root_frames()
+            from app.views.orders_meridian import MeridianOrdersView
+            # Reuse internal creation logic from list view by simulating "new order"
+            # If import fails, silently return to main
+            try:
+                # Build a minimal editor without going through list view
+                from app.views.forms_meridian import MeridianOrderEditorView
+                MeridianOrderEditorView(self.root, db=self.root.db, on_back=lambda: MainWindow(self.root),
+                                        on_save=lambda order: None, initial=None)
+            except Exception:
+                MainWindow(self.root)
+        except Exception:
+            MainWindow(self.root)
 
     def _open_prices(self):
         def swap():
