@@ -317,15 +317,22 @@ class MKLOrdersView(ttk.Frame):
             lines.append(product)
             for o in items:
                 parts = []
-                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("bc", "BC")):
+                # Add parameters if present
+                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("bc", "BC"), ("add", "ADD")):
                     val = (o.get(key, "") or "").strip()
                     if val != "":
                         parts.append(f"{label}: {val}")
+                # Quantity if present
                 qty = (o.get("qty", "") or "").strip()
                 if qty != "":
                     parts.append(f"Количество: {qty}")
+                # Combine in one line if any
                 if parts:
                     lines.append(" ".join(parts))
+                # Comment on a separate line if present
+                comment = (o.get("comment", "") or "").strip()
+                if comment:
+                    lines.append(f"Комментарий: {comment}")
             lines.append("")
 
         content = "\n".join(lines).strip() + "\n"
