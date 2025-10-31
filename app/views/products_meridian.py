@@ -411,6 +411,27 @@ class ProductsMeridianView(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Группа", f"Не удалось добавить группу:\n{e}")
 
+    def _add_subgroup(self):
+        kind, info = self._selection()
+        if kind != "group":
+            messagebox.showinfo("Группа", "Выберите родительскую группу.")
+            return
+        parent_gid = info["gid"]
+        if parent_gid is None:
+            parent_gid = None
+        dlg = NameDialog(self, "Новая подгруппа", "Введите название подгруппы:")
+        self.wait_window(dlg)
+        name = dlg.result
+        if not name:
+            return
+        name = _clean_spaces(name)
+        try:
+            og, _sel = self._capture_state()
+            self.db.add_product_group_meridian(name, parent_gid)
+            self._reload(preserve_state=True, open_gids=og | ({parent_gid} if parent_gid else set()), select_pref={"kind": "group", "gid": parent_gid, "pid": None})
+        except Exception as e:
+            messagebox.showerror("Группа", f"Не удалось добавить подгруппу:\n{e}")
+
     def _rename_group(self):
         kind, info = self._selection()
         if kind != "group":
