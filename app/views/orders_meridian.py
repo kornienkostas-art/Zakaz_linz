@@ -188,6 +188,7 @@ class MeridianOrdersView(ttk.Frame):
     def _new_order(self):
         def swap():
             try:
+                # Destroy current orders view first to avoid mixed geometry (pack vs grid)
                 self.destroy()
             except Exception:
                 pass
@@ -195,7 +196,6 @@ class MeridianOrdersView(ttk.Frame):
             from app.views.main import MainWindow
 
             def on_save(order: dict):
-                # Save to DB only; view will be recreated by on_back of editor
                 db = getattr(self.master, "db", None)
                 title = (order.get("title", "") or "").strip()
                 if not title:
@@ -356,7 +356,7 @@ class MeridianOrdersView(ttk.Frame):
             lines.append(product)
             for it in items:
                 parts = []
-                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax")):
+                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "Add")):
                     val = (it.get(key, "") or "").strip()
                     if val != "":
                         parts.append(f"{label}: {val}")

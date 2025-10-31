@@ -85,20 +85,20 @@ class ProductsMKLView(ttk.Frame):
         header.grid(row=0, column=0, sticky="w", columnspan=3)
         ttk.Separator(card).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 12))
 
-        # Actions
-        bar = ttk.Frame(card, style="Card.TFrame")
-        bar.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
-        ttk.Button(bar, text="Добавить группу", style="Menu.TButton", command=self._add_group).pack(side="left")
-        ttk.Button(bar, text="Переименовать группу", style="Menu.TButton", command=self._rename_group).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Удалить группу", style="Menu.TButton", command=self._delete_group).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Группа ↑", style="Menu.TButton", command=lambda: self._move_group(-1)).pack(side="left", padx=(16, 0))
-        ttk.Button(bar, text="Группа ↓", style="Menu.TButton", command=lambda: self._move_group(+1)).pack(side="left", padx=(8, 0))
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=12)
-        ttk.Button(bar, text="Добавить товар", style="Menu.TButton", command=self._add_product).pack(side="left")
-        ttk.Button(bar, text="Редактировать товар", style="Menu.TButton", command=self._edit_product).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Удалить товар", style="Menu.TButton", command=self._delete_product).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Товар ↑", style="Menu.TButton", command=lambda: self._move_product(-1)).pack(side="left", padx=(16, 0))
-        ttk.Button(bar, text="Товар ↓", style="Menu.TButton", command=lambda: self._move_product(+1)).pack(side="left", padx=(8, 0))
+        # Actions (single row + universal move arrows for selected item)
+        bar_actions = ttk.Frame(card, style="Card.TFrame")
+        bar_actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        ttk.Button(bar_actions, text="Добавить группу", style="Menu.TButton", command=self._add_group).pack(side="left")
+        ttk.Button(bar_actions, text="Добавить подгруппу", style="Menu.TButton", command=self._add_subgroup).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_actions, text="Переименовать группу", style="Menu.TButton", command=self._rename_group).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_actions, text="Удалить группу", style="Menu.TButton", command=self._delete_group).pack(side="left", padx=(8, 0))
+        ttk.Separator(bar_actions, orient="vertical").pack(side="left", fill="y", padx=12)
+        ttk.Button(bar_actions, text="Добавить товар", style="Menu.TButton", command=self._add_product).pack(side="left")
+        ttk.Button(bar_actions, text="Редактировать товар", style="Menu.TButton", command=self._edit_product).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_actions, text="Удалить товар", style="Menu.TButton", command=self._delete_product).pack(side="left", padx=(8, 0))
+        ttk.Separator(bar_actions, orient="vertical").pack(side="left", fill="y", padx=12)
+        ttk.Button(bar_actions, text="▲", width=4, style="Menu.TButton", command=lambda: self._move_selected(-1)).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_actions, text="▼", width=4, style="Menu.TButton", command=lambda: self._move_selected(+1)).pack(side="left", padx=(4, 0))
 
         # Tree
         self.tree = ttk.Treeview(card, columns=("name",), show="tree", style="Data.Treeview")
@@ -130,11 +130,14 @@ class ProductsMKLView(ttk.Frame):
             messagebox.showerror("База данных", f"Не удалось загрузить группы:\n{e}")
             self._groups = []
         try:
+            # map: gid -> products
             self._group_products = {}
+            # ungrouped products
+            self._ungrouped = self.db.list_products_mkl_by_group(None) if self.db else []
+
             for g in self._groups:
                 gid = g["id"]
                 self._group_products[gid] = self.db.list_products_mkl_by_group(gid) if self.db else []
-            self._ungrouped = self.db.list_products_mkl_by_group(None) if self.db else []
         except Exception as e:
             messagebox.showerror("База данных", f"Не удалось загрузить товары:\n{e}")
             self._group_products = {}
@@ -185,14 +188,30 @@ class ProductsMKLView(ttk.Frame):
             ungrouped_root = self.tree.insert("", "end", text="Без группы", open=True, tags=("group", "ungrouped", "gid:None"))
             for p in self._ungrouped:
                 self.tree.insert(ungrouped_root, "end", text=p["name"], tags=("product", f"pid:{p['id']}", "gid:None"))
-        gid_to_node = {}
+        # Build hierarchy: parent_id -> list of groups
+        children_map = {}
         for g in self._groups:
-            gid = g["id"]
+            pid = g.get("parent_id")
+            children_map.setdefault(pid, []).append(g)
+
+        # Recursive build
+        gid_to_node = {}
+
+        def add_group_node(parent_tree_item, group_dict):
+            gid = group_dict["id"]
             is_open = bool(open_gids and gid in open_gids)
-            node = self.tree.insert("", "end", text=g["name"], open=is_open, tags=("group", f"gid:{gid}"))
+            node = self.tree.insert(parent_tree_item, "end", text=group_dict["name"], open=is_open, tags=("group", f"gid:{gid}"))
             gid_to_node[gid] = node
+            # child groups first
+            for child in children_map.get(gid, []):
+                add_group_node(node, child)
+            # then products under this group
             for p in self._group_products.get(gid, []):
                 self.tree.insert(node, "end", text=p["name"], tags=("product", f"pid:{p['id']}", f"gid:{gid}"))
+
+        # Top-level groups (parent_id is None)
+        for g in children_map.get(None, []):
+            add_group_node("", g)
 
         try:
             if select_pref:
@@ -235,10 +254,13 @@ class ProductsMKLView(ttk.Frame):
             if not item:
                 return
             tags = set(self.tree.item(item, "tags") or [])
-            if "group" not in tags:
+            if "group" in tags:
+                is_open = self.tree.item(item, "open")
+                self.tree.item(item, open=not is_open)
                 return
-            is_open = self.tree.item(item, "open")
-            self.tree.item(item, open=not is_open)
+            # If product double-click, open edit
+            if "product" in tags:
+                self._edit_product()
         except Exception:
             pass
 
@@ -252,11 +274,46 @@ class ProductsMKLView(ttk.Frame):
         name = _clean_spaces(name)
         try:
             og, sel = self._capture_state()
-            self.db.add_product_group_mkl(name)
+            self.db.add_product_group_mkl(name, None)
             self._reload()
             self._refresh_view(open_gids=og, select_pref=sel)
         except Exception as e:
             messagebox.showerror("Группа", f"Не удалось добавить группу:\n{e}")
+
+    def _add_subgroup(self):
+        kind, info = self._selection()
+        parent_id = None
+        if kind == "group":
+            parent_id = info["gid"]
+            if parent_id is None:
+                messagebox.showinfo("Подгруппа", "Выберите группу (не 'Без группы').")
+                return
+        elif kind == "product":
+            parent_id = info["gid"]
+            if parent_id is None:
+                messagebox.showinfo("Подгруппа", "Выберите товар в нужной группе, либо выделите группу.")
+                return
+        else:
+            messagebox.showinfo("Подгруппа", "Сначала выберите группу или товар внутри группы.")
+            return
+
+        dlg = NameDialog(self, "Новая подгруппа", "Введите название подгруппы:")
+        self.wait_window(dlg)
+        name = dlg.result
+        if not name:
+            return
+        name = _clean_spaces(name)
+        try:
+            og, sel = self._capture_state()
+            gid_new = self.db.add_product_group_mkl(name, parent_id)
+            # раскрыть родителя и выбрать созданную подгруппу
+            if og is None:
+                og = set()
+            og.add(parent_id)
+            self._reload()
+            self._refresh_view(open_gids=og, select_pref={"kind": "group", "gid": gid_new, "pid": None})
+        except Exception as e:
+            messagebox.showerror("Подгруппа", f"Не удалось добавить подгруппу:\n{e}")
 
     def _rename_group(self):
         kind, info = self._selection()
@@ -273,8 +330,15 @@ class ProductsMKLView(ttk.Frame):
             return
         name = _clean_spaces(name)
         try:
+            # Keep same parent, change only name
             og, sel = self._capture_state()
-            self.db.update_product_group_mkl(info["gid"], name)
+            # Find current parent_id
+            parent_id = None
+            for g in self._groups:
+                if g["id"] == info["gid"]:
+                    parent_id = g.get("parent_id")
+                    break
+            self.db.update_product_group_mkl(info["gid"], name, parent_id)
             self._reload()
             self._refresh_view(open_gids=og, select_pref=sel)
         except Exception as e:
@@ -289,7 +353,7 @@ class ProductsMKLView(ttk.Frame):
         if gid is None:
             messagebox.showinfo("Группа", "Нельзя удалить 'Без группы'.")
             return
-        if not messagebox.askyesno("Удалить группу", f"Удалить группу '{info['text']}'?\nТовары останутся в 'Без группы'."):
+        if not messagebox.askyesno("Удалить группу", f"Удалить группу '{info['text']}' и все её подгруппы?\nТовары останутся в 'Без группы'."):
             return
         try:
             og, _sel = self._capture_state()
@@ -389,3 +453,30 @@ class ProductsMKLView(ttk.Frame):
             self._refresh_view(open_gids=og, select_pref=sel)
         except Exception as e:
             messagebox.showerror("Товар", f"Не удалось переместить товар:\n{e}")
+
+    def _move_selected(self, direction: int):
+        """Move selected entity (group or product) up/down."""
+        kind, info = self._selection()
+        if not kind:
+            messagebox.showinfo("Перемещение", "Выберите группу или товар.")
+            return
+        if kind == "group":
+            gid = info["gid"]
+            if gid is None:
+                messagebox.showinfo("Группа", "Нельзя перемещать 'Без группы'.")
+                return
+            try:
+                og, sel = self._capture_state()
+                self.db.move_group_mkl(gid, direction)
+                self._reload()
+                self._refresh_view(open_gids=og, select_pref=sel)
+            except Exception as e:
+                messagebox.showerror("Группа", f"Не удалось переместить группу:\n{e}")
+        elif kind == "product":
+            try:
+                og, sel = self._capture_state()
+                self.db.move_product_mkl(info["pid"], direction)
+                self._reload()
+                self._refresh_view(open_gids=og, select_pref=sel)
+            except Exception as e:
+                messagebox.showerror("Товар", f"Не удалось переместить товар:\n{e}")
