@@ -11,7 +11,7 @@ from tkinter import font as tkfont
 
 
 
-class MeridianProductPickerInline(ttk.Label(right, text="Количество (1…20)").grid(row=2, column=4, sticky="w", pady=(6, 0))
+class MeridianProductPickerInline(ttk.Label(right, text="Количество (1…20)").grid(row=2, column=4, sticky="w", padx=(12, 0), pady=(6, 0))
         ttk.Spinbox(right, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=2, column=5, sticky="w", pady=(6, 0))Frame):
     """Встроенная панель выбора товара с группами + свободный ввод имени и корзиной позиций."""
     def __init__(self, master, db, on_done, on_cancel=None, initial_item: dict | None = None):
@@ -42,22 +42,13 @@ class MeridianProductPickerInline(ttk.Label(right, text="Количество (1
                 except Exception:
                     self.qty_var.set(1)
                 # Панель сама закроется после добавления в заказ (через on_cancel внутри _done)
-        try:
-            panel = MeridianProductPickerInline(
-                self._card,
-                db,
-                on_done=lambda items: (self.items.extend(items), self._refresh_items_view()),
-                on_cancel=self._close_picker,
-                initial_item=initial_item,
-            )
-        except Exception as e:
-            # Вернем основной интерфейс и покажем ошибку
-            try:
-                self._close_picker()
-            except Exception:
-                pass
-            messagebox.showerror("Новый заказ", f"Ошибка построения панели выбора:\n{e}")
-            return
+        panel = MeridianProductPickerInline(
+            self._card,
+            db,
+            on_done=lambda items: (self.items.extend(items), self._refresh_items_view()),
+            on_cancel=self._close_picker,
+            initial_item=initial_item,
+        )
         # Размещаем панель на всю доступную область
         try:
             panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
