@@ -172,12 +172,18 @@ class AppDB:
                 sph TEXT,
                 cyl TEXT,
                 ax TEXT,
+                "add" TEXT,
                 d TEXT,
                 qty TEXT,
                 FOREIGN KEY(order_id) REFERENCES meridian_orders(id) ON DELETE CASCADE
             );
             """
         )
+        # migration: add ADD column if missing
+        try:
+            cur.execute('ALTER TABLE meridian_items ADD COLUMN "add" TEXT;')
+        except Exception:
+            pass
 
         # Prices table
         cur.execute(
