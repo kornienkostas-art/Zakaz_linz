@@ -1,6 +1,7 @@
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 from datetime import datetime
 
 from app.utils import fade_transition, format_phone_mask, center_on_screen
@@ -362,6 +363,33 @@ class MKLOrdersView(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Экспорт", f"Ошибка записи файла:\n{e}")
 
+    def _autosize_columns(self):
+        """Resize columns to fit content and headers."""
+        if not self.tree:
+            return
+        try:
+            fnt = tkfont.nametofont("TkDefaultFont")
+        except Exception:
+            fnt = None
+        pad = 24
+        min_widths = {
+            "fio": 120, "phone": 120, "product": 140, "sph": 60, "cyl": 60,
+            "ax": 60, "add": 60, "bc": 60, "qty": 80, "status": 100, "date": 120, "comment_flag": 120
+        }
+        for col in self.COLUMNS:
+            header = self.HEADERS[col]
+            if fnt:
+                maxw = fnt.measure(header)
+            else:
+                maxw = len(header) * 7
+            for iid in self.tree.get_children(""):
+                text = str(self.tree.set(iid, col))
+                w = fnt.measure(text) if fnt else len(text) * 7
+                if w > maxw:
+                    maxw = w
+            width = max(min_widths.get(col, 60), maxw + pad)
+            self.tree.column(col, width=width)
+
     def _refresh_orders_view(self):
         """Reload orders from DB and render the table."""
         self.orders = []
@@ -400,5 +428,10 @@ class MKLOrdersView(ttk.Frame):
                 self.tree.selection_set(children[0])
                 self.tree.focus(children[0])
                 self.tree.see(children[0])
+        except Exception:
+            pass
+        # Autosize columns after data is loaded
+        try:
+            self._autosize_columns()
         except Exception:
             pass
