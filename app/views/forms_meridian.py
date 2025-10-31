@@ -485,6 +485,17 @@ class MeridianProductPickerInline(ttk.Frame):
             self._basket.append(item)
         self._refresh_basket()
 
+        # Reset inputs to initial state: clear parameters, qty=1
+        try:
+            self.sph_var.set("")
+            self.cyl_var.set("")
+            self.ax_var.set("")
+            self.add_var.set("")
+            self.d_var.set("")
+            self.qty_var.set(1)
+        except Exception:
+            pass
+
     def _refresh_basket(self):
         for i in self.basket.get_children():
             self.basket.delete(i)
