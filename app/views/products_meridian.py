@@ -200,6 +200,7 @@ class ProductsMeridianView(ttk.Frame):
         bar = ttk.Frame(card, style="Card.TFrame")
         bar.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
         ttk.Button(bar, text="Добавить группу", style="Menu.TButton", command=self._add_group).pack(side="left")
+        ttk.Button(bar, text="Добавить подгруппу", style="Menu.TButton", command=self._add_subgroup).pack(side="left", padx=(8, 0))
         ttk.Button(bar, text="Переименовать группу", style="Menu.TButton", command=self._rename_group).pack(side="left", padx=(8, 0))
         ttk.Button(bar, text="Удалить группу", style="Menu.TButton", command=self._delete_group).pack(side="left", padx=(8, 0))
         ttk.Button(bar, text="Группа ↑", style="Menu.TButton", command=lambda: self._move_group(-1)).pack(side="left", padx=(16, 0))
@@ -280,22 +281,31 @@ class ProductsMeridianView(ttk.Frame):
                 open_gids = og
             if select_pref is None:
                 select_pref = sel
-        # Load groups and products
+        # Load groups and products with hierarchy
         try:
-            self._groups = self.db.list_product_groups_meridian()
+            self._groups_by_parent = {}
+            def fetch_children(pid):
+                try:
+                    children = self.db.list_product_groups_meridian_by_parent(pid) if self.db else []
+                except Exception:
+                    children = []
+                self._groups_by_parent[pid] = children
+                for g in children:
+                    fetch_children(g["id"])
+            fetch_children(None)
         except Exception as e:
             messagebox.showerror("База данных", f"Не удалось загрузить группы:\n{e}")
-            self._groups = []
+            self._groups_by_parent = {None: []}
         try:
-            # Build mapping group_id -> products
             self._group_products = {}
-            for g in self._groups:
-                self._group_products[g["id"]] = self.db.list_products_meridian_by_group(g["id"])
-            self._ungrouped = self.db.list_products_meridian_by_group(None)
+            self._group_products[None] = self.db.list_products_meridian_by_group(None)
+            for parent, groups in list(self._groups_by_parent.items()):
+                for g in groups:
+                    gid = g["id"]
+                    self._group_products[gid] = self.db.list_products_meridian_by_group(gid)
         except Exception as e:
             messagebox.showerror("База данных", f"Не удалось загрузить товары:\n{e}")
-            self._group_products = {}
-            self._ungrouped = []
+            self._group_products = {None: []}
         self._refresh_view(open_gids=open_gids, select_pref=select_pref)
 
     def _find_node_by_tag(self, tag: str):
@@ -315,21 +325,25 @@ class ProductsMeridianView(ttk.Frame):
 
     def _refresh_view(self, open_gids: set | None = None, select_pref: dict | None = None):
         self.tree.delete(*self.tree.get_children())
-        # Ungrouped section if exists
-        ungrouped_root = None
-        if self._ungrouped:
-            ungrouped_root = self.tree.insert("", "end", text="Без группы", open=True, tags=("group", "ungrouped", "gid:None"))
-            for p in self._ungrouped:
-                self.tree.insert(ungrouped_root, "end", text=p["name"], tags=("product", f"pid:{p['id']}", "gid:None"))
-        # Groups
-        gid_to_node = {}
-        for g in self._groups:
-            gid = g["id"]
-            is_open = bool(open_gids and gid in open_gids)
-            node = self.tree.insert("", "end", text=g["name"], open=is_open, tags=("group", f"gid:{gid}"))
-            gid_to_node[gid] = node
-            for p in self._group_products.get(gid, []):
-                self.tree.insert(node, "end", text=p["name"], tags=("product", f"pid:{p['id']}", f"gid:{gid}"))
+
+        def insert_group_branch(parent_node, parent_gid):
+            # ungrouped branch
+            if parent_gid is None:
+                ungrouped = self._group_products.get(None, [])
+                if ungrouped:
+                    node = self.tree.insert(parent_node, "end", text="Без группы", open=True, tags=("group", "ungrouped", "gid:None"))
+                    for p in ungrouped:
+                        self.tree.insert(node, "end", text=p["name"], tags=("product", f"pid:{p['id']}", "gid:None"))
+            # children groups
+            for g in self._groups_by_parent.get(parent_gid, []):
+                gid = g["id"]
+                is_open = bool(open_gids and gid in open_gids)
+                node = self.tree.insert(parent_node, "end", text=g["name"], open=is_open, tags=("group", f"gid:{gid}"))
+                for p in self._group_products.get(gid, []):
+                    self.tree.insert(node, "end", text=p["name"], tags=("product", f"pid:{p['id']}", f"gid:{gid}"))
+                insert_group_branch(node, gid)
+
+        insert_group_branch("", None)
 
         # Restore selection
         try:
@@ -339,10 +353,10 @@ class ProductsMeridianView(ttk.Frame):
                     target_item = self._find_node_by_tag(f"pid:{select_pref['pid']}")
                 if not target_item:
                     gid = select_pref.get("gid")
-                    if gid is None and ungrouped_root:
-                        target_item = ungrouped_root
-                    elif gid in gid_to_node:
-                        target_item = gid_to_node[gid]
+                    if gid is None:
+                        target_item = self._find_node_by_tag("ungrouped")
+                    else:
+                        target_item = self._find_node_by_tag(f"gid:{gid}")
                 if target_item:
                     self.tree.selection_set(target_item)
                     self.tree.see(target_item)
