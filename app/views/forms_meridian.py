@@ -81,8 +81,8 @@ class MeridianProductPickerInline(ttk.Frame):
 
         # Tree
         self.tree = ttk.Treeview(self, show="tree", style="Data.Treeview")
-        # Make tree column stretch to show long names; add horizontal scrollbar
-        self.tree.column("#0", width=480, stretch=True)
+        # Base width; we will auto-adjust and also expand the left column if needed
+        self.tree.column("#0", width=600, stretch=False)
         y_scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         x_scroll = ttk.Scrollbar(self, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
@@ -90,9 +90,10 @@ class MeridianProductPickerInline(ttk.Frame):
         y_scroll.grid(row=1, column=0, rowspan=3, sticky="nse")
         x_scroll.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.tree.bind("<Double-1>", self._on_tree_dbl)
-        # Auto-size tree column to fit content and available width
+        # Auto-size tree column to fit content and available width; also adjust left column minsize
         try:
             self.tree.bind("<Configure>", lambda e: self._autosize_tree_column())
+            self.bind("<Configure>", lambda e: self._autosize_tree_column())
         except Exception:
             pass
 
@@ -489,7 +490,7 @@ class MeridianProductPickerInline(ttk.Frame):
             f = tkfont.nametofont("TkDefaultFont")
         except Exception:
             f = tkfont.Font()
-        padding = 28
+        padding = 32
         maxw = f.measure("Группы / Товары") + padding
         try:
             for iid in self.tree.get_children(""):
@@ -497,7 +498,7 @@ class MeridianProductPickerInline(ttk.Frame):
                 w = f.measure(text) + padding
                 if w > maxw:
                     maxw = w
-                # measure children recursively (only first level shown; deeper will be toggled)
+                # include child items (products) which are visible when group is open
                 for child in self.tree.get_children(iid):
                     t = str(self.tree.item(child, "text") or "")
                     w2 = f.measure(t) + padding + 24  # indent
@@ -505,13 +506,17 @@ class MeridianProductPickerInline(ttk.Frame):
                         maxw = w2
         except Exception:
             pass
-        # Limit by available width of left pane
+        # Set tree column width to required max and expand left grid column minsize accordingly
+        width = max(240, int(maxw))
         try:
-            avail = max(200, self.tree.winfo_width())
+            self.tree.column("#0", width=width, minwidth=width, stretch=False)
         except Exception:
-            avail = maxw
-        width = min(maxw, int(avail * 0.98))
-        self.tree.column("#0", width=width, minwidth=200, stretch=True)
+            pass
+        try:
+            # Expand left column in the grid so the tree can fully show its content
+            self.columnconfigure(0, minsize=width + 16)
+        except Exception:
+            pass
 
     def _autosize_basket_columns(self):
         try:
