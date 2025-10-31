@@ -243,25 +243,26 @@ class MeridianOrdersView(ttk.Frame):
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
 
-            # ВАЖНО: не очищаем корень до успешного создания редактора
+            # Чистим корень и создаём редактор заново, чтобы не оставалось пустых областей
             try:
-                editor = MeridianOrderEditorView(
+                for w in list(self.master.winfo_children()):
+                    try:
+                        w.destroy()
+                    except Exception:
+                        pass
+                # Гарантируем растяжение корня
+                try:
+                    self.master.columnconfigure(0, weight=1)
+                    self.master.rowconfigure(0, weight=1)
+                except Exception:
+                    pass
+                MeridianOrderEditorView(
                     self.master,
                     db=getattr(self.master, "db", None),
                     on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
                     on_save=on_save,
                     initial=None,
                 )
-                # Удалим все остальные виджеты корня, кроме созданного редактора
-                try:
-                    for w in list(self.master.winfo_children()):
-                        if w is not editor:
-                            try:
-                                w.destroy()
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
             except Exception as e:
                 # Показать минимальный экран вместо пустого, если редактор не построился
                 try:
@@ -342,25 +343,25 @@ class MeridianOrdersView(ttk.Frame):
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
 
-            # Не очищаем корень до успешного создания редактора
+            # Полная очистка корня и создание редактора, чтобы не оставалось пустых областей
             try:
-                editor = MeridianOrderEditorView(
+                for w in list(self.master.winfo_children()):
+                    try:
+                        w.destroy()
+                    except Exception:
+                        pass
+                try:
+                    self.master.columnconfigure(0, weight=1)
+                    self.master.rowconfigure(0, weight=1)
+                except Exception:
+                    pass
+                MeridianOrderEditorView(
                     self.master,
                     db=getattr(self.master, "db", None),
                     on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
                     on_save=on_save,
                     initial=initial,
                 )
-                # Удалим все остальные виджеты корня, кроме созданного редактора
-                try:
-                    for w in list(self.master.winfo_children()):
-                        if w is not editor:
-                            try:
-                                w.destroy()
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
             except Exception as e:
                 # Показать минимальный экран вместо пустого
                 try:
