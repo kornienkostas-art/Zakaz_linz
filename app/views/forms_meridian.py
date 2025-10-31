@@ -148,10 +148,17 @@ class MeridianProductPickerInline(ttk.Frame):
 
         ttk.Label(right, text="AX (0…180)").grid(row=2, column=0, sticky="w", pady=(6, 0))
         ttk.Entry(right, textvariable=self.ax_var, width=6, justify="center").grid(row=2, column=1, sticky="w", pady=(6, 0))
-        ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=2, sticky="w", pady=(6, 0))
-        ttk.Entry(right, textvariable=self.d_var, width=6, justify="center").grid(row=2, column=3, sticky="w", pady=(6, 0))
-        ttk.Label(right, text="Количество (1…20)").grid(row=2, column=4, sticky="w", padx=(12, 0), pady=(6, 0))
-        ttk.Spinbox(right, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=2, column=5, sticky="w", pady=(6, 0))
+
+        ttk.Label(right, text="ADD (0…10, шаг 0.25)").grid(row=2, column=2, sticky="w", pady=(6, 0))
+        add_row = ttk.Frame(right); add_row.grid(row=2, column=3, sticky="w", pady=(6, 0))
+        ttk.Button(add_row, text="−", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1)).grid(row=0, column=0)
+        ttk.Entry(add_row, textvariable=self.add_var, width=6, justify="center").grid(row=0, column=1, sticky="w", padx=4)
+        ttk.Button(add_row, text="+", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+
+        ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=4, sticky="w", pady=(6, 0))
+        ttk.Entry(right, textvariable=self.d_var, width=6, justify="center").grid(row=2, column=5, sticky="w", pady=(6, 0))
+        ttk.Label(right, text="Количество (1…20)").grid(row=2, column=6, sticky="w", padx=(12, 0), pady=(6, 0))
+        ttk.Spinbox(right, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=2, column=7, sticky="w", pady=(6, 0))
 
         # Basket controls
         ctl = ttk.Frame(self, style="Card.TFrame")
@@ -429,6 +436,7 @@ class MeridianProductPickerInline(ttk.Frame):
         sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)
         cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
+        add = self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True)
         d = self._snap_int(self.d_var.get(), 40, 90, allow_empty=True)
         if d != "":
             try:
@@ -439,10 +447,10 @@ class MeridianProductPickerInline(ttk.Frame):
                 pass
         qty = self._snap_int(str(self.qty_var.get()), 1, 20, allow_empty=False)
 
-        # merge with same items in basket (same product+sph+cyl+ax+d)
+        # merge with same items in basket (same product+sph+cyl+ax+add+d)
         merged = False
         for it in self._basket:
-            if it["product"] == product and it["sph"] == sph and it["cyl"] == cyl and it["ax"] == ax and it["d"] == d:
+            if it["product"] == product and it["sph"] == sph and it["cyl"] == cyl and it["ax"] == ax and (it.get("add","") == add) and it["d"] == d:
                 try:
                     it["qty"] = str(int(it.get("qty", "0")) + int(qty))
                 except Exception:
@@ -450,7 +458,7 @@ class MeridianProductPickerInline(ttk.Frame):
                 merged = True
                 break
         if not merged:
-            item = {"product": product, "sph": sph, "cyl": cyl, "ax": ax, "d": d, "qty": qty}
+            item = {"product": product, "sph": sph, "cyl": cyl, "ax": ax, "add": add, "d": d, "qty": qty}
             self._basket.append(item)
         self._refresh_basket()
 
