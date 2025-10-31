@@ -100,8 +100,8 @@ class MeridianProductPickerInline(ttk.Frame):
         # Right panel params
         right = ttk.Frame(self, style="Card.TFrame")
         right.grid(row=1, column=1, sticky="ew")
-        right.columnconfigure(1, weight=1)
-        right.columnconfigure(3, weight=1)
+        right.columnconfigure(1, weight=0)
+        right.columnconfigure(3, weight=0)
 
         self.sel_product_var = tk.StringVar(value="")
         row_sel = ttk.Frame(right, style="Card.TFrame")
@@ -134,13 +134,13 @@ class MeridianProductPickerInline(ttk.Frame):
             var.set(f"{snapped:.2f}")
 
         ttk.Label(right, text="SPH (−30…+30, 0.25)").grid(row=1, column=0, sticky="w", pady=(6, 0))
-        sph_row = ttk.Frame(right); sph_row.grid(row=1, column=1, sticky="ew", pady=(6, 0)); sph_row.columnconfigure(1, weight=1)
+        sph_row = ttk.Frame(right); sph_row.grid(row=1, column=1, sticky="w", pady=(6, 0)); sph_row.columnconfigure(1, weight=0)
         ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0)
-        ttk.Entry(sph_row, textvariable=self.sph_var).grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Entry(sph_row, textvariable=self.sph_var, width=6, justify="center").grid(row=0, column=1, sticky="w", padx=4)
         ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
 
         ttk.Label(right, text="CYL (−10…+10, 0.25)").grid(row=1, column=2, sticky="w", pady=(6, 0))
-        cyl_row = ttk.Frame(right); cyl_row.grid(row=1, column=3, sticky="ew", pady=(6, 0)); cyl_row.columnconfigure(1, weight=1)
+        cyl_row = ttk.Frame(right); cyl_row.grid(row=1, column=3, sticky="w", pady=(6, 0)); cyl_row.columnconfigure(1, weight=0)
         ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
         ttk.Entry(cyl_row, textvariable=self.cyl_var, width=6, justify="center").grid(row=0, column=1, sticky="w", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
