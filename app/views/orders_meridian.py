@@ -34,14 +34,14 @@ class MeridianOrdersView(ttk.Frame):
             self._build_toolbar()
             self._build_table()
         except Exception as e:
-            # Minimal fallback UI
+            # Minimal fallback UI with error details
             try:
                 container = ttk.Frame(self, style="Card.TFrame", padding=16)
                 container.pack(fill="both", expand=True)
                 ttk.Button(container, text="← Назад", style="Accent.TButton", command=self._go_back).pack(anchor="w")
                 ttk.Separator(container).pack(fill="x", pady=(8, 12))
-                ttk.Label(container, text="Не удалось отобразить список заказов (упрощённый режим).",
-                          style="Subtitle.TLabel").pack(anchor="w", pady=(4, 12))
+                msg = f"Не удалось отобразить список заказов (упрощённый режим).\nОшибка: {e}"
+                ttk.Label(container, text=msg, style="Subtitle.TLabel", justify="left").pack(anchor="w", pady=(4, 12))
                 # Provide at least create button to continue work
                 ttk.Button(container, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(anchor="w")
             except Exception:
@@ -245,21 +245,6 @@ class MeridianOrdersView(ttk.Frame):
                             # Если что-то пойдет не так — останутся позиции без ADD из стандартной вставки
                             pass
                     except Exception as e:
-                        messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\\n{e}")rder: dict):
-                # Save to DB only; view will be recreated by on_back of editor
-                db = getattr(self.master, "db", None)
-                title = (order.get("title", "") or "").strip()
-                if not title:
-                    try:
-                        existing = db.list_meridian_orders() if db else []
-                        title = f"Заказ Меридиан #{len(existing) + 1}"
-                    except Exception:
-                        title = "Заказ Меридиан"
-                    order["title"] = title
-                if db:
-                    try:
-                        db.add_meridian_order(order, order.get("items", []))
-                    except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
 
             MeridianOrderEditorView(
@@ -301,10 +286,6 @@ class MeridianOrdersView(ttk.Frame):
                     for r in rows
                 ]
             except Exception as e:
-                messagebox.showerror("База данных", f"Не удалось загрузить позиции заказа:\\n{e}")f self.master.db and order_id:
-            try:
-                items = self.master.db.get_meridian_items(order_id)
-            except Exception as e:
                 messagebox.showerror("База данных", f"Не удалось загрузить позиции заказа:\n{e}")
 
         initial = {"status": current.get("status", "Не заказан"), "date": current.get("date", ""), "items": items}
@@ -342,15 +323,6 @@ class MeridianOrdersView(ttk.Frame):
                                 ),
                             )
                         db.conn.commit()
-                    except Exception as e:
-                        messagebox.showerror("База данных", f"Не удалось обновить заказ:\\n{e}")pdated: dict):
-                if self.master.db and order_id:
-                    try:
-                        self.master.db.update_meridian_order(order_id, {
-                            "status": updated.get("status", current.get("status", "Не заказан")),
-                            "date": updated.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
-                        })
-                        self.master.db.replace_meridian_items(order_id, updated.get("items", []))
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
 
