@@ -121,7 +121,7 @@ class AppDB:
                 sph TEXT,
                 cyl TEXT,
                 ax TEXT,
-                add TEXT,
+                "add" TEXT,
                 bc TEXT,
                 qty TEXT,
                 status TEXT NOT NULL,
@@ -136,7 +136,7 @@ class AppDB:
             pass
         # Add 'add' (ADD) column if it doesn't exist (placed between ax and bc in schema order)
         try:
-            cur.execute("ALTER TABLE mkl_orders ADD COLUMN add TEXT;")
+            cur.execute("ALTER TABLE mkl_orders ADD COLUMN \"add\" TEXT;")
         except Exception:
             pass
         # Meridian orders (header) + items
@@ -510,7 +510,7 @@ class AppDB:
     # --- MKL Orders ---
     def list_mkl_orders(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, fio, phone, product, sph, cyl, ax, add, bc, qty, status, date, COALESCE(comment,'') AS comment FROM mkl_orders ORDER BY id DESC;"
+            "SELECT id, fio, phone, product, sph, cyl, ax, \"add\", bc, qty, status, date, COALESCE(comment,'') AS comment FROM mkl_orders ORDER BY id DESC;"
         ).fetchall()
         return [
             {
@@ -534,7 +534,7 @@ class AppDB:
     def add_mkl_order(self, order: dict) -> int:
         cur = self.conn.execute(
             """
-            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, add, bc, qty, status, date, comment)
+            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, "add", bc, qty, status, date, comment)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
