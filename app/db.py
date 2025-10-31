@@ -89,16 +89,23 @@ class AppDB:
         except Exception:
             pass
 
-        # Meridian product groups and products
+        # Meridian product groups (now hierarchical) and products
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS product_groups_meridian (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                sort_order INTEGER NOT NULL DEFAULT 0
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                parent_id INTEGER REFERENCES product_groups_meridian(id) ON DELETE CASCADE
             );
             """
         )
+        # Migration: add parent_id to product_groups_meridian if missing
+        try:
+            cur.execute("ALTER TABLE product_groups_meridian ADD COLUMN parent_id INTEGER REFERENCES product_groups_meridian(id) ON DELETE CASCADE;")
+        except Exception:
+            pass
+
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS products_meridian (
@@ -425,21 +432,24 @@ class AppDB:
 
     # --- Products Meridian with Groups ---
     def list_product_groups_meridian(self) -> list[dict]:
-        rows = self.conn.execute("SELECT id, name, sort_order FROM product_groups_meridian ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
-        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"]} for r in rows]
+        rows = self.conn.execute("SELECT id, name, sort_order, parent_id FROM product_groups_meridian ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"], "parent_id": r["parent_id"]} for r in rows]
 
-    def _next_group_sort_meridian(self) -> int:
-        row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_meridian;").fetchone()
+    def _next_group_sort_meridian(self, parent_id: int | None) -> int:
+        if parent_id is None:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_meridian WHERE parent_id IS NULL;").fetchone()
+        else:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_meridian WHERE parent_id=?;", (parent_id,)).fetchone()
         return (row["m"] or 0) + 1
 
-    def add_product_group_meridian(self, name: str) -> int:
-        sort_order = self._next_group_sort_meridian()
-        cur = self.conn.execute("INSERT INTO product_groups_meridian (name, sort_order) VALUES (?, ?);", (name, sort_order))
+    def add_product_group_meridian(self, name: str, parent_id: int | None = None) -> int:
+        sort_order = self._next_group_sort_meridian(parent_id)
+        cur = self.conn.execute("INSERT INTO product_groups_meridian (name, sort_order, parent_id) VALUES (?, ?, ?);", (name, sort_order, parent_id))
         self.conn.commit()
         return cur.lastrowid
 
-    def update_product_group_meridian(self, group_id: int, name: str):
-        self.conn.execute("UPDATE product_groups_meridian SET name=? WHERE id=?;", (name, group_id))
+    def update_product_group_meridian(self, group_id: int, name: str, parent_id: int | None = None):
+        self.conn.execute("UPDATE product_groups_meridian SET name=?, parent_id=? WHERE id=?;", (name, parent_id, group_id))
         self.conn.commit()
 
     def delete_product_group_meridian(self, group_id: int):
@@ -448,10 +458,18 @@ class AppDB:
         self.conn.commit()
 
     def move_group_meridian(self, group_id: int, direction: int):
-        rows = self.conn.execute("SELECT id, sort_order FROM product_groups_meridian ORDER BY sort_order ASC, id ASC;").fetchall()
+        # Move within siblings for the same parent_id
+        r = self.conn.execute("SELECT id, parent_id, sort_order FROM product_groups_meridian WHERE id=?;", (group_id,)).fetchone()
+        if not r:
+            return
+        parent_id = r["parent_id"]
+        rows = self.conn.execute(
+            "SELECT id, sort_order FROM product_groups_meridian WHERE (parent_id IS ? OR parent_id = ?) ORDER BY sort_order ASC, id ASC;",
+            (None if parent_id is None else parent_id, parent_id),
+        ).fetchall()
         idx = None
-        for i, r in enumerate(rows):
-            if r["id"] == group_id:
+        for i, row in enumerate(rows):
+            if row["id"] == group_id:
                 idx = i
                 break
         if idx is None:
