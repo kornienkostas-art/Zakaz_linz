@@ -129,9 +129,12 @@ class MeridianProductPickerInline(ttk.Frame):
         self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(cyl_row, text="+", width=2, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
-        # AX на первой строке вместе с SPH/CYL
-        ttk.Label(right, text="AX (0…180)").grid(row=1, column=4, sticky="w", pady=(6, 0))
-        ttk.Entry(right, textvariable=self.ax_var).grid(row=1, column=5, sticky="ew", pady=(6, 0))
+        # AX на первой строке вместе с SPH/CYL — компактный блок без большого зазора
+        ax_row = ttk.Frame(right); ax_row.grid(row=1, column=4, columnspan=2, sticky="w", pady=(6, 0))
+        ax_row.columnconfigure(1, weight=0)
+        ttk.Label(ax_row, text="AX (0…180)").grid(row=0, column=0, sticky="w")
+        self.ax_entry = ttk.Entry(ax_row, textvariable=self.ax_var, width=6)
+        self.ax_entry.grid(row=0, column=1, sticky="w", padx=(6, 0))
 
         # Вторая строка: слева направо — ADD (− / +), D, Количество
         ttk.Label(right, text="ADD (0…10, 0.25)").grid(row=2, column=0, sticky="w", pady=(6, 0))
