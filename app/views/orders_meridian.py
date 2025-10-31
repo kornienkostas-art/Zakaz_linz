@@ -34,29 +34,41 @@ class MeridianOrdersView(ttk.Frame):
             self._build_toolbar()
             self._build_table()
         except Exception as e:
-            # Log error for diagnostics
+            # Collect traceback and try to persist to a writable temp dir
+            trace_txt = ""
+            log_path = ""
             try:
-                import traceback, os
-                log_path = os.path.join(os.getcwd(), "orders_meridian_error.log")
+                import traceback, tempfile, os
+                trace_txt = traceback.format_exc()
+                # Prefer temp directory to avoid permissions
+                log_path = os.path.join(tempfile.gettempdir(), "orders_meridian_error.log")
                 with open(log_path, "w", encoding="utf-8") as f:
                     f.write("Ошибка построения экрана 'Заказы Меридиан'\n")
                     f.write(str(e) + "\n\n")
-                    f.write(traceback.format_exc())
+                    f.write(trace_txt)
             except Exception:
-                log_path = "(лог не записан)"
-            # Minimal fallback UI with error details
+                log_path = "(не удалось записать лог в temp)"
+            # Minimal fallback UI with inline error details
             try:
                 container = ttk.Frame(self, style="Card.TFrame", padding=16)
                 container.pack(fill="both", expand=True)
                 ttk.Button(container, text="← Назад", style="Accent.TButton", command=self._go_back).pack(anchor="w")
                 ttk.Separator(container).pack(fill="x", pady=(8, 12))
-                msg = (
-                    "Не удалось отобразить список заказов (упрощённый режим).\n"
-                    f"Ошибка: {e}\n"
-                    f"Детали см. в файле: {log_path}"
-                )
-                ttk.Label(container, text=msg, style="Subtitle.TLabel", justify="left").pack(anchor="w", pady=(4, 12))
-                # Provide at least create button to continue work
+                ttk.Label(
+                    container,
+                    text="Не удалось отобразить список заказов. Ниже — подробности ошибки.",
+                    style="Subtitle.TLabel",
+                    justify="left"
+                ).pack(anchor="w", pady=(4, 8))
+                # Show traceback inline for quick copy
+                try:
+                    txt = tk.Text(container, height=10, wrap="none")
+                    txt.pack(fill="both", expand=True)
+                    txt.insert("1.0", f"{e}\n\n{trace_txt}\nЛог: {log_path}")
+                    txt.configure(state="disabled")
+                except Exception:
+                    ttk.Label(container, text=f"Ошибка: {e}\nЛог: {log_path}", justify="left").pack(anchor="w")
+                ttk.Separator(container).pack(fill="x", pady=(8, 12))
                 ttk.Button(container, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(anchor="w")
             except Exception:
                 pass
