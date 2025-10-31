@@ -520,14 +520,18 @@ class MeridianOrderEditorView(ttk.Frame):
         self._build_ui()
 
     def _build_ui(self):
+        # Use grid to avoid unexpected top empty space
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
-        toolbar.pack(fill="x")
+        toolbar.grid(row=0, column=0, sticky="ew")
         ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
 
         card = ttk.Frame(self, style="Card.TFrame", padding=16)
         self._card = card
         self._picker_panel = None
-        card.pack(fill="both", expand=True)
+        card.grid(row=1, column=0, sticky="nsew")
         card.columnconfigure(0, weight=1)
 
         if not self.is_new:
