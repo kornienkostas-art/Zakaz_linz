@@ -48,7 +48,7 @@ class MeridianProductPickerInline(ttk.Frame):
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=2)
+        self.columnconfigure(1, weight=3)
         self.rowconfigure(3, weight=1)
 
         # Search + free product entry
@@ -68,7 +68,7 @@ class MeridianProductPickerInline(ttk.Frame):
         # Tree
         self.tree = ttk.Treeview(self, show="tree", style="Data.Treeview")
         # Make tree column stretch to show long names; add horizontal scrollbar
-        self.tree.column("#0", width=900, stretch=True)
+        self.tree.column("#0", width=480, stretch=True)
         y_scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         x_scroll = ttk.Scrollbar(self, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
@@ -76,7 +76,6 @@ class MeridianProductPickerInline(ttk.Frame):
         y_scroll.grid(row=1, column=0, rowspan=3, sticky="nse")
         x_scroll.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.tree.bind("<Double-1>", self._on_tree_dbl)
-        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         # Right panel params
         right = ttk.Frame(self, style="Card.TFrame")
@@ -351,27 +350,9 @@ class MeridianProductPickerInline(ttk.Frame):
             self.tree.item(item, open=not is_open)
             return
         if "product" in tags:
-            # Set selection and immediately add to basket (по желтой линии — сразу справа)
+            # Только выбрать товар и показать справа, без автодобавления
             self.sel_product_var.set(text)
             self.sel_label.configure(text=text)
-            try:
-                self._add_to_basket()
-            except Exception:
-                pass
-
-    def _on_tree_select(self, event):
-        try:
-            sel = self.tree.selection()
-            if not sel:
-                return
-            item = sel[0]
-            tags = set(self.tree.item(item, "tags") or [])
-            text = self.tree.item(item, "text") or ""
-            if "product" in tags:
-                self.sel_product_var.set(text)
-                self.sel_label.configure(text=text)
-        except Exception:
-            pass
 
     @staticmethod
     def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
