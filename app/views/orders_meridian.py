@@ -202,10 +202,6 @@ class MeridianOrdersView(ttk.Frame):
 
     def _new_order(self):
         def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
             from app.views.forms_meridian import MeridianOrderEditorView
             from app.views.main import MainWindow
 
@@ -247,13 +243,31 @@ class MeridianOrdersView(ttk.Frame):
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
 
-            MeridianOrderEditorView(
-                self.master,
-                db=getattr(self.master, "db", None),
-                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_save=on_save,
-                initial=None,
-            )
+            # ВАЖНО: не уничтожаем текущий экран до успешного создания редактора
+            try:
+                MeridianOrderEditorView(
+                    self.master,
+                    db=getattr(self.master, "db", None),
+                    on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                    on_save=on_save,
+                    initial=None,
+                )
+                try:
+                    self.destroy()
+                except Exception:
+                    pass
+            except Exception as e:
+                # Показать минимальный экран вместо пустого, если редактор не построился
+                try:
+                    container = ttk.Frame(self, padding=16, style="Card.TFrame")
+                    container.pack(fill="both", expand=True)
+                    ttk.Button(container, text="← Назад", style="Accent.TButton",
+                               command=self._go_back).pack(anchor="w")
+                    ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                    ttk.Label(container, text=f"Не удалось открыть редактор заказа:\n{e}",
+                              style="Subtitle.TLabel", justify="left").pack(anchor="w", pady=(4, 12))
+                except Exception:
+                    pass
         fade_transition(self.master, swap)
 
     def _edit_order(self):
@@ -291,10 +305,6 @@ class MeridianOrdersView(ttk.Frame):
         initial = {"status": current.get("status", "Не заказан"), "date": current.get("date", ""), "items": items}
 
         def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
             from app.views.forms_meridian import MeridianOrderEditorView
             from app.views.main import MainWindow
 
@@ -326,13 +336,31 @@ class MeridianOrdersView(ttk.Frame):
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
 
-            MeridianOrderEditorView(
-                self.master,
-                db=getattr(self.master, "db", None),
-                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_save=on_save,
-                initial=initial,
-            )
+            # Не уничтожаем текущий экран до успешного создания редактора
+            try:
+                MeridianOrderEditorView(
+                    self.master,
+                    db=getattr(self.master, "db", None),
+                    on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+                    on_save=on_save,
+                    initial=initial,
+                )
+                try:
+                    self.destroy()
+                except Exception:
+                    pass
+            except Exception as e:
+                # Показать минимальный экран вместо пустого
+                try:
+                    container = ttk.Frame(self, padding=16, style="Card.TFrame")
+                    container.pack(fill="both", expand=True)
+                    ttk.Button(container, text="← Назад", style="Accent.TButton",
+                               command=self._go_back).pack(anchor="w")
+                    ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                    ttk.Label(container, text=f"Не удалось открыть редактор заказа:\n{e}",
+                              style="Subtitle.TLabel", justify="left").pack(anchor="w", pady=(4, 12))
+                except Exception:
+                    pass
 
         fade_transition(self.master, swap)
 
