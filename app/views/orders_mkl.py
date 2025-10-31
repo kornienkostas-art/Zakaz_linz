@@ -318,7 +318,7 @@ class MKLOrdersView(ttk.Frame):
             for o in items:
                 parts = []
                 # Add parameters if present
-                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("bc", "BC"), ("add", "ADD")):
+                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "ADD"), ("bc", "BC")):
                     val = (o.get(key, "") or "").strip()
                     if val != "":
                         parts.append(f"{label}: {val}")
