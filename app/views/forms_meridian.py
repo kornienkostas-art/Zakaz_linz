@@ -142,13 +142,13 @@ class MeridianProductPickerInline(ttk.Frame):
         ttk.Label(right, text="CYL (−10…+10, 0.25)").grid(row=1, column=2, sticky="w", pady=(6, 0))
         cyl_row = ttk.Frame(right); cyl_row.grid(row=1, column=3, sticky="ew", pady=(6, 0)); cyl_row.columnconfigure(1, weight=1)
         ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
-        ttk.Entry(cyl_row, textvariable=self.cyl_var).grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Entry(cyl_row, textvariable=self.cyl_var, width=6, justify="center").grid(row=0, column=1, sticky="w", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
         ttk.Label(right, text="AX (0…180)").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Entry(right, textvariable=self.ax_var).grid(row=2, column=1, sticky="ew", pady=(6, 0))
+        ttk.Entry(right, textvariable=self.ax_var, width=6, justify="center").grid(row=2, column=1, sticky="w", pady=(6, 0))
         ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=2, sticky="w", pady=(6, 0))
-        ttk.Entry(right, textvariable=self.d_var).grid(row=2, column=3, sticky="ew", pady=(6, 0))
+        ttk.Entry(right, textvariable=self.d_var, width=6, justify="center").grid(row=2, column=3, sticky="w", pady=(6, 0))
         ttk.Label(right, text="Количество (1…20)").grid(row=2, column=4, sticky="w", padx=(12, 0), pady=(6, 0))
         ttk.Spinbox(right, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=2, column=5, sticky="w", pady=(6, 0))
 
@@ -843,8 +843,8 @@ class MeridianItemForm(tk.Toplevel):
         sph_row.columnconfigure(1, weight=1)
         btn_sph_dec = ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1))
         btn_sph_dec.grid(row=0, column=0, sticky="w")
-        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var)
-        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var, width=6, justify="center")
+        self.sph_entry.grid(row=0, column=1, sticky="w", padx=4)
         btn_sph_inc = ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1))
         btn_sph_inc.grid(row=0, column=2, sticky="e")
         try:
@@ -863,8 +863,8 @@ class MeridianItemForm(tk.Toplevel):
         cyl_row.columnconfigure(1, weight=1)
         btn_cyl_dec = ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1))
         btn_cyl_dec.grid(row=0, column=0, sticky="w")
-        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var)
-        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var, width=6, justify="center")
+        self.cyl_entry.grid(row=0, column=1, sticky="w", padx=4)
         btn_cyl_inc = ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1))
         btn_cyl_inc.grid(row=0, column=2, sticky="e")
         try:
@@ -877,8 +877,8 @@ class MeridianItemForm(tk.Toplevel):
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
         ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=5, column=0, sticky="ew")
+        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var, width=6, justify="center")
+        self.ax_entry.grid(row=5, column=0, sticky="w")
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
@@ -1264,4 +1264,5 @@ class MeridianOrderEditorView(ttk.Frame):
                 cb(order)
             except Exception as e:
                 messagebox.showerror("Сохранение", f"Не удалось сохранить заказ:\n{e}")
+        self._go_back()")
         self._go_back()
