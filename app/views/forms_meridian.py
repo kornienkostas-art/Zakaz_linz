@@ -49,7 +49,8 @@ class MeridianProductPickerInline(ttk.Frame):
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=2)
-        self.rowconfigure(3, weight=1)
+        # After layout shift, main content stretch is on row 4
+        self.rowconfigure(4, weight=1)
 
         # Search + free product entry
         top = ttk.Frame(self, style="Card.TFrame")
@@ -61,9 +62,10 @@ class MeridianProductPickerInline(ttk.Frame):
         ent_search.grid(row=0, column=1, sticky="ew", padx=(6, 12))
         ent_search.bind("<KeyRelease>", lambda e: self._load_tree())
 
-        ttk.Label(top, text="Свободный ввод товара:", style="Subtitle.TLabel").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        # Free input moved to left column width only (as highlighted)
+        ttk.Label(self, text="Свободный ввод товара:", style="Subtitle.TLabel").grid(row=1, column=0, sticky="w", pady=(8, 0))
         self.free_name_var = tk.StringVar()
-        ttk.Entry(top, textvariable=self.free_name_var).grid(row=1, column=1, sticky="ew", padx=(6, 12), pady=(8, 0))
+        ttk.Entry(self, textvariable=self.free_name_var).grid(row=1, column=0, sticky="ew", padx=(0, 8), pady=(8, 0))
 
         # Tree
         self.tree = ttk.Treeview(self, show="tree", style="Data.Treeview")
@@ -72,14 +74,14 @@ class MeridianProductPickerInline(ttk.Frame):
         y_scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         x_scroll = ttk.Scrollbar(self, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscroll=y_scroll.set, xscroll=x_scroll.set)
-        self.tree.grid(row=1, column=0, rowspan=3, sticky="nsew", padx=(0, 8))
-        y_scroll.grid(row=1, column=0, rowspan=3, sticky="nse")
-        x_scroll.grid(row=4, column=0, sticky="ew", padx=(0, 8))
+        self.tree.grid(row=2, column=0, rowspan=3, sticky="nsew", padx=(0, 8))
+        y_scroll.grid(row=2, column=0, rowspan=3, sticky="nse")
+        x_scroll.grid(row=5, column=0, sticky="ew", padx=(0, 8))
         self.tree.bind("<Double-1>", self._on_tree_dbl)
 
         # Right panel params
         right = ttk.Frame(self, style="Card.TFrame")
-        right.grid(row=1, column=1, sticky="ew")
+        right.grid(row=2, column=1, sticky="ew")
         right.columnconfigure(1, weight=1)
         right.columnconfigure(3, weight=1)
 
@@ -134,7 +136,7 @@ class MeridianProductPickerInline(ttk.Frame):
 
         # Basket controls
         ctl = ttk.Frame(self, style="Card.TFrame")
-        ctl.grid(row=2, column=1, sticky="ew", pady=(8, 4))
+        ctl.grid(row=3, column=1, sticky="ew", pady=(8, 4))
         ttk.Button(ctl, text="Добавить в список", style="Accent.TButton", command=self._add_to_basket).pack(side="left")
         ttk.Button(ctl, text="Удалить выбранное", style="Menu.TButton", command=self._remove_selected).pack(side="left", padx=(8, 0))
         ttk.Button(ctl, text="Очистить список", style="Menu.TButton", command=self._clear_basket).pack(side="left", padx=(8, 0))
@@ -149,12 +151,12 @@ class MeridianProductPickerInline(ttk.Frame):
             self.basket.column(c, width=widths[c], anchor="w", stretch=True)
         y2 = ttk.Scrollbar(self, orient="vertical", command=self.basket.yview)
         self.basket.configure(yscroll=y2.set)
-        self.basket.grid(row=3, column=1, sticky="nsew")
-        y2.grid(row=3, column=1, sticky="nse")
+        self.basket.grid(row=4, column=1, sticky="nsew")
+        y2.grid(row=4, column=1, sticky="nse")
 
         # Footer
         foot = ttk.Frame(self, style="Card.TFrame")
-        foot.grid(row=4, column=0, columnspan=2, sticky="e", pady=(8, 0))
+        foot.grid(row=6, column=0, columnspan=2, sticky="e", pady=(8, 0))
         ttk.Button(foot, text="Добавить в заказ", style="Menu.TButton", command=self._done).pack(side="right")
         ttk.Button(foot, text="Отмена", style="Menu.TButton", command=self._cancel).pack(side="right", padx=(8, 0))
 
