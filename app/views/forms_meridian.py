@@ -83,7 +83,8 @@ class MeridianProductPickerInline(ttk.Frame):
         right.columnconfigure(1, weight=1)
         right.columnconfigure(3, weight=1)
         right.columnconfigure(5, weight=1)
-        right.columnconfigure(7, weight=0)
+        right.columnconfigure(7, weight=1)
+        right.columnconfigure(9, weight=0)
 
         self.sel_product_var = tk.StringVar(value="")
         row_sel = ttk.Frame(right, style="Card.TFrame")
@@ -130,23 +131,22 @@ class MeridianProductPickerInline(ttk.Frame):
         self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
-        # AX перенесён на строку со SPH/CYL
+        # AX на первой строке вместе с SPH/CYL
         ttk.Label(right, text="AX (0…180)").grid(row=1, column=4, sticky="w", pady=(6, 0))
         ttk.Entry(right, textvariable=self.ax_var).grid(row=1, column=5, sticky="ew", pady=(6, 0))
 
-        # ADD с кнопками − / +
-        ttk.Label(right, text="ADD (0…10, 0.25)").grid(row=1, column=6, sticky="w", pady=(6, 0))
-        add_row = ttk.Frame(right); add_row.grid(row=1, column=7, sticky="ew", pady=(6, 0)); add_row.columnconfigure(1, weight=1)
+        # Вторая строка: сначала ADD (− / +), затем D, затем Количество
+        ttk.Label(right, text="ADD (0…10, 0.25)").grid(row=2, column=4, sticky="w", pady=(6, 0))
+        add_row = ttk.Frame(right); add_row.grid(row=2, column=5, sticky="ew", pady=(6, 0)); add_row.columnconfigure(1, weight=1)
         ttk.Button(add_row, text="−", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1)).grid(row=0, column=0)
         self.add_entry = ttk.Entry(add_row, textvariable=self.add_var, width=12)
         self.add_entry.grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(add_row, text="+", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
-        # Нижняя строка: D и Количество
-        ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=4, sticky="w", pady=(6, 0))
-        ttk.Entry(right, textvariable=self.d_var).grid(row=2, column=5, sticky="ew", pady=(6, 0))
-        ttk.Label(right, text="Количество (1…20)").grid(row=2, column=6, sticky="w", padx=(12, 0), pady=(6, 0))
-        ttk.Spinbox(right, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=2, column=7, sticky="w", pady=(6, 0))
+        ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=6, sticky="w", pady=(6, 0))
+        ttk.Entry(right, textvariable=self.d_var).grid(row=2, column=7, sticky="ew", pady=(6, 0))
+        ttk.Label(right, text="Количество (1…20)").grid(row=2, column=8, sticky="w", padx=(12, 0), pady=(6, 0))
+        ttk.Spinbox(right, from_=1, to=20, textvariable=self.qty_var, width=7).grid(row=2, column=9, sticky="w", pady=(6, 0))
 
         # Basket controls
         ctl = ttk.Frame(self, style="Card.TFrame")
