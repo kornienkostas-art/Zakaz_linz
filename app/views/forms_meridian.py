@@ -1,9 +1,14 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 from datetime import datetime
 
 from app.utils import set_initial_geometry
 from app.utils import create_tooltip
+
+
+from tkinter import font as tkfont
+
 
 
 class MeridianProductPickerInline(ttk.Frame):
@@ -45,6 +50,15 @@ class MeridianProductPickerInline(ttk.Frame):
             self._refresh_basket()
         except Exception:
             pass
+        # Initial autosize
+        try:
+            self._autosize_tree_column()
+        except Exception:
+            pass
+        try:
+            self._autosize_basket_columns()
+        except Exception:
+            pass
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
@@ -76,6 +90,11 @@ class MeridianProductPickerInline(ttk.Frame):
         y_scroll.grid(row=1, column=0, rowspan=3, sticky="nse")
         x_scroll.grid(row=4, column=0, sticky="ew", padx=(0, 8))
         self.tree.bind("<Double-1>", self._on_tree_dbl)
+        # Auto-size tree column to fit content and available width
+        try:
+            self.tree.bind("<Configure>", lambda e: self._autosize_tree_column())
+        except Exception:
+            pass
 
         # Right panel params
         right = ttk.Frame(self, style="Card.TFrame")
@@ -151,6 +170,11 @@ class MeridianProductPickerInline(ttk.Frame):
         self.basket.configure(yscroll=y2.set)
         self.basket.grid(row=3, column=1, sticky="nsew")
         y2.grid(row=3, column=1, sticky="nse")
+        # Auto-size basket columns on resize
+        try:
+            self.basket.bind("<Configure>", lambda e: self._autosize_basket_columns())
+        except Exception:
+            pass
 
         # Footer
         foot = ttk.Frame(self, style="Card.TFrame")
@@ -307,6 +331,10 @@ class MeridianProductPickerInline(ttk.Frame):
             if term and not any_found:
                 # Показать явное сообщение, что ничего не найдено
                 self.tree.insert(root, "end", text="(Ничего не найдено)", tags=("info",))
+            try:
+                self._autosize_tree_column()
+            except Exception:
+                pass
             return
 
         any_found_total = False
@@ -338,6 +366,10 @@ class MeridianProductPickerInline(ttk.Frame):
         if term and not any_found_total:
             # Общий корневой маркер, если ни одна группа не подошла
             self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
+        try:
+            self._autosize_tree_column()
+        except Exception:
+            pass
 
     def _on_tree_dbl(self, event):
         item = self.tree.identify_row(event.y)
@@ -425,6 +457,10 @@ class MeridianProductPickerInline(ttk.Frame):
             self.basket.delete(i)
         for idx, it in enumerate(self._basket):
             self.basket.insert("", "end", iid=str(idx), values=(it["product"], it["sph"], it["cyl"], it["ax"], it["d"], it["qty"]))
+        try:
+            self._autosize_basket_columns()
+        except Exception:
+            pass
 
     def _remove_selected(self):
         sel = self.basket.selection()
@@ -446,6 +482,68 @@ class MeridianProductPickerInline(ttk.Frame):
         if messagebox.askyesno("Очистить", "Очистить список?"):
             self._basket.clear()
             self._refresh_basket()
+
+    # Autosize helpers
+    def _autosize_tree_column(self):
+        try:
+            f = tkfont.nametofont("TkDefaultFont")
+        except Exception:
+            f = tkfont.Font()
+        padding = 28
+        maxw = f.measure("Группы / Товары") + padding
+        try:
+            for iid in self.tree.get_children(""):
+                text = str(self.tree.item(iid, "text") or "")
+                w = f.measure(text) + padding
+                if w > maxw:
+                    maxw = w
+                # measure children recursively (only first level shown; deeper will be toggled)
+                for child in self.tree.get_children(iid):
+                    t = str(self.tree.item(child, "text") or "")
+                    w2 = f.measure(t) + padding + 24  # indent
+                    if w2 > maxw:
+                        maxw = w2
+        except Exception:
+            pass
+        # Limit by available width of left pane
+        try:
+            avail = max(200, self.tree.winfo_width())
+        except Exception:
+            avail = maxw
+        width = min(maxw, int(avail * 0.98))
+        self.tree.column("#0", width=width, minwidth=200, stretch=True)
+
+    def _autosize_basket_columns(self):
+        try:
+            f = tkfont.nametofont("TkDefaultFont")
+        except Exception:
+            f = tkfont.Font()
+        padding = 24
+        headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "d": "D (мм)", "qty": "Кол-во"}
+        cols = ("product", "sph", "cyl", "ax", "d", "qty")
+        max_px = {}
+        for c in cols:
+            max_px[c] = max(60, f.measure(headers[c]) + padding)
+        for iid in self.basket.get_children(""):
+            vals = self.basket.item(iid, "values") or ()
+            for i, c in enumerate(cols):
+                if i >= len(vals):
+                    continue
+                w = f.measure(str(vals[i])) + padding
+                if w > max_px[c]:
+                    max_px[c] = w
+        # Fit into available width
+        try:
+            avail = max(300, self.basket.winfo_width())
+        except Exception:
+            avail = sum(max_px.values())
+        total = sum(max_px.values())
+        if total > avail:
+            ratio = avail / total
+            for c in cols:
+                max_px[c] = max(60, int(max_px[c] * ratio))
+        for c in cols:
+            self.basket.column(c, width=max_px[c], minwidth=60, stretch=True)
 
     def _done(self):
         items = list(self._basket)
