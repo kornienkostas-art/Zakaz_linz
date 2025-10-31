@@ -20,7 +20,21 @@ class MainWindow:
         # Load settings dict (set in main.py)
         self.app_settings = getattr(self.root, "app_settings", {})
 
-        self._build_ui()
+        try:
+            self._build_ui()
+        except Exception as e:
+            # Fallback minimal UI to avoid blank window if themed widgets fail to build
+            try:
+                container = ttk.Frame(self.root)
+                container.grid(row=0, column=0, sticky="nsew")
+                ttk.Label(container, text="Главное меню (упрощённый режим)", style="Subtitle.TLabel").pack(anchor="w", padx=24, pady=(24, 12))
+                ttk.Button(container, text="Заказы МКЛ", command=self._open_mkl).pack(anchor="w", padx=24, pady=6)
+                ttk.Button(container, text="Заказы Меридиан", command=self._open_meridian).pack(anchor="w", padx=24, pady=6)
+                ttk.Button(container, text="Прайсы", command=self._open_prices).pack(anchor="w", padx=24, pady=6)
+                ttk.Button(container, text="Пересчёт астигматических линз", command=self._open_astig).pack(anchor="w", padx=24, pady=6)
+                ttk.Button(container, text="Настройки…", command=self._open_settings).pack(anchor="w", padx=24, pady=6)
+            except Exception:
+                pass
         self._refresh_stats()
 
     def _build_ui(self):
