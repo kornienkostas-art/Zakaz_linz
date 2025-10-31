@@ -85,21 +85,23 @@ class ProductsMKLView(ttk.Frame):
         header.grid(row=0, column=0, sticky="w", columnspan=3)
         ttk.Separator(card).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 12))
 
-        # Actions
-        bar = ttk.Frame(card, style="Card.TFrame")
-        bar.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
-        ttk.Button(bar, text="Добавить группу", style="Menu.TButton", command=self._add_group).pack(side="left")
-        ttk.Button(bar, text="Добавить подгруппу", style="Menu.TButton", command=self._add_subgroup).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Переименовать группу", style="Menu.TButton", command=self._rename_group).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Удалить группу", style="Menu.TButton", command=self._delete_group).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Группа ↑", style="Menu.TButton", command=lambda: self._move_group(-1)).pack(side="left", padx=(16, 0))
-        ttk.Button(bar, text="Группа ↓", style="Menu.TButton", command=lambda: self._move_group(+1)).pack(side="left", padx=(8, 0))
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=12)
-        ttk.Button(bar, text="Добавить товар", style="Menu.TButton", command=self._add_product).pack(side="left")
-        ttk.Button(bar, text="Редактировать товар", style="Menu.TButton", command=self._edit_product).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Удалить товар", style="Menu.TButton", command=self._delete_product).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Товар ↑", style="Menu.TButton", command=lambda: self._move_product(-1)).pack(side="left", padx=(16, 0))
-        ttk.Button(bar, text="Товар ↓", style="Menu.TButton", command=lambda: self._move_product(+1)).pack(side="left", padx=(8, 0))
+        # Actions (split into two rows to fit on screen)
+        bar_groups = ttk.Frame(card, style="Card.TFrame")
+        bar_groups.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        ttk.Button(bar_groups, text="Добавить группу", style="Menu.TButton", command=self._add_group).pack(side="left")
+        ttk.Button(bar_groups, text="Добавить подгруппу", style="Menu.TButton", command=self._add_subgroup).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_groups, text="Переименовать группу", style="Menu.TButton", command=self._rename_group).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_groups, text="Удалить группу", style="Menu.TButton", command=self._delete_group).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_groups, text="Группа ↑", style="Menu.TButton", command=lambda: self._move_group(-1)).pack(side="left", padx=(16, 0))
+        ttk.Button(bar_groups, text="Группа ↓", style="Menu.TButton", command=lambda: self._move_group(+1)).pack(side="left", padx=(8, 0))
+
+        bar_products = ttk.Frame(card, style="Card.TFrame")
+        bar_products.grid(row=3, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        ttk.Button(bar_products, text="Добавить товар", style="Menu.TButton", command=self._add_product).pack(side="left")
+        ttk.Button(bar_products, text="Редактировать товар", style="Menu.TButton", command=self._edit_product).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_products, text="Удалить товар", style="Menu.TButton", command=self._delete_product).pack(side="left", padx=(8, 0))
+        ttk.Button(bar_products, text="Товар ↑", style="Menu.TButton", command=lambda: self._move_product(-1)).pack(side="left", padx=(16, 0))
+        ttk.Button(bar_products, text="Товар ↓", style="Menu.TButton", command=lambda: self._move_product(+1)).pack(side="left", padx=(8, 0))
 
         # Tree
         self.tree = ttk.Treeview(card, columns=("name",), show="tree", style="Data.Treeview")
@@ -109,10 +111,10 @@ class ProductsMKLView(ttk.Frame):
         y_scroll = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=y_scroll.set)
 
-        self.tree.grid(row=3, column=0, sticky="nsew")
-        y_scroll.grid(row=3, column=1, sticky="ns")
+        self.tree.grid(row=4, column=0, sticky="nsew")
+        y_scroll.grid(row=4, column=1, sticky="ns")
         card.columnconfigure(0, weight=1)
-        card.rowconfigure(3, weight=1)
+        card.rowconfigure(4, weight=1)
 
         self.tree.bind("<Double-1>", self._on_double_click)
 
