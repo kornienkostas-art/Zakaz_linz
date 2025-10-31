@@ -243,26 +243,32 @@ class MeridianOrdersView(ttk.Frame):
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
 
-            # ВАЖНО: не уничтожаем текущий экран до успешного создания редактора
+            # ВАЖНО: не очищаем корень до успешного создания редактора
             try:
-                MeridianOrderEditorView(
+                editor = MeridianOrderEditorView(
                     self.master,
                     db=getattr(self.master, "db", None),
                     on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
                     on_save=on_save,
                     initial=None,
                 )
+                # Удалим все остальные виджеты корня, кроме созданного редактора
                 try:
-                    self.destroy()
+                    for w in list(self.master.winfo_children()):
+                        if w is not editor:
+                            try:
+                                w.destroy()
+                            except Exception:
+                                pass
                 except Exception:
                     pass
             except Exception as e:
                 # Показать минимальный экран вместо пустого, если редактор не построился
                 try:
-                    container = ttk.Frame(self, padding=16, style="Card.TFrame")
-                    container.pack(fill="both", expand=True)
+                    container = ttk.Frame(self.master, padding=16, style="Card.TFrame")
+                    container.grid(row=0, column=0, sticky="nsew")
                     ttk.Button(container, text="← Назад", style="Accent.TButton",
-                               command=self._go_back).pack(anchor="w")
+                               command=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))).pack(anchor="w")
                     ttk.Separator(container).pack(fill="x", pady=(8, 12))
                     ttk.Label(container, text=f"Не удалось открыть редактор заказа:\n{e}",
                               style="Subtitle.TLabel", justify="left").pack(anchor="w", pady=(4, 12))
@@ -336,26 +342,32 @@ class MeridianOrdersView(ttk.Frame):
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
 
-            # Не уничтожаем текущий экран до успешного создания редактора
+            # Не очищаем корень до успешного создания редактора
             try:
-                MeridianOrderEditorView(
+                editor = MeridianOrderEditorView(
                     self.master,
                     db=getattr(self.master, "db", None),
                     on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
                     on_save=on_save,
                     initial=initial,
                 )
+                # Удалим все остальные виджеты корня, кроме созданного редактора
                 try:
-                    self.destroy()
+                    for w in list(self.master.winfo_children()):
+                        if w is not editor:
+                            try:
+                                w.destroy()
+                            except Exception:
+                                pass
                 except Exception:
                     pass
             except Exception as e:
                 # Показать минимальный экран вместо пустого
                 try:
-                    container = ttk.Frame(self, padding=16, style="Card.TFrame")
-                    container.pack(fill="both", expand=True)
+                    container = ttk.Frame(self.master, padding=16, style="Card.TFrame")
+                    container.grid(row=0, column=0, sticky="nsew")
                     ttk.Button(container, text="← Назад", style="Accent.TButton",
-                               command=self._go_back).pack(anchor="w")
+                               command=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master))).pack(anchor="w")
                     ttk.Separator(container).pack(fill="x", pady=(8, 12))
                     ttk.Label(container, text=f"Не удалось открыть редактор заказа:\n{e}",
                               style="Subtitle.TLabel", justify="left").pack(anchor="w", pady=(4, 12))
