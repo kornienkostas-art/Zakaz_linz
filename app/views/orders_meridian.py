@@ -29,8 +29,23 @@ class MeridianOrdersView(ttk.Frame):
 
         self.orders: list[dict] = []
 
-        self._build_toolbar()
-        self._build_table()
+        # Build UI with safe fallback to avoid blank screen
+        try:
+            self._build_toolbar()
+            self._build_table()
+        except Exception as e:
+            # Minimal fallback UI
+            try:
+                container = ttk.Frame(self, style="Card.TFrame", padding=16)
+                container.pack(fill="both", expand=True)
+                ttk.Button(container, text="← Назад", style="Accent.TButton", command=self._go_back).pack(anchor="w")
+                ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                ttk.Label(container, text="Не удалось отобразить список заказов (упрощённый режим).",
+                          style="Subtitle.TLabel").pack(anchor="w", pady=(4, 12))
+                # Provide at least create button to continue work
+                ttk.Button(container, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(anchor="w")
+            except Exception:
+                pass
 
     def _build_toolbar(self):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
