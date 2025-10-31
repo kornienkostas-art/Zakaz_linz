@@ -1025,20 +1025,30 @@ class MeridianOrderEditorView(ttk.Frame):
 
     def _refresh_items_view(self):
         try:
-            # Ensure ADD column exists and configured
-            try:
-                cols = list(self.items_tree["columns"])
-                if "add" not in cols:
-                    if "d" in cols:
-                        d_idx = cols.index("d")
-                        cols.insert(d_idx, "add")
-                    else:
-                        cols.append("add")
-                    self.items_tree["columns"] = tuple(cols)
-                    self.items_tree.heading("add", text="ADD", anchor="w")
-                    self.items_tree.column("add", width=90, anchor="w", stretch=True)
-            except Exception:
-                pass
+            # Rebuild columns to ensure consistent order and headings
+            cols = ("product", "sph", "cyl", "ax", "add", "d", "qty")
+            headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "add": "ADD", "d": "D (мм)", "qty": "Количество"}
+            widths = {"product": 240, "sph": 90, "cyl": 90, "ax": 90, "add": 90, "d": 90, "qty": 120}
+            self.items_tree.configure(columns=cols)
+            for c in cols:
+                self.items_tree.heading(c, text=headers[c], anchor="w")
+                self.items_tree.column(c, width=widths[c], anchor="w", stretch=True)
+
+            for i in self.items_tree.get_children():
+                self.items_tree.delete(i)
+            for idx, it in enumerate(self.items):
+                values = (
+                    it.get("product", ""),
+                    it.get("sph", ""),
+                    it.get("cyl", ""),
+                    it.get("ax", ""),
+                    it.get("add", ""),
+                    it.get("d", ""),
+                    it.get("qty", ""),
+                )
+                self.items_tree.insert("", "end", iid=str(idx), values=values)
+        except Exception:
+            pass
 
             for i in self.items_tree.get_children():
                 self.items_tree.delete(i)
