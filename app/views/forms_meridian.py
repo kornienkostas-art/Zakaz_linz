@@ -82,6 +82,8 @@ class MeridianProductPickerInline(ttk.Frame):
         right.grid(row=1, column=1, sticky="ew")
         right.columnconfigure(1, weight=1)
         right.columnconfigure(3, weight=1)
+        right.columnconfigure(5, weight=1)
+        right.columnconfigure(7, weight=0)
 
         self.sel_product_var = tk.StringVar(value="")
         row_sel = ttk.Frame(right, style="Card.TFrame")
