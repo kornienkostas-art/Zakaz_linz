@@ -168,29 +168,61 @@ class SelectProductDialog(tk.Toplevel):
                     continue
                 self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p.get('id')}", "gid:None"))
 
-        # Groups section
-        any_found = False
+        # Build hierarchy map
+        children_map = {}
         for g in groups:
+            pid = g.get("parent_id")
+            children_map.setdefault(pid, []).append(g)
+
+        any_found = False
+
+        def add_group_node(parent_item, gdict):
+            # Filter groups if searching: only include groups that have matching products in subtree
             try:
-                prods = self._db.list_products_mkl_by_group(g["id"])
+                prods = self._db.list_products_mkl_by_group(gdict["id"])
             except Exception:
                 prods = []
-            matched = []
+            matched_prods = []
             if term:
                 for p in prods:
                     n = (p.get("name", "") or "")
                     if term in n.lower():
-                        matched.append(p)
+                        matched_prods.append(p)
             else:
-                matched = prods
-            # If searching, only show groups with matches
-            if term and not matched:
-                continue
-            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
-            for p in matched:
+                matched_prods = prods
+
+            # For searching: if neither products nor child groups match, skip this group
+            has_child_match = False
+            if term:
+                for child in children_map.get(gdict["id"], []):
+                    # naive: include child if any product under it matches term
+                    try:
+                        cps = self._db.list_products_mkl_by_group(child["id"])
+                    except Exception:
+                        cps = []
+                    for p in cps:
+                        if term in ((p.get("name", "") or "").lower()):
+                            has_child_match = True
+                            break
+                    if has_child_match:
+                        break
+
+            if term and not matched_prods and not has_child_match:
+                return
+
+            node = self.tree.insert(parent_item, "end", text=gdict["name"], open=bool(term), tags=("group", f"gid:{gdict['id']}"))
+            for p in matched_prods:
                 name = (p.get("name", "") or "")
-                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{gdict['id']}"))
                 any_found = True
+
+            for child in children_map.get(gdict["id"], []):
+                add_group_node(node, child)
+
+        # Top-level groups
+        for g in children_map.get(None, []):
+            add_group_node("", g)
+
         if term and not any_found and not ungrouped:
             self.tree.insert("", "end", text="(Ничего не найдено)", tags=("info",))
 
