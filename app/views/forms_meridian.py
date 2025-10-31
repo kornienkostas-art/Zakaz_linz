@@ -117,17 +117,17 @@ class MeridianProductPickerInline(ttk.Frame):
 
         ttk.Label(right, text="SPH (−30…+30, 0.25)").grid(row=1, column=0, sticky="w", pady=(6, 0))
         sph_row = ttk.Frame(right); sph_row.grid(row=1, column=1, sticky="ew", pady=(6, 0)); sph_row.columnconfigure(1, weight=1)
-        ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0)
-        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var, width=12)
+        ttk.Button(sph_row, text="−", width=2, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0)
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var, width=20)
         self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
+        ttk.Button(sph_row, text="+", width=2, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
 
         ttk.Label(right, text="CYL (−10…+10, 0.25)").grid(row=1, column=2, sticky="w", pady=(6, 0))
         cyl_row = ttk.Frame(right); cyl_row.grid(row=1, column=3, sticky="ew", pady=(6, 0)); cyl_row.columnconfigure(1, weight=1)
-        ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
-        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var, width=12)
+        ttk.Button(cyl_row, text="−", width=2, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var, width=20)
         self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+        ttk.Button(cyl_row, text="+", width=2, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
         # AX на первой строке вместе с SPH/CYL
         ttk.Label(right, text="AX (0…180)").grid(row=1, column=4, sticky="w", pady=(6, 0))
@@ -136,10 +136,10 @@ class MeridianProductPickerInline(ttk.Frame):
         # Вторая строка: слева направо — ADD (− / +), D, Количество
         ttk.Label(right, text="ADD (0…10, 0.25)").grid(row=2, column=0, sticky="w", pady=(6, 0))
         add_row = ttk.Frame(right); add_row.grid(row=2, column=1, sticky="ew", pady=(6, 0)); add_row.columnconfigure(1, weight=1)
-        ttk.Button(add_row, text="−", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1)).grid(row=0, column=0)
-        self.add_entry = ttk.Entry(add_row, textvariable=self.add_var, width=12)
+        ttk.Button(add_row, text="−", width=2, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1)).grid(row=0, column=0)
+        self.add_entry = ttk.Entry(add_row, textvariable=self.add_var, width=14)
         self.add_entry.grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(add_row, text="+", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+        ttk.Button(add_row, text="+", width=2, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
         ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=2, sticky="w", pady=(6, 0))
         ttk.Entry(right, textvariable=self.d_var).grid(row=2, column=3, sticky="ew", pady=(6, 0))
