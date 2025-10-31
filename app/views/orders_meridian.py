@@ -530,7 +530,7 @@ class MeridianOrdersView(ttk.Frame):
             lines.append(product)
             for it in items:
                 parts = []
-                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "ADD")):
+                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax")):
                     val = (it.get(key, "") or "").strip()
                     if val != "":
                         parts.append(f"{label}: {val}")
