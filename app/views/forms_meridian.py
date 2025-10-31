@@ -41,7 +41,29 @@ class MeridianProductPickerInline(ttk.Label(right, text="Количество (1
                     self.qty_var.set(int(initial_item.get("qty", 1)))
                 except Exception:
                     self.qty_var.set(1)
-                # Показать в корзине текущую позицию для наглядности
+                # Панель сама закроется после добавления в заказ (через on_cancel внутри _done)
+        try:
+            panel = MeridianProductPickerInline(
+                self._card,
+                db,
+                on_done=lambda items: (self.items.extend(items), self._refresh_items_view()),
+                on_cancel=self._close_picker,
+                initial_item=initial_item,
+            )
+        except Exception as e:
+            # Вернем основной интерфейс и покажем ошибку
+            try:
+                self._close_picker()
+            except Exception:
+                pass
+            messagebox.showerror("Новый заказ", f"Ошибка построения панели выбора:\n{e}")
+            return
+        # Размещаем панель на всю доступную область
+        try:
+            panel.grid(row=5, column=0, sticky="nsew", pady=(0, 0))
+        except Exception:
+            panel.pack(fill="both", expand=True, pady=(0, 0))
+        self._picker_panel = panelоказать в корзине текущую позицию для наглядности
                 self._basket = [initial_item.copy()]
             except Exception:
                 pass
