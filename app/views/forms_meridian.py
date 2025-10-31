@@ -119,19 +119,30 @@ class MeridianProductPickerInline(ttk.Frame):
         ttk.Label(right, text="SPH (−30…+30, 0.25)").grid(row=1, column=0, sticky="w", pady=(6, 0))
         sph_row = ttk.Frame(right); sph_row.grid(row=1, column=1, sticky="ew", pady=(6, 0)); sph_row.columnconfigure(1, weight=1)
         ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0)
-        ttk.Entry(sph_row, textvariable=self.sph_var).grid(row=0, column=1, sticky="ew", padx=4)
+        self.sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var, width=12)
+        self.sph_entry.grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
 
         ttk.Label(right, text="CYL (−10…+10, 0.25)").grid(row=1, column=2, sticky="w", pady=(6, 0))
         cyl_row = ttk.Frame(right); cyl_row.grid(row=1, column=3, sticky="ew", pady=(6, 0)); cyl_row.columnconfigure(1, weight=1)
         ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
-        ttk.Entry(cyl_row, textvariable=self.cyl_var).grid(row=0, column=1, sticky="ew", padx=4)
+        self.cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var, width=12)
+        self.cyl_entry.grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
 
-        ttk.Label(right, text="AX (0…180)").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Entry(right, textvariable=self.ax_var).grid(row=2, column=1, sticky="ew", pady=(6, 0))
-        ttk.Label(right, text="ADD (0…10, 0.25)").grid(row=2, column=2, sticky="w", pady=(6, 0))
-        ttk.Entry(right, textvariable=self.add_var).grid(row=2, column=3, sticky="ew", pady=(6, 0))
+        # AX перенесён на строку со SPH/CYL
+        ttk.Label(right, text="AX (0…180)").grid(row=1, column=4, sticky="w", pady=(6, 0))
+        ttk.Entry(right, textvariable=self.ax_var).grid(row=1, column=5, sticky="ew", pady=(6, 0))
+
+        # ADD с кнопками − / +
+        ttk.Label(right, text="ADD (0…10, 0.25)").grid(row=1, column=6, sticky="w", pady=(6, 0))
+        add_row = ttk.Frame(right); add_row.grid(row=1, column=7, sticky="ew", pady=(6, 0)); add_row.columnconfigure(1, weight=1)
+        ttk.Button(add_row, text="−", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1)).grid(row=0, column=0)
+        self.add_entry = ttk.Entry(add_row, textvariable=self.add_var, width=12)
+        self.add_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(add_row, text="+", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+
+        # Нижняя строка: D и Количество
         ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=4, sticky="w", pady=(6, 0))
         ttk.Entry(right, textvariable=self.d_var).grid(row=2, column=5, sticky="ew", pady=(6, 0))
         ttk.Label(right, text="Количество (1…20)").grid(row=2, column=6, sticky="w", padx=(12, 0), pady=(6, 0))
@@ -777,16 +788,21 @@ class MeridianItemForm(tk.Toplevel):
         self.cyl_entry.configure(validate="key", validatecommand=cyl_vcmd)
         self.cyl_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("cyl"))
 
-        ttk.Label(card, text="AX (0…180, шаг 1)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        self.ax_entry = ttk.Entry(card, textvariable=self.ax_var)
-        self.ax_entry.grid(row=5, column=0, sticky="ew")
+        # Валидация и снап для ADD
+        add_vcmd = (self.register(lambda v: self._vc_decimal(v, 0.0, 10.0)), "%P")
+        self.add_entry.configure(validate="key", validatecommand=add_vcmd)
+        self.add_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("add"))
+
+        ttk.Label(right, text="AX (0…180)").grid(row=1, column=4, sticky="w", pady=(6, 0))
+        self.ax_entry = ttk.Entry(right, textvariable=self.ax_var)
+        self.ax_entry.grid(row=1, column=5, sticky="ew", pady=(6, 0))
         ax_vcmd = (self.register(lambda v: self._vc_int(v, 0, 180)), "%P")
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
 
-        ttk.Label(card, text="D (40…90, шаг 5) — в экспорте добавляется 'мм'", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8, 0))
-        self.d_entry = ttk.Entry(card, textvariable=self.d_var)
-        self.d_entry.grid(row=5, column=1, sticky="ew")
+        ttk.Label(right, text="D (40…90, шаг 5)").grid(row=2, column=4, sticky="w", pady=(6, 0))
+        self.d_entry = ttk.Entry(right, textvariable=self.d_var)
+        self.d_entry.grid(row=2, column=5, sticky="ew", pady=(6, 0))
         d_vcmd = (self.register(self._vc_int_relaxed), "%P")
         self.d_entry.configure(validate="key", validatecommand=d_vcmd)
         self.d_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("d"))
@@ -840,6 +856,8 @@ class MeridianItemForm(tk.Toplevel):
             self.cyl_var.set(self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True))
         elif field == "ax":
             self.ax_var.set(self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True))
+        elif field == "add":
+            self.add_var.set(self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True))
         elif field == "d":
             v = self._snap_int(self.d_var.get(), 40, 90, allow_empty=True)
             if v != "":
