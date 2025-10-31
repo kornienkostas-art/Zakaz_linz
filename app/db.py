@@ -391,3 +391,191 @@ class AppDB:
             "SELECT id, sort_order FROM products_mkl WHERE (group_id IS ? OR group_id = ?) ORDER BY sort_order ASC, id ASC;",
             (None if gid is None else gid, gid),
         ).fetchall()
+        idx = None
+        for i, row in enumerate(rows):
+            if row["id"] == product_id:
+                idx = i
+                break
+        if idx is None:
+            return
+        j = idx + (1 if direction > 0 else -1)
+        if j < 0 or j >= len(rows):
+            return
+        a = rows[idx]
+        b = rows[j]
+        self.conn.execute("UPDATE products_mkl SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
+        self.conn.execute("UPDATE products_mkl SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
+        self.conn.commit()
+
+    # --- MKL Orders ---
+    def list_mkl_orders(self) -> list[dict]:
+        rows = self.conn.execute(
+            'SELECT id, fio, phone, product, sph, cyl, ax, bc, "add" AS add_value, qty, status, date, COALESCE(comment,"") AS comment FROM mkl_orders ORDER BY id DESC;'
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "fio": r["fio"],
+                "phone": r["phone"],
+                "product": r["product"],
+                "sph": r["sph"] or "",
+                "cyl": r["cyl"] or "",
+                "ax": r["ax"] or "",
+                "bc": r["bc"] or "",
+                "add": r["add_value"] or "",
+                "qty": r["qty"] or "",
+                "status": r["status"],
+                "date": r["date"],
+                "comment": r["comment"] or "",
+            }
+            for r in rows
+        ]
+
+    def add_mkl_order(self, order: dict) -> int:
+        cur = self.conn.execute(
+            """
+            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, bc, "add", qty, status, date, comment)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                order.get("fio", ""),
+                order.get("phone", ""),
+                order.get("product", ""),
+                order.get("sph", ""),
+                order.get("cyl", ""),
+                order.get("ax", ""),
+                order.get("bc", ""),
+                order.get("add", ""),
+                order.get("qty", ""),
+                order.get("status", "Не заказан"),
+                order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                (order.get("comment", "") or "").strip(),
+            ),
+        )
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_mkl_order(self, order_id: int, fields: dict):
+        # Only update provided fields
+        cols = []
+        vals = []
+        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "add", "qty", "status", "date", "comment"):
+            if k in fields:
+                colname = '"add"' if k == "add" else k
+                cols.append(f"{colname}=?")
+                vals.append(fields[k])
+        if cols:
+            vals.append(order_id)
+            self.conn.execute(f"UPDATE mkl_orders SET {', '.join(cols)} WHERE id=?;", tuple(vals))
+            self.conn.commit()
+
+    def delete_mkl_order(self, order_id: int):
+        self.conn.execute("DELETE FROM mkl_orders WHERE id=?;", (order_id,))
+        self.conn.commit()
+
+    # --- Meridian Orders + Items ---
+    def list_meridian_orders(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, title, status, date FROM meridian_orders ORDER BY id DESC;"
+        ).fetchall()
+        return [{"id": r["id"], "title": r["title"], "status": r["status"], "date": r["date"]} for r in rows]
+
+    def get_meridian_items(self, order_id: int) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, order_id, product, sph, cyl, ax, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
+            (order_id,),
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "order_id": r["order_id"],
+                "product": r["product"],
+                "sph": r["sph"] or "",
+                "cyl": r["cyl"] or "",
+                "ax": r["ax"] or "",
+                "d": r["d"] or "",
+                "qty": r["qty"] or "",
+            }
+            for r in rows
+        ]
+
+    def add_meridian_order(self, order: dict, items: list[dict]) -> int:
+        cur = self.conn.execute(
+            "INSERT INTO meridian_orders (title, status, date) VALUES (?, ?, ?);",
+            (order.get("title", ""), order.get("status", "Не заказан"), order.get("date", datetime.now().strftime("%Y-%m-%d %H:%M"))),
+        )
+        order_id = cur.lastrowid
+        for it in items:
+            self.conn.execute(
+                """
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    order_id,
+                    it.get("product", ""),
+                    it.get("sph", ""),
+                    it.get("cyl", ""),
+                    it.get("ax", ""),
+                    it.get("d", ""),
+                    it.get("qty", ""),
+                ),
+            )
+        self.conn.commit()
+        return order_id
+
+    def update_meridian_order(self, order_id: int, fields: dict):
+        cols = []
+        vals = []
+        for k in ("title", "status", "date"):
+            if k in fields:
+                cols.append(f"{k}=?")
+                vals.append(fields[k])
+        if cols:
+            vals.append(order_id)
+            self.conn.execute(f"UPDATE meridian_orders SET {', '.join(cols)} WHERE id=?;", tuple(vals))
+            self.conn.commit()
+
+    def replace_meridian_items(self, order_id: int, items: list[dict]):
+        # Replace items for order
+        self.conn.execute("DELETE FROM meridian_items WHERE order_id=?;", (order_id,))
+        for it in items:
+            self.conn.execute(
+                """
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    order_id,
+                    it.get("product", ""),
+                    it.get("sph", ""),
+                    it.get("cyl", ""),
+                    it.get("ax", ""),
+                    it.get("d", ""),
+                    it.get("qty", ""),
+                ),
+            )
+        self.conn.commit()
+
+    def delete_meridian_order(self, order_id: int):
+        # Items will be cascaded
+        self.conn.execute("DELETE FROM meridian_orders WHERE id=?;", (order_id,))
+        self.conn.commit()
+
+    # --- Prices ---
+    def list_prices(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name, path FROM prices ORDER BY name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "path": r["path"]} for r in rows]
+
+    def add_price(self, name: str, path: str) -> int:
+        cur = self.conn.execute("INSERT INTO prices (name, path) VALUES (?, ?);", (name, path))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_price(self, price_id: int, name: str, path: str):
+        self.conn.execute("UPDATE prices SET name=?, path=? WHERE id=?;", (name, path, price_id))
+        self.conn.commit()
+
+    def delete_price(self, price_id: int):
+        self.conn.execute("DELETE FROM prices WHERE id=?;", (price_id,))
+        self.conn.commit()
