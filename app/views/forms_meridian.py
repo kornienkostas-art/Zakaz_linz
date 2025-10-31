@@ -7,6 +7,11 @@ from app.utils import set_initial_geometry
 from app.utils import create_tooltip
 
 
+
+class MeridianProductPickerInline(ttk.Frame):et_initial_geometry
+from app.utils import create_tooltip
+
+
 from tkinter import font as tkfont
 
 
