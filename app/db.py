@@ -172,12 +172,18 @@ class AppDB:
                 sph TEXT,
                 cyl TEXT,
                 ax TEXT,
+                add TEXT,
                 d TEXT,
                 qty TEXT,
                 FOREIGN KEY(order_id) REFERENCES meridian_orders(id) ON DELETE CASCADE
             );
             """
         )
+        # Migration: add ADD column if missing
+        try:
+            cur.execute("ALTER TABLE meridian_items ADD COLUMN add TEXT;")
+        except Exception:
+            pass
 
         # Prices table
         cur.execute(
@@ -617,7 +623,7 @@ class AppDB:
 
     def get_meridian_items(self, order_id: int) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, order_id, product, sph, cyl, ax, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
+            "SELECT id, order_id, product, sph, cyl, ax, add, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
             (order_id,),
         ).fetchall()
         return [
@@ -628,6 +634,7 @@ class AppDB:
                 "sph": r["sph"] or "",
                 "cyl": r["cyl"] or "",
                 "ax": r["ax"] or "",
+                "add": r["add"] or "",
                 "d": r["d"] or "",
                 "qty": r["qty"] or "",
             }
@@ -643,8 +650,8 @@ class AppDB:
         for it in items:
             self.conn.execute(
                 """
-                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, add, d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     order_id,
@@ -652,6 +659,7 @@ class AppDB:
                     it.get("sph", ""),
                     it.get("cyl", ""),
                     it.get("ax", ""),
+                    it.get("add", ""),
                     it.get("d", ""),
                     it.get("qty", ""),
                 ),
@@ -677,8 +685,8 @@ class AppDB:
         for it in items:
             self.conn.execute(
                 """
-                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, add, d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     order_id,
@@ -686,6 +694,7 @@ class AppDB:
                     it.get("sph", ""),
                     it.get("cyl", ""),
                     it.get("ax", ""),
+                    it.get("add", ""),
                     it.get("d", ""),
                     it.get("qty", ""),
                 ),

@@ -114,6 +114,7 @@ class MeridianProductPickerInline(ttk.Frame):
         self.sph_var = tk.StringVar()
         self.cyl_var = tk.StringVar()
         self.ax_var = tk.StringVar()
+        self.add_var = tk.StringVar()  # ADD: 0..10, step 0.25
         self.d_var = tk.StringVar()
         self.qty_var = tk.IntVar(value=1)
 
@@ -457,7 +458,7 @@ class MeridianProductPickerInline(ttk.Frame):
         for i in self.basket.get_children():
             self.basket.delete(i)
         for idx, it in enumerate(self._basket):
-            self.basket.insert("", "end", iid=str(idx), values=(it["product"], it["sph"], it["cyl"], it["ax"], it["d"], it["qty"]))
+            self.basket.insert("", "end", iid=str(idx), values=(it["product"], it["sph"], it["cyl"], it["ax"], it.get("add",""), it["d"], it["qty"]))
         try:
             self._autosize_basket_columns()
         except Exception:
@@ -524,8 +525,8 @@ class MeridianProductPickerInline(ttk.Frame):
         except Exception:
             f = tkfont.Font()
         padding = 24
-        headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "d": "D (мм)", "qty": "Кол-во"}
-        cols = ("product", "sph", "cyl", "ax", "d", "qty")
+        headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "add": "ADD", "d": "D (мм)", "qty": "Кол-во"}
+        cols = ("product", "sph", "cyl", "ax", "add", "d", "qty")
         max_px = {}
         for c in cols:
             max_px[c] = max(60, f.measure(headers[c]) + padding)
@@ -791,6 +792,7 @@ class MeridianItemForm(tk.Toplevel):
         self.sph_var = tk.StringVar(value=(initial or {}).get("sph", ""))
         self.cyl_var = tk.StringVar(value=(initial or {}).get("cyl", ""))
         self.ax_var = tk.StringVar(value=(initial or {}).get("ax", ""))
+        self.add_var = tk.StringVar(value=(initial or {}).get("add", ""))
         self.d_var = tk.StringVar(value=(initial or {}).get("d", ""))
         self.qty_var = tk.IntVar(value=int((initial or {}).get("qty", 1)) or 1)
 
@@ -883,9 +885,19 @@ class MeridianItemForm(tk.Toplevel):
         self.ax_entry.configure(validate="key", validatecommand=ax_vcmd)
         self.ax_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("ax"))
 
-        ttk.Label(card, text="D (40…90, шаг 5) — в экспорте добавляется 'мм'", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8, 0))
-        self.d_entry = ttk.Entry(card, textvariable=self.d_var)
-        self.d_entry.grid(row=5, column=1, sticky="ew")
+        ttk.Label(card, text="ADD (0…10, шаг 0.25)", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8, 0))
+        add_row = ttk.Frame(card, style="Card.TFrame")
+        add_row.grid(row=5, column=1, sticky="w")
+        btn_add_dec = ttk.Button(add_row, text="−", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, -1))
+        btn_add_dec.grid(row=0, column=0, sticky="w")
+        self.add_entry = ttk.Entry(add_row, textvariable=self.add_var, width=6, justify="center")
+        self.add_entry.grid(row=0, column=1, sticky="w", padx=4)
+        btn_add_inc = ttk.Button(add_row, text="+", width=3, command=lambda: _nudge(self.add_var, 0.0, 10.0, 0.25, +1))
+        btn_add_inc.grid(row=0, column=2, sticky="e")
+
+        ttk.Label(card, text="D (40…90, шаг 5) — в экспорте добавляется 'мм'", style="Subtitle.TLabel").grid(row=4, column=2, sticky="w", pady=(8, 0))
+        self.d_entry = ttk.Entry(card, textvariable=self.d_var, width=6, justify="center")
+        self.d_entry.grid(row=5, column=2, sticky="w")
         d_vcmd = (self.register(self._vc_int_relaxed), "%P")
         self.d_entry.configure(validate="key", validatecommand=d_vcmd)
         self.d_entry.bind("<FocusOut>", lambda e: self._apply_snap_for("d"))
@@ -951,6 +963,8 @@ class MeridianItemForm(tk.Toplevel):
                 self.d_var.set(str(iv))
             else:
                 self.d_var.set("")
+        elif field == "add":
+            self.add_var.set(self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True))
 
     @staticmethod
     def _snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
@@ -984,6 +998,7 @@ class MeridianItemForm(tk.Toplevel):
         sph = self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)
         cyl = self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)
         ax = self._snap_int(self.ax_var.get(), 0, 180, allow_empty=True)
+        add = self._snap(self.add_var.get(), 0.0, 10.0, 0.25, allow_empty=True)
         d = self._snap_int(self.d_var.get(), 40, 90, allow_empty=True)
         if d != "":
             try:
@@ -998,7 +1013,7 @@ class MeridianItemForm(tk.Toplevel):
             messagebox.showinfo("Проверка", "Введите название товара.")
             return
 
-        item = {"product": product, "sph": sph, "cyl": cyl, "ax": ax, "d": d, "qty": qty}
+        item = {"product": product, "sph": sph, "cyl": cyl, "ax": ax, "add": add, "d": d, "qty": qty}
         if self.on_save:
             self.on_save(item)
         self.destroy()
