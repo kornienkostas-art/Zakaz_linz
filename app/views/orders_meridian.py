@@ -30,30 +30,35 @@ class MeridianOrdersView(ttk.Frame):
         self.orders: list[dict] = []
 
         # Build UI with safe fallback to avoid blank screen
+        failed = False
+        last_error = None
+        last_trace = ""
         try:
             self._build_toolbar()
             self._build_table()
         except Exception as e:
+            failed = True
+            last_error = e
             # Collect traceback and try to persist to a writable temp dir
-            trace_txt = ""
-            log_path = ""
             try:
                 import traceback, tempfile, os
-                trace_txt = traceback.format_exc()
-                # Prefer temp directory to avoid permissions
+                last_trace = traceback.format_exc()
                 log_path = os.path.join(tempfile.gettempdir(), "orders_meridian_error.log")
                 with open(log_path, "w", encoding="utf-8") as f:
                     f.write("Ошибка построения экрана 'Заказы Меридиан'\n")
                     f.write(str(e) + "\n\n")
-                    f.write(trace_txt)
+                    f.write(last_trace)
             except Exception:
                 log_path = "(не удалось записать лог в temp)"
-            # Minimal fallback UI with inline error details
+            # Minimal fallback UI with inline error details (ttk)
             try:
                 container = ttk.Frame(self, style="Card.TFrame", padding=16)
                 container.pack(fill="both", expand=True)
                 ttk.Button(container, text="← Назад", style="Accent.TButton", command=self._go_back).pack(anchor="w")
-                ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                try:
+                    ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                except Exception:
+                    pass
                 ttk.Label(
                     container,
                     text="Не удалось отобразить список заказов. Ниже — подробности ошибки.",
@@ -64,14 +69,40 @@ class MeridianOrdersView(ttk.Frame):
                 try:
                     txt = tk.Text(container, height=10, wrap="none")
                     txt.pack(fill="both", expand=True)
-                    txt.insert("1.0", f"{e}\n\n{trace_txt}\nЛог: {log_path}")
+                    txt.insert("1.0", f"{e}\n\n{last_trace}\nЛог: {log_path}")
                     txt.configure(state="disabled")
                 except Exception:
                     ttk.Label(container, text=f"Ошибка: {e}\nЛог: {log_path}", justify="left").pack(anchor="w")
-                ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                try:
+                    ttk.Separator(container).pack(fill="x", pady=(8, 12))
+                except Exception:
+                    pass
                 ttk.Button(container, text="Новый заказ", style="Menu.TButton", command=self._new_order).pack(anchor="w")
             except Exception:
                 pass
+
+        # Absolute last resort: if nothing was packed (styles could be broken), render plain Tk fallback
+        try:
+            if failed and not self.winfo_children():
+                self._render_plain_fallback(last_error, last_trace)
+        except Exception:
+            pass
+
+    def _render_plain_fallback(self, error, trace_txt: str = ""):
+        # Plain Tk widgets without ttk/styles to guarantee visibility
+        f = tk.Frame(self, bg="#f8fafc")
+        f.pack(fill="both", expand=True)
+        tk.Button(f, text="← Назад", command=self._go_back).pack(anchor="w", padx=12, pady=8)
+        tk.Label(f, text="Не удалось отобразить список заказов (plain fallback).", bg="#f8fafc").pack(anchor="w", padx=12)
+        if error:
+            try:
+                t = tk.Text(f, height=12)
+                t.pack(fill="both", expand=True, padx=12, pady=8)
+                t.insert("1.0", f"{error}\n\n{trace_txt}")
+                t.configure(state="disabled")
+            except Exception:
+                tk.Label(f, text=str(error), bg="#f8fafc").pack(anchor="w", padx=12, pady=8)
+        tk.Button(f, text="Новый заказ", command=self._new_order).pack(anchor="w", padx=12, pady=(8, 12))
 
     def _build_toolbar(self):
         toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
