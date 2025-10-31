@@ -9,7 +9,7 @@ from app.db import AppDB  # type hint only
 
 class MKLOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ МКЛ' внутри главного окна (DB-backed)."""
-    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "add", "qty", "status", "date", "comment_flag")
+    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "add", "bc", "qty", "status", "date", "comment_flag")
     HEADERS = {
         "fio": "ФИО",
         "phone": "Телефон",
@@ -17,8 +17,8 @@ class MKLOrdersView(ttk.Frame):
         "sph": "Sph",
         "cyl": "Cyl",
         "ax": "Ax",
-        "bc": "BC",
         "add": "ADD",
+        "bc": "BC",
         "qty": "Количество",
         "status": "Статус",
         "date": "Дата",
@@ -89,7 +89,7 @@ class MKLOrdersView(ttk.Frame):
         container.pack(fill="both", expand=True)
 
         header = ttk.Label(container, text="Заказ МКЛ • Таблица данных", style="Title.TLabel")
-        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, ADD, Количество, Статус, Дата, Комментарий", style="Subtitle.TLabel")
+        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, ADD, BC, Количество, Статус, Дата, Комментарий", style="Subtitle.TLabel")
         header.pack(anchor="w")
         sub.pack(anchor="w", pady=(4, 12))
 
@@ -104,7 +104,7 @@ class MKLOrdersView(ttk.Frame):
             self.tree.heading(col, text=self.HEADERS[col], anchor="w")
             width = {
                 "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
-                "ax": 80, "bc": 80, "add": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 140,
+                "ax": 80, "add": 80, "bc": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 140,
             }[col]
             self.tree.column(col, width=width, anchor="w", stretch=True)
 
@@ -384,8 +384,8 @@ class MKLOrdersView(ttk.Frame):
                 item.get("sph", ""),
                 item.get("cyl", ""),
                 item.get("ax", ""),
-                item.get("bc", ""),
                 item.get("add", ""),
+                item.get("bc", ""),
                 item.get("qty", ""),
                 item.get("status", ""),
                 item.get("date", ""),
