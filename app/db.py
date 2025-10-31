@@ -172,7 +172,7 @@ class AppDB:
                 sph TEXT,
                 cyl TEXT,
                 ax TEXT,
-                add TEXT,
+                "add" TEXT,
                 d TEXT,
                 qty TEXT,
                 FOREIGN KEY(order_id) REFERENCES meridian_orders(id) ON DELETE CASCADE
@@ -181,7 +181,7 @@ class AppDB:
         )
         # Migration: add ADD column if missing
         try:
-            cur.execute("ALTER TABLE meridian_items ADD COLUMN add TEXT;")
+            cur.execute("ALTER TABLE meridian_items ADD COLUMN \"add\" TEXT;")
         except Exception:
             pass
 
@@ -623,7 +623,7 @@ class AppDB:
 
     def get_meridian_items(self, order_id: int) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, order_id, product, sph, cyl, ax, add, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
+            "SELECT id, order_id, product, sph, cyl, ax, \"add\", d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
             (order_id,),
         ).fetchall()
         return [
@@ -650,7 +650,7 @@ class AppDB:
         for it in items:
             self.conn.execute(
                 """
-                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, add, d, qty)
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, "add", d, qty)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
@@ -685,7 +685,7 @@ class AppDB:
         for it in items:
             self.conn.execute(
                 """
-                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, add, d, qty)
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, "add", d, qty)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
