@@ -218,6 +218,22 @@ class MeridianOrdersView(ttk.Frame):
                     order["title"] = title
                 if db:
                     try:
+                        # Доверяем AppDB: позиции будут сохранены внутри add_meridian_order
+                        db.add_meridian_order(order, order.get("items", []))
+                    except Exception as e:
+                        messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\\n{e}")rder: dict):
+                # Save to DB only; view will be recreated by on_back of editor
+                db = getattr(self.master, "db", None)
+                title = (order.get("title", "") or "").strip()
+                if not title:
+                    try:
+                        existing = db.list_meridian_orders() if db else []
+                        title = f"Заказ Меридиан #{len(existing) + 1}"
+                    except Exception:
+                        title = "Заказ Меридиан"
+                    order["title"] = title
+                if db:
+                    try:
                         new_id = db.add_meridian_order(order, order.get("items", []))
                         # Перезапишем позиции, чтобы сохранить ADD
                         try:
@@ -287,6 +303,10 @@ class MeridianOrdersView(ttk.Frame):
         items = []
         if self.master.db and order_id:
             try:
+                items = self.master.db.get_meridian_items(order_id)
+            except Exception as e:
+                messagebox.showerror("База данных", f"Не удалось загрузить позиции заказа:\\n{e}")f self.master.db and order_id:
+            try:
                 # Локальная выборка, чтобы гарантировать чтение ADD
                 rows = self.master.db.conn.execute(
                     'SELECT id, order_id, product, sph, cyl, ax, COALESCE("add","") AS add_value, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;',
@@ -322,24 +342,8 @@ class MeridianOrdersView(ttk.Frame):
                             "status": updated.get("status", current.get("status", "Не заказан")),
                             "date": updated.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
                         })
-                        # Перезаписываем позиции вручную, чтобы сохранить ADD
-                        db = self.master.db
-                        db.conn.execute("DELETE FROM meridian_items WHERE order_id=?;", (order_id,))
-                        for it in updated.get("items", []):
-                            db.conn.execute(
-                                'INSERT INTO meridian_items (order_id, product, sph, cyl, ax, "add", d, qty) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
-                                (
-                                    order_id,
-                                    it.get("product", ""),
-                                    it.get("sph", ""),
-                                    it.get("cyl", ""),
-                                    it.get("ax", ""),
-                                    it.get("add", ""),
-                                    it.get("d", ""),
-                                    it.get("qty", ""),
-                                ),
-                            )
-                        db.conn.commit()
+                        # Доверяем AppDB атомарно заменить позиции
+                        self.master.db.replace_meridian_items(order_id, updated.get("items", []))
                     except Exception as e:
                         messagebox.showerror("База данных", f"Не удалось обновить заказ:\n{e}")
 
@@ -453,24 +457,7 @@ class MeridianOrdersView(ttk.Frame):
             items = []
             if db and order_id is not None:
                 try:
-                    rows = db.conn.execute(
-                        'SELECT id, order_id, product, sph, cyl, ax, COALESCE("add","") AS add_value, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;',
-                        (order_id,),
-                    ).fetchall()
-                    items = [
-                        {
-                            "id": r["id"],
-                            "order_id": r["order_id"],
-                            "product": r["product"],
-                            "sph": r["sph"] or "",
-                            "cyl": r["cyl"] or "",
-                            "ax": r["ax"] or "",
-                            "add": r["add_value"] or "",
-                            "d": r["d"] or "",
-                            "qty": r["qty"] or "",
-                        }
-                        for r in rows
-                    ]
+                    items = db.get_meridian_items(order_id)
                 except Exception:
                     items = []
             for it in items:
