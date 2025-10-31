@@ -161,10 +161,10 @@ class MeridianProductPickerInline(ttk.Frame):
         ttk.Button(ctl, text="Очистить список", style="Menu.TButton", command=self._clear_basket).pack(side="left", padx=(8, 0))
 
         # Basket table
-        cols = ("product", "sph", "cyl", "ax", "d", "qty")
+        cols = ("product", "sph", "cyl", "ax", "add", "d", "qty")
         self.basket = ttk.Treeview(self, columns=cols, show="headings", style="Data.Treeview")
-        headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "d": "D (мм)", "qty": "Кол-во"}
-        widths = {"product": 360, "sph": 70, "cyl": 70, "ax": 60, "d": 70, "qty": 70}
+        headers = {"product": "Товар", "sph": "SPH", "cyl": "CYL", "ax": "AX", "add": "ADD", "d": "D (мм)", "qty": "Кол-во"}
+        widths = {"product": 340, "sph": 70, "cyl": 70, "ax": 60, "add": 70, "d": 70, "qty": 70}
         for c in cols:
             self.basket.heading(c, text=headers[c], anchor="w")
             self.basket.column(c, width=widths[c], anchor="w", stretch=True)
