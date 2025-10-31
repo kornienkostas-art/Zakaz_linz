@@ -1264,5 +1264,4 @@ class MeridianOrderEditorView(ttk.Frame):
                 cb(order)
             except Exception as e:
                 messagebox.showerror("Сохранение", f"Не удалось сохранить заказ:\n{e}")
-        self._go_back()")
         self._go_back()
