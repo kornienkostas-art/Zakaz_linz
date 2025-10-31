@@ -561,7 +561,8 @@ class AppDB:
         vals = []
         for k in ("fio", "phone", "product", "sph", "cyl", "ax", "add", "bc", "qty", "status", "date", "comment"):
             if k in fields:
-                cols.append(f"{k}=?")
+                col_name = "\"add\"" if k == "add" else k
+                cols.append(f"{col_name}=?")
                 vals.append(fields[k])
         if cols:
             vals.append(order_id)
