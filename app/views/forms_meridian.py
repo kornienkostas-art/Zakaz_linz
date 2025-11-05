@@ -228,18 +228,22 @@ class MeridianProductPickerInline(ttk.Frame):
     def _load_tree(self):
         term = (self.search_var.get() or "").strip().lower()
         self.tree.delete(*self.tree.get_children())
+
+        # Fetch groups and build parent->children map
         try:
             groups = self.db.list_product_groups_meridian()
         except Exception:
             groups = []
+        try:
+            all_products = self.db.list_products_meridian()
+        except Exception:
+            all_products = []
+
         if not groups:
-            try:
-                all_prods = self.db.list_products_meridian()
-            except Exception:
-                all_prods = []
+            # Fallback: flat list of all products
             root = self.tree.insert("", "end", text="Все товары", open=True, tags=("group", "gid:None"))
             any_found = False
-            for p in all_prods:
+            for p in all_products:
                 name = p.get("name", "") or ""
                 if term and term not in name.lower():
                     continue
@@ -253,28 +257,50 @@ class MeridianProductPickerInline(ttk.Frame):
                 pass
             return
 
-        any_found_total = False
+        # Build group tree
+        children_map: dict[int | None, list[dict]] = {}
         for g in groups:
+            children_map.setdefault(g.get("parent_id"), []).append(g)
+        # Sort siblings by sort_order then name
+        for k in list(children_map.keys()):
+            children_map[k].sort(key=lambda x: (x.get("sort_order", 0), (x.get("name", "") or "").lower()))
+
+        # Helper to insert group nodes recursively; returns True if any match added
+        def add_group_node(parent_iid: str, g: dict) -> bool:
+            gid = g["id"]
+            node_iid = self.tree.insert(parent_iid, "end", text=g["name"], open=bool(term), tags=("group", f"gid:{gid}"))
+            any_added = False
+
+            # Insert child groups first
+            for child in children_map.get(gid, []):
+                if add_group_node(node_iid, child):
+                    any_added = True
+
+            # Then insert products of this group
             try:
-                prods = self.db.list_products_meridian_by_group(g["id"])
+                prods = self.db.list_products_meridian_by_group(gid)
             except Exception:
                 prods = []
-            matched = []
-            if term:
-                for p in prods:
-                    name = (p.get("name", "") or "")
-                    if term in name.lower():
-                        matched.append(p)
-            else:
-                matched = prods
+            for p in prods:
+                name = (p.get("name", "") or "")
+                if term and term not in name.lower():
+                    continue
+                self.tree.insert(node_iid, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{gid}"))
+                any_added = True
 
-            if not matched and term:
-                continue
+            # If nothing added and term is set, remove empty branch
+            if term and not any_added:
+                try:
+                    self.tree.delete(node_iid)
+                except Exception:
+                    pass
+                return False
+            return True
 
-            node = self.tree.insert("", "end", text=g["name"], open=bool(term), tags=("group", f"gid:{g['id']}"))
-            for p in matched:
-                name = p.get("name", "") or ""
-                self.tree.insert(node, "end", text=name, tags=("product", f"pid:{p['id']}", f"gid:{g['id']}"))
+        any_found_total = False
+        # Create a virtual root container to hold top-level groups
+        for top in children_map.get(None, []):
+            if add_group_node("", top):
                 any_found_total = True
 
         if term and not any_found_total:
