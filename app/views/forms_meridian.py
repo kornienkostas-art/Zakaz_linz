@@ -156,7 +156,7 @@ class MeridianProductPickerInline(ttk.Frame):
         sph_entry.grid(row=0, column=1, sticky="w", padx=4)
         ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
         # Normalize comma to dot on typing and snap to 0.25 on focus out
-        sph_entry.bind("<KeyRelease>", lambda e: self._normalize_decimal(self.sph_var))
+        sph_entry.bin("<<KeyRelease>", lambda e: _normalizealize_decimal(self.sph_var))
         sph_entry.bind("<FocusOut>", lambda e: self.sph_var.set(self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)))
 
         # CYL row (− / input / +)
@@ -166,7 +166,7 @@ class MeridianProductPickerInline(ttk.Frame):
         cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var, width=6, justify="center")
         cyl_entry.grid(row=0, column=1, sticky="w", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
-        cyl_entry.bind("<KeyRelease>", lambda e: self._normalize_decimal(self.cyl_var))
+        cyl_entry.bind("<KeyRelease>", lambda e: _normalize_decimal(self.cyl_var))
         cyl_entry.bind("<FocusOut>", lambda e: self.cyl_var.set(self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)))
 
         # AX row adjacent to label
