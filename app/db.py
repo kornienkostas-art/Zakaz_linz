@@ -23,11 +23,7 @@ class AppDB:
             self._ensure_mkl_seed_brands()
         except Exception:
             pass
-        # Mirror MKL catalog into Meridian under a bottom group "Контактные Линзы"
-        try:
-            self._ensure_meridian_contacts_from_mkl()
-        except Exception:
-            pass
+        
 
     def _init_schema(self):
         cur = self.conn.cursor()
