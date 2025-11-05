@@ -5,7 +5,11 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('app/assets', 'app/assets')],
+    datas=[
+        ('app/assets', 'app/assets'),
+        ('settings.json', '.'),
+        ('data.db', '.'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
