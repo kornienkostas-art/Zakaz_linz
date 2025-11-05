@@ -1,6 +1,7 @@
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 from datetime import datetime
 
 from app.utils import fade_transition, format_phone_mask, center_on_screen
@@ -9,7 +10,7 @@ from app.db import AppDB  # type hint only
 
 class MKLOrdersView(ttk.Frame):
     """Встроенное представление 'Заказ МКЛ' внутри главного окна (DB-backed)."""
-    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date", "comment_flag")
+    COLUMNS = ("fio", "phone", "product", "sph", "cyl", "ax", "add", "bc", "qty", "status", "date", "comment_flag")
     HEADERS = {
         "fio": "ФИО",
         "phone": "Телефон",
@@ -17,6 +18,7 @@ class MKLOrdersView(ttk.Frame):
         "sph": "Sph",
         "cyl": "Cyl",
         "ax": "Ax",
+        "add": "ADD",
         "bc": "BC",
         "qty": "Количество",
         "status": "Статус",
@@ -68,7 +70,7 @@ class MKLOrdersView(ttk.Frame):
         container.pack(fill="both", expand=True)
 
         header = ttk.Label(container, text="Заказ МКЛ • Таблица данных", style="Title.TLabel")
-        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, BC, Количество, Статус, Дата, Комментарий", style="Subtitle.TLabel")
+        sub = ttk.Label(container, text="Поля: ФИО, Телефон, Товар, Sph, Cyl, Ax, ADD, BC, Количество, Статус, Дата, Комментарий", style="Subtitle.TLabel")
         header.pack(anchor="w")
         sub.pack(anchor="w", pady=(4, 12))
 
@@ -79,13 +81,18 @@ class MKLOrdersView(ttk.Frame):
 
         columns = self.COLUMNS
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", style="Data.Treeview")
+
+        # Configure anchors: text columns left, numeric centered
+        text_cols = {"fio", "phone", "product", "status", "date", "comment_flag"}
+        num_cols = {"sph", "cyl", "ax", "add", "bc", "qty"}
+        default_widths = {
+            "fio": 240, "phone": 160, "product": 220, "sph": 80, "cyl": 80,
+            "ax": 80, "add": 80, "bc": 80, "qty": 90, "status": 140, "date": 160, "comment_flag": 120,
+        }
         for col in columns:
-            self.tree.heading(col, text=self.HEADERS[col], anchor="w")
-            width = {
-                "fio": 200, "phone": 160, "product": 200, "sph": 80, "cyl": 80,
-                "ax": 80, "bc": 80, "qty": 100, "status": 140, "date": 160, "comment_flag": 140,
-            }[col]
-            self.tree.column(col, width=width, anchor="w", stretch=True)
+            anchor = "w" if col in text_cols else "center"
+            self.tree.heading(col, text=self.HEADERS[col], anchor=anchor)
+            self.tree.column(col, width=default_widths[col], anchor=anchor, stretch=True)
 
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
@@ -113,6 +120,63 @@ class MKLOrdersView(ttk.Frame):
         self.menu.add_cascade(label="Статус", menu=status_menu)
         self.tree.bind("<Button-3>", self._show_context_menu)
         self.tree.bind("<Double-1>", lambda e: self._edit_order())
+
+    def _autosize_columns(self):
+        """Auto-size columns to fit content and available width; align by content type."""
+        try:
+            # Measure text width using the current Treeview font
+            f = None
+            try:
+                f = tkfont.nametofont("TkDefaultFont")
+            except Exception:
+                f = tkfont.Font()
+            # Collect max width per column (header + cells)
+            max_px = {}
+            padding = 28  # account for cell padding and sort icon
+            for col in self.COLUMNS:
+                header = self.HEADERS.get(col, col)
+                w = f.measure(header) + padding
+                max_px[col] = max(w, 60)  # minimal width
+
+            # Measure visible rows content
+            for iid in self.tree.get_children(""):
+                vals = self.tree.item(iid, "values") or ()
+                for i, col in enumerate(self.COLUMNS):
+                    if i >= len(vals):
+                        continue
+                    text = str(vals[i])
+                    w = f.measure(text) + padding
+                    if w > max_px[col]:
+                        max_px[col] = w
+
+            # Available width inside the tree widget
+            self.update_idletasks()
+            avail = max(200, self.tree.winfo_width())
+            total = sum(max_px[c] for c in self.COLUMNS)
+
+            # If exceeds, scale down proportionally to fit to screen
+            scaled = dict(max_px)
+            if total > avail:
+                ratio = avail / total
+                for c in self.COLUMNS:
+                    scaled[c] = max(60, int(max_px[c] * ratio))
+
+            # Apply widths
+            text_cols = {"fio", "phone", "product", "status", "date", "comment_flag"}
+            num_cols = {"sph", "cyl", "ax", "add", "bc", "qty"}
+            for c in self.COLUMNS:
+                anchor = "w" if c in text_cols else "center"
+                self.tree.heading(c, anchor=anchor)
+                self.tree.column(c, width=scaled[c], minwidth=60, anchor=anchor, stretch=True)
+        except Exception:
+            # fallback: do nothing
+            pass
+
+        # Auto-size columns to fit content and screen
+        try:
+            self.tree.bind("<Configure>", lambda e: self._autosize_columns())
+        except Exception:
+            pass
 
     def _show_context_menu(self, event):
         try:
@@ -296,13 +360,18 @@ class MKLOrdersView(ttk.Frame):
             lines.append(product)
             for o in items:
                 parts = []
-                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("bc", "BC")):
+                # Include parameters in order: Sph, Cyl, Ax, ADD, BC
+                for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "ADD"), ("bc", "BC")):
                     val = (o.get(key, "") or "").strip()
                     if val != "":
                         parts.append(f"{label}: {val}")
                 qty = (o.get("qty", "") or "").strip()
                 if qty != "":
                     parts.append(f"Количество: {qty}")
+                # Comment should go after quantity if present
+                comment = (o.get("comment", "") or "").strip()
+                if comment:
+                    parts.append(f"Комментарий: {comment}")
                 if parts:
                     lines.append(" ".join(parts))
             lines.append("")
@@ -356,6 +425,7 @@ class MKLOrdersView(ttk.Frame):
                 item.get("sph", ""),
                 item.get("cyl", ""),
                 item.get("ax", ""),
+                item.get("add", ""),
                 item.get("bc", ""),
                 item.get("qty", ""),
                 item.get("status", ""),
@@ -371,5 +441,11 @@ class MKLOrdersView(ttk.Frame):
                 self.tree.selection_set(children[0])
                 self.tree.focus(children[0])
                 self.tree.see(children[0])
+        except Exception:
+            pass
+
+        # Adjust columns to fit content and current tree width
+        try:
+            self._autosize_columns()
         except Exception:
             pass
