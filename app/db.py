@@ -23,6 +23,11 @@ class AppDB:
             self._ensure_mkl_seed_brands()
         except Exception:
             pass
+        # Manual one-time mirroring: create 'Контактные Линзы' at the bottom and copy MKL structure into Meridian
+        try:
+            self._ensure_meridian_contacts_from_mkl()
+        except Exception:
+            pass
         
 
     def _init_schema(self):
