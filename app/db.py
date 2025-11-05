@@ -13,6 +13,22 @@ class AppDB:
         except Exception:
             pass
         self._init_schema()
+        # Optional seed for MKL catalog (Adria hierarchy)
+        try:
+            self._ensure_mkl_seed_adria()
+        except Exception:
+            pass
+        # Additional seed for other brands and solutions (idempotent)
+        try:
+            self._ensure_mkl_seed_brands()
+        except Exception:
+            pass
+        # One-time static seed for Meridian: create a bottom group 'Контактные Линзы' with the same structure as MKL (no runtime copy)
+        try:
+            self._ensure_meridian_seed_contacts()
+        except Exception:
+            pass
+        
 
     def _init_schema(self):
         cur = self.conn.cursor()
@@ -70,10 +86,16 @@ class AppDB:
             CREATE TABLE IF NOT EXISTS product_groups_mkl (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                sort_order INTEGER NOT NULL DEFAULT 0
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                parent_id INTEGER REFERENCES product_groups_mkl(id) ON DELETE CASCADE
             );
             """
         )
+        # Migrations for existing DBs: add missing columns
+        try:
+            cur.execute("ALTER TABLE product_groups_mkl ADD COLUMN parent_id INTEGER REFERENCES product_groups_mkl(id) ON DELETE CASCADE;")
+        except Exception:
+            pass
         try:
             cur.execute("ALTER TABLE products_mkl ADD COLUMN group_id INTEGER REFERENCES product_groups_mkl(id) ON DELETE SET NULL;")
         except Exception:
@@ -83,16 +105,23 @@ class AppDB:
         except Exception:
             pass
 
-        # Meridian product groups and products
+        # Meridian product groups (now hierarchical) and products
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS product_groups_meridian (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                sort_order INTEGER NOT NULL DEFAULT 0
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                parent_id INTEGER REFERENCES product_groups_meridian(id) ON DELETE CASCADE
             );
             """
         )
+        # Migration: add parent_id to product_groups_meridian if missing
+        try:
+            cur.execute("ALTER TABLE product_groups_meridian ADD COLUMN parent_id INTEGER REFERENCES product_groups_meridian(id) ON DELETE CASCADE;")
+        except Exception:
+            pass
+
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS products_meridian (
@@ -121,6 +150,7 @@ class AppDB:
                 sph TEXT,
                 cyl TEXT,
                 ax TEXT,
+                "add" TEXT,
                 bc TEXT,
                 qty TEXT,
                 status TEXT NOT NULL,
@@ -131,6 +161,11 @@ class AppDB:
         # Add 'comment' column if it doesn't exist
         try:
             cur.execute("ALTER TABLE mkl_orders ADD COLUMN comment TEXT;")
+        except Exception:
+            pass
+        # Add 'add' (ADD) column if it doesn't exist (placed between ax and bc in schema order)
+        try:
+            cur.execute("ALTER TABLE mkl_orders ADD COLUMN \"add\" TEXT;")
         except Exception:
             pass
         # Meridian orders (header) + items
@@ -153,12 +188,18 @@ class AppDB:
                 sph TEXT,
                 cyl TEXT,
                 ax TEXT,
+                "add" TEXT,
                 d TEXT,
                 qty TEXT,
                 FOREIGN KEY(order_id) REFERENCES meridian_orders(id) ON DELETE CASCADE
             );
             """
         )
+        # Migration: add ADD column if missing
+        try:
+            cur.execute("ALTER TABLE meridian_items ADD COLUMN \"add\" TEXT;")
+        except Exception:
+            pass
 
         # Prices table
         cur.execute(
@@ -299,34 +340,45 @@ class AppDB:
 
     # --- Products MKL with Groups ---
     def list_product_groups_mkl(self) -> list[dict]:
-        rows = self.conn.execute("SELECT id, name, sort_order FROM product_groups_mkl ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
-        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"]} for r in rows]
+        rows = self.conn.execute("SELECT id, name, sort_order, parent_id FROM product_groups_mkl ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"], "parent_id": r["parent_id"]} for r in rows]
 
-    def _next_group_sort_mkl(self) -> int:
-        row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_mkl;").fetchone()
+    def _next_group_sort_mkl(self, parent_id: int | None) -> int:
+        if parent_id is None:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_mkl WHERE parent_id IS NULL;").fetchone()
+        else:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_mkl WHERE parent_id=?;", (parent_id,)).fetchone()
         return (row["m"] or 0) + 1
 
-    def add_product_group_mkl(self, name: str) -> int:
-        sort_order = self._next_group_sort_mkl()
-        cur = self.conn.execute("INSERT INTO product_groups_mkl (name, sort_order) VALUES (?, ?);", (name, sort_order))
+    def add_product_group_mkl(self, name: str, parent_id: int | None = None) -> int:
+        sort_order = self._next_group_sort_mkl(parent_id)
+        cur = self.conn.execute("INSERT INTO product_groups_mkl (name, sort_order, parent_id) VALUES (?, ?, ?);", (name, sort_order, parent_id))
         self.conn.commit()
         return cur.lastrowid
 
-    def update_product_group_mkl(self, group_id: int, name: str):
-        self.conn.execute("UPDATE product_groups_mkl SET name=? WHERE id=?;", (name, group_id))
+    def update_product_group_mkl(self, group_id: int, name: str, parent_id: int | None = None):
+        self.conn.execute("UPDATE product_groups_mkl SET name=?, parent_id=? WHERE id=?;", (name, parent_id, group_id))
         self.conn.commit()
 
     def delete_product_group_mkl(self, group_id: int):
-        # Detach products from group, then delete group
+        # Detach products from group, then delete group; child groups will be cascaded by FK
         self.conn.execute("UPDATE products_mkl SET group_id=NULL WHERE group_id=?;", (group_id,))
         self.conn.execute("DELETE FROM product_groups_mkl WHERE id=?;", (group_id,))
         self.conn.commit()
 
     def move_group_mkl(self, group_id: int, direction: int):
-        rows = self.conn.execute("SELECT id, sort_order FROM product_groups_mkl ORDER BY sort_order ASC, id ASC;").fetchall()
+        # Move within siblings (same parent_id)
+        r = self.conn.execute("SELECT id, parent_id, sort_order FROM product_groups_mkl WHERE id=?;", (group_id,)).fetchone()
+        if not r:
+            return
+        parent_id = r["parent_id"]
+        rows = self.conn.execute(
+            "SELECT id, sort_order FROM product_groups_mkl WHERE (parent_id IS ? OR parent_id = ?) ORDER BY sort_order ASC, id ASC;",
+            (None if parent_id is None else parent_id, parent_id),
+        ).fetchall()
         idx = None
-        for i, r in enumerate(rows):
-            if r["id"] == group_id:
+        for i, row in enumerate(rows):
+            if row["id"] == group_id:
                 idx = i
                 break
         if idx is None:
@@ -400,23 +452,775 @@ class AppDB:
         self.conn.execute("UPDATE products_mkl SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
 
+    # --- Seed MKL catalog (Adria hierarchy and products) ---
+    def _ensure_mkl_seed_adria(self):
+        """
+        Create Adria group tree with products if it doesn't exist yet.
+        Idempotent: checks 'Adria' top-level group presence; if found, does nothing.
+        """
+        row = self.conn.execute(
+            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
+            ("Adria",),
+        ).fetchone()
+        if row:
+            return  # already seeded (or manually created)
+
+        def ensure_group(name: str, parent_id: int | None) -> int:
+            r = self.conn.execute(
+                "SELECT id FROM product_groups_mkl WHERE name=? AND (parent_id IS ? OR parent_id = ?);",
+                (name, None if parent_id is None else parent_id, parent_id),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_group_mkl(name, parent_id)
+
+        def ensure_product(name: str, gid: int):
+            r = self.conn.execute(
+                "SELECT id FROM products_mkl WHERE name=? AND group_id=?;",
+                (name, gid),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_mkl(name, gid)
+
+        # Build hierarchy
+        adria = ensure_group("Adria", None)
+        g_daily = ensure_group("Однодневные линзы", adria)
+        g_monthly = ensure_group("Ежемесячные линзы", adria)
+        g_quarterly = ensure_group("Квартальные линзы", adria)
+        g_multifocal = ensure_group("Мультифакальные линзы", adria)
+        g_color = ensure_group("Цветные линзы", adria)
+
+        # Однодневные линзы
+        for nm in [
+            "Adria GO 180pk 8.6 BC",
+            "Adria GO 90pk 8.6 BC",
+            "Adria GO 30pk 8.6 BC",
+            "Adria GO 10pk 8.6 BC",
+            "Adria GO 5pk 8.6 BC",
+            "ADRIA X 30pk 8.6 BC",
+            "ADRIA EGO 30pk 8.6 BC",
+            "Adria Zero 90pk 8.6 BC",
+            "Adria Zero 30pk 8.6 BC",
+            "Adria Zero 5pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_daily)
+
+        # Ежемесячные линзы
+        for nm in [
+            "Adria sport 6pk 8.6 BC",
+            "Adria O2O2 2pk 8.6 BC",
+            "Adria O2O2 6pk 8.6 BC",
+            "Adria O2O2 12pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly)
+
+        # Квартальные линзы
+        for nm in [
+            "ADRIA Season 2pk 8.6 BC",
+            "ADRIA Season 4pk 8.6 BC",
+            "ADRIA Season 4pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_quarterly)
+
+        # Мультифакальные линзы
+        for nm in [
+            "Adria O2O2 Toric 2pk 8.6 BC",
+            "Adria O2O2 Toric 6pk 8.6 BC",
+            "Adria O2O2 Multifocal 2pk 8.6 BC",
+            "Adria O2O2 Multifocal 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_multifocal)
+
+        # Цветные линзы → Квартальные линзы
+        g_color_quarterly = ensure_group("Квартальные линзы", g_color)
+
+        # ADRIA Effect
+        g_effect = ensure_group("ADRIA Effect", g_color_quarterly)
+        for nm in [
+            "ADRIA Effect Topaz (топаз)",
+            "ADRIA Effect Grafit (графит)",
+            "ADRIA Effect Cristal (кристалл)",
+            "ADRIA Effect Quartz (кварц)",
+            "ADRIA Effect Ivory (айвори)",
+            "ADRIA Effect Caramel (карамель)",
+        ]:
+            ensure_product(nm, g_effect)
+
+        # ADRIA Glamorous
+        g_glam = ensure_group("ADRIA Glamorous", g_color_quarterly)
+        for nm in [
+            "ADRIA Glamorous Blue (голубой)",
+            "ADRIA Glamorous Black (черный)",
+            "ADRIA Glamorous Violet (фиолетовый)",
+            "ADRIA Glamorous Turquoise (бирюзовый)",
+            "ADRIA Glamorous Brown (карий)",
+            "ADRIA Glamorous Green (зеленый)",
+            "ADRIA Glamorous Gray (серый)",
+            "ADRIA Glamorous Gold (золото)",
+            "ADRIA Glamorous Pure Gold (чистое золото)",
+        ]:
+            ensure_product(nm, g_glam)
+
+        # ADRIA Color 1 Tone
+        g_c1 = ensure_group("ADRIA Color 1 Tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 1 Tone Blue (голубой)",
+            "ADRIA Color 1 Tone Green (зеленый)",
+            "ADRIA Color 1 Tone Lavender (лаванда)",
+            "ADRIA Color 1 Tone Gray (серый)",
+            "ADRIA Color 1 Tone Brown (карий)",
+        ]:
+            ensure_product(nm, g_c1)
+
+        # ADRIA Color 2 Tone
+        g_c2 = ensure_group("ADRIA Color 2 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 2 Tone True Sapphire (сапфир)",
+            "ADRIA Color 2 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 2 Tone Brown (карий)",
+            "ADRIA Color 2 Tone Green (зеленый)",
+            "ADRIA Color 2 Tone Gray (серый)",
+            "ADRIA Color 2 Tone Amethyst (аметист)",
+            "ADRIA Color 2 Tone Hazel (орех)",
+        ]:
+            ensure_product(nm, g_c2)
+
+        # ADRIA Color 3 Tone
+        g_c3 = ensure_group("ADRIA Color 3 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 3 Tone Green (зеленый)",
+            "ADRIA Color 3 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 3 Tone True Sapphire (сапфир)",
+            "ADRIA Color 3 Tone Gray (серый)",
+            "ADRIA Color 3 Tone Brown (карий)",
+            "ADRIA Color 3 Tone Honey (медовый)",
+            "ADRIA Color 3 Tone Hazel (орех)",
+            "ADRIA Color 3 Tone Pure Hazel (насыщенный орех)",
+            "ADRIA Color 3 Tone Amethyst (аметист)",
+        ]:
+            ensure_product(nm, g_c3)
+
+        # ADRIA Crazy
+        g_crazy = ensure_group("ADRIA Crazy", g_color_quarterly)
+        for nm in [
+            "ADRIA Crazy Black Out (черное пятно)",
+            "ADRIA Crazy MSN (сеть)",
+            "ADRIA Crazy Hot Red (яркий красный)",
+            "ADRIA Crazy Zombo (зомбо)",
+            "ADRIA Crazy White Vampire (белый вампир)",
+            "ADRIA Crazy White Out (белое пятно)",
+            "ADRIA Crazy Maniac (маньяк)",
+            "ADRIA Crazy Blue Angelic (голубой ангел)",
+            "ADRIA Crazy Blue Wheel (голубое колесо)",
+            "ADRIA Crazy Demon (демон)",
+            "ADRIA Crazy Robot (робот)",
+            "ADRIA Crazy Psyho (психо)",
+            "ADRIA Crazy Solid Yellow (сплошной желтый)",
+            "ADRIA Crazy White Cat (белая кошка)",
+            "ADRIA Crazy Black Star (черная звезда)",
+            "ADRIA Crazy Blood (кровь)",
+            "ADRIA Crazy Cross (крест)",
+            "ADRIA Crazy Devil (дьявол)",
+            "ADRIA Crazy Eagle (орел)",
+            "ADRIA Crazy Green Banshee (зеленая опасность)",
+            "ADRIA Crazy Green Cat (зеленая кошка)",
+            "ADRIA Crazy Lunatic (лунатик)",
+            "ADRIA Crazy Pink (розовый)",
+            "ADRIA Crazy Red Cat (красная кошка)",
+            "ADRIA Crazy Sharingan (шаринган)",
+            "ADRIA Crazy Target (мишень)",
+            "ADRIA Crazy Wild Fire (дикий огонь)",
+            "ADRIA Crazy Yellow Cat (желтая кошка)",
+            "ADRIA Crazy Yellow Wolf (желтый волк)",
+            "ADRIA Crazy Red Vampire (красный вампир)",
+        ]:
+            ensure_product(nm, g_crazy)
+
+        # ADRIA Sclera Pro
+        g_sclera = ensure_group("ADRIA Sclera Pro", g_color_quarterly)
+        ensure_product("ADRIA Sclera Pro Demon look", g_sclera)
+
+        # ADRIA Neon
+        g_neon = ensure_group("ADRIA Neon", g_color_quarterly)
+        for nm in [
+            "ADRIA Neon Green (зеленый)",
+            "ADRIA Neon Blue (голубой)",
+            "ADRIA Neon White (белый)",
+            "ADRIA Neon Pink (розовый)",
+            "ADRIA Neon Lemon (лимонный)",
+            "ADRIA Neon Violet (фиолетовый)",
+            "ADRIA Neon Orange (оранжевый)",
+        ]:
+            ensure_product(nm, g_neon)
+
+        # Однодневные цветные линзы (подгруппа в Цветные линзы)
+        g_color_daily = ensure_group("Однодневные цветные линзы", g_color)
+        for nm in [
+            "ADRIA WOW (30 линз) Latin (светло-карий)",
+            "ADRIA WOW (30 линз) Jazz Black (черный)",
+            "ADRIA WOW (30 линз) Rhapsody (темно-карий)",
+            "ADRIA WOW (30 линз) Soul Brown (карий)",
+            "ADRIA MIX (10 линз) Light Green (зеленый)",
+            "ADRIA MIX (10 линз) Blue (голубой)",
+            "ADRIA MIX (10 линз) Pearl Gray (серый)",
+            "ADRIA MIX (30 линз) (3 цвета в упаковке)",
+        ]:
+            ensure_product(nm, g_color_daily)
+
+    # --- Seed MKL catalog for other brands and solutions ---
+    def _ensure_mkl_seed_brands(self):
+        """
+        Seed additional MKL brands: Acuvue (Johnson & Johnson), Alcon, Bausch+Lomb,
+        and utility groups: Растворы, Капли.
+        Idempotent: checks for top-level group presence before seeding.
+        """
+        def ensure_group(name: str, parent_id: int | None) -> int:
+            r = self.conn.execute(
+                "SELECT id FROM product_groups_mkl WHERE name=? AND (parent_id IS ? OR parent_id = ?);",
+                (name, None if parent_id is None else parent_id, parent_id),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_group_mkl(name, parent_id)
+
+        def ensure_product(name: str, gid: int):
+            r = self.conn.execute(
+                "SELECT id FROM products_mkl WHERE name=? AND group_id=?;",
+                (name, gid),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_mkl(name, gid)
+
+        # Acuvue (Johnson & Johnson)
+        acuvue_row = self.conn.execute(
+            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
+            ("Acuvue (Johnson & Johnson)",),
+        ).fetchone()
+        if not acuvue_row:
+            acuvue = ensure_group("Acuvue (Johnson & Johnson)", None)
+            g_daily = ensure_group("Однодневные линзы", acuvue)
+            for nm in [
+                "1-DAY Acuvue MOIST 30pk 8.5 BC",
+                "1-DAY Acuvue MOIST 30pk 9.0 BC",
+                "1-DAY Acuvue MOIST 90pk 8.5 BC",
+                "1-DAY Acuvue MOIST 90pk 9.0 BC",
+                "1-DAY Acuvue MOIST 180pk 8.5 BC",
+                "1-DAY Acuvue MOIST 180pk 9.0 BC",
+                "1-Day Acuvue Oasys With Hydraluxe 30pk 8.5 BC",
+                "1-Day Acuvue Oasys With Hydraluxe 30pk 9.0 BC",
+                "1-Day Acuvue Oasys With Hydraluxe 90pk 8.5 BC",
+                "1-Day Acuvue Oasys With Hydraluxe 90pk 9.0 BC",
+                "1-Day Acuvue Oasys With Hydraluxe 180pk 8.5 BC",
+                "1-Day Acuvue Oasys With Hydraluxe 180pk 9.0 BC",
+                "ACUVUE OASYS MAX 1-Day 30pk 8.5 BC",
+                "ACUVUE OASYS MAX 1-Day 30pk 9.0 BC",
+            ]:
+                ensure_product(nm, g_daily)
+            g_biweek = ensure_group("Двухнедельные линзы", acuvue)
+            for nm in [
+                "Acuvue 2 6pk 8.3 BC",
+                "Acuvue 2 6pk 8.7 BC",
+                "Acuvue Oasys 6pk 8.4 BC",
+                "Acuvue Oasys 6pk 8.8 BC",
+                "Acuvue Oasys 12pk 8.4 BC",
+                "Acuvue Oasys 12pk 8.8 BC",
+                "Acuvue Oasys 24pk 8.4 BC",
+                "Acuvue Oasys 24pk 8.8 BC",
+            ]:
+                ensure_product(nm, g_biweek)
+            g_biweek_mf = ensure_group("Двухнедельные линзы мультифокальные", acuvue)
+            for nm in [
+                "Acuvue Oasys for ASTIGMATISM 6pk 8.6 BC",
+                "1-DAY Acuvue MOIST for ASTIGMATISM 30pk 8.5 BC",
+                "1-DAY Acuvue MOIST for ASTIGMATISM 90pk 8.5 BC",
+                "1-DAY Acuvue Oasys With Hydraluxe for ASTIGMATISM 30pk 8.5 BC",
+                "1-DAY Acuvue MOIST Multifocal 30pk 8.4 BC",
+            ]:
+                ensure_product(nm, g_biweek_mf)
+
+        # Alcon
+        alcon_row = self.conn.execute(
+            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
+            ("Alcon",),
+        ).fetchone()
+        if not alcon_row:
+            alcon = ensure_group("Alcon", None)
+            g_daily = ensure_group("Однодневные линзы", alcon)
+            for nm in [
+                "Dailies Total 1 30pk 8.6 BC",
+                "Dailies Total 1 90pk 8.6 BC",
+                "Precision 1 30pk 8.3 BC",
+                "Precision 1 90pk 8.3 BC",
+                "Dailies Aqua Comfort Plus 30pk 8.7 BC",
+                "Dailies Aqua Comfort Plus 30pk 8.9 BC",
+            ]:
+                ensure_product(nm, g_daily)
+            g_monthly = ensure_group("Ежемесячные линзы", alcon)
+            for nm in [
+                "AIR Optix Aqua 3pk 8.6 BC",
+                "AIR Optix Aqua 6pk 8.6 BC",
+                "AIR Optix Night&Day AQUA 3pk 8.4 BC",
+                "AIR Optix Night&Day AQUA 3pk 8.6 BC",
+                "Air Optix Plus HydraGlyde 3pk 8.6 BC",
+                "Air Optix Plus HydraGlyde 6pk 8.6 BC",
+                "Total 30 3pk 8.6 BC",
+            ]:
+                ensure_product(nm, g_monthly)
+            g_mf = ensure_group("Линзы мультифакальные", alcon)
+            for nm in [
+                "Air Optix Plus Hydraglyde For Astigmatism 3pk 8.7 BC",
+                "Air Optix Plus Hydraglyde For Astigmatism 6pk 8.7 BC",
+                "Air Optix Plus Hydraglyde For Astigmatism 9pk 8.7 BC",
+                "AIR OPTIX plus HydraGlyde Multifocal 3pk 8.6 BC",
+                "Dailies Total 1 Multifocal 30pk 8.5 BC",
+                "Total 30 for Astigmatism 3pk 8.4 BC",
+            ]:
+                ensure_product(nm, g_mf)
+
+        # Bausch+Lomb
+        bl_row = self.conn.execute(
+            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
+            ("Bausch+Lomb",),
+        ).fetchone()
+        if not bl_row:
+            bl = ensure_group("Bausch+Lomb", None)
+            g_monthly = ensure_group("Ежемесячные линзы", bl)
+            for nm in [
+                "SofLens 59 6pk 8.6 BC",
+                "PureVision 2 6pk 8.6 BC",
+            ]:
+                ensure_product(nm, g_monthly)
+            g_quarterly = ensure_group("Квартальные линзы", bl)
+            for nm in [
+                "Optima FW 4pk 8.4 BC",
+                "Optima FW 4pk 8.7 BC",
+            ]:
+                ensure_product(nm, g_quarterly)
+
+        # Растворы
+        sol_row = self.conn.execute(
+            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
+            ("Растворы",),
+        ).fetchone()
+        if not sol_row:
+            solutions = ensure_group("Растворы", None)
+            # Adria subgroup under solutions
+            s_adria = ensure_group("Adria", solutions)
+            for nm in [
+                "ADRIA CITY Moist 360ml",
+                "ADRIA (DENIQ HIGH FRESH YAL) 360ml",
+                "ADRIA Plus 60ml",
+                "ADRIA Plus 250ml",
+            ]:
+                ensure_product(nm, s_adria)
+            # Renu MPS
+            s_renu_mps = ensure_group("Renu MPS", solutions)
+            for nm in [
+                "Renu MPS 120ml",
+                "Renu MPS 240ml",
+                "Renu MPS 360ml",
+            ]:
+                ensure_product(nm, s_renu_mps)
+            # Renu MultiPlus
+            s_renu_multi = ensure_group("Renu MultiPlus", solutions)
+            for nm in [
+                "Renu MultiPlus 60ml",
+                "Renu MultiPlus 120ml",
+                "Renu MultiPlus 240ml",
+                "Renu MultiPlus 360ml",
+            ]:
+                ensure_product(nm, s_renu_multi)
+            # Renu Advanced
+            s_renu_adv = ensure_group("Renu Advanced", solutions)
+            for nm in [
+                "Renu Advanced 100ml",
+                "Renu Advanced 360ml",
+            ]:
+                ensure_product(nm, s_renu_adv)
+            # Acuvue
+            s_acuvue = ensure_group("Acuvue", solutions)
+            for nm in [
+                "Acuvue 100ml",
+                "Acuvue 300ml",
+                "Acuvue 360ml",
+            ]:
+                ensure_product(nm, s_acuvue)
+            # Ликонтин
+            s_likon = ensure_group("Ликонтин", solutions)
+            for nm in [
+                "Ликонтин-Универсал 120ml",
+                "Ликонтин-Универсал 240ml",
+            ]:
+                ensure_product(nm, s_likon)
+            # OPTIMED
+            s_optimed = ensure_group("OPTIMED", solutions)
+            for nm in [
+                "OPTIMED Про Актив 125ml",
+                "OPTIMED Про Актив 125ml",
+            ]:
+                ensure_product(nm, s_optimed)
+            # Products directly under solutions
+            for nm in [
+                "AOSEPT Plus HydraGlyde 360ml",
+                "OptiFree Express 355ml",
+                "Энзимный очиститель \"OPTIMED\" 3ml",
+                "Ликонтин 5ml  (раствор для энзимной очистки)",
+                "Avizor Таблетки 10 шт.",
+            ]:
+                ensure_product(nm, solutions)
+
+        # Капли (top-level group with products)
+        drops_row = self.conn.execute(
+            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
+            ("Капли",),
+        ).fetchone()
+        if not drops_row:
+            drops = ensure_group("Капли", None)
+            for nm in [
+                "ADRIA Relax 10ml",
+                "OPTIMED Про Актив 10ml",
+                "Avizor Comfort Drops 15ml",
+                "Avizor Moisture Drops 15ml",
+                "Опти-Фри 15ml",
+                "Ликонтин - Комфорт 18ml",
+            ]:
+                ensure_product(nm, drops)
+
+    # --- Static seed for Meridian 'Контактные Линзы' with the same structure as MKL ---
+    def _ensure_meridian_seed_contacts(self):
+        """
+        Create 'Контактные Линзы' at top level in Meridian with a curated static structure
+        equivalent to MKL catalog (Adria, Alcon, Bausch+Lomb, Растворы, Капли), but seeded
+        directly without reading MKL at runtime. Idempotent by names.
+        """
+        # If group exists, do nothing
+        row = self.conn.execute(
+            "SELECT id FROM product_groups_meridian WHERE name=? AND parent_id IS NULL;",
+            ("Контактные Линзы",),
+        ).fetchone()
+        if row:
+            return
+
+        # Create top-level group
+        contacts_gid = self.add_product_group_meridian("Контактные Линзы", None)
+
+        def ensure_group(name: str, parent_id: int | None) -> int:
+            r = self.conn.execute(
+                "SELECT id FROM product_groups_meridian WHERE name=? AND (parent_id IS ? OR parent_id = ?);",
+                (name, None if parent_id is None else parent_id, parent_id),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_group_meridian(name, parent_id)
+
+        def ensure_product(name: str, gid: int):
+            r = self.conn.execute(
+                "SELECT id FROM products_meridian WHERE name=? AND group_id=?;",
+                (name, gid),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_meridian(name, gid)
+
+        # Adria
+        adria = ensure_group("Adria", contacts_gid)
+        g_daily = ensure_group("Однодневные линзы", adria)
+        for nm in [
+            "Adria GO 180pk 8.6 BC",
+            "Adria GO 90pk 8.6 BC",
+            "Adria GO 30pk 8.6 BC",
+            "Adria GO 10pk 8.6 BC",
+            "Adria GO 5pk 8.6 BC",
+            "ADRIA X 30pk 8.6 BC",
+            "ADRIA EGO 30pk 8.6 BC",
+            "Adria Zero 90pk 8.6 BC",
+            "Adria Zero 30pk 8.6 BC",
+            "Adria Zero 5pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_daily)
+        g_monthly = ensure_group("Ежемесячные линзы", adria)
+        for nm in [
+            "Adria sport 6pk 8.6 BC",
+            "Adria O2O2 2pk 8.6 BC",
+            "Adria O2O2 6pk 8.6 BC",
+            "Adria O2O2 12pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly)
+        g_quarterly = ensure_group("Квартальные линзы", adria)
+        for nm in [
+            "ADRIA Season 2pk 8.6 BC",
+            "ADRIA Season 4pk 8.6 BC",
+            "ADRIA Season 4pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_quarterly)
+        g_multifocal = ensure_group("Мультифакальные линзы", adria)
+        for nm in [
+            "Adria O2O2 Toric 2pk 8.6 BC",
+            "Adria O2O2 Toric 6pk 8.6 BC",
+            "Adria O2O2 Multifocal 2pk 8.6 BC",
+            "Adria O2O2 Multifocal 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_multifocal)
+        g_color = ensure_group("Цветные линзы", adria)
+        g_color_quarterly = ensure_group("Квартальные линзы", g_color)
+        g_effect = ensure_group("ADRIA Effect", g_color_quarterly)
+        for nm in [
+            "ADRIA Effect Topaz (топаз)",
+            "ADRIA Effect Grafit (графит)",
+            "ADRIA Effect Cristal (кристалл)",
+            "ADRIA Effect Quartz (кварц)",
+            "ADRIA Effect Ivory (айвори)",
+            "ADRIA Effect Caramel (карамель)",
+        ]:
+            ensure_product(nm, g_effect)
+        g_glam = ensure_group("ADRIA Glamorous", g_color_quarterly)
+        for nm in [
+            "ADRIA Glamorous Blue (голубой)",
+            "ADRIA Glamorous Black (черный)",
+            "ADRIA Glamorous Violet (фиолетовый)",
+            "ADRIA Glamorous Turquoise (бирюзовый)",
+            "ADRIA Glamorous Brown (карий)",
+            "ADRIA Glamorous Green (зеленый)",
+            "ADRIA Glamorous Gray (серый)",
+            "ADRIA Glamorous Gold (золото)",
+            "ADRIA Glamorous Pure Gold (чистое золото)",
+        ]:
+            ensure_product(nm, g_glam)
+        g_c1 = ensure_group("ADRIA Color 1 Tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 1 Tone Blue (голубой)",
+            "ADRIA Color 1 Tone Green (зеленый)",
+            "ADRIA Color 1 Tone Lavender (лаванда)",
+            "ADRIA Color 1 Tone Gray (серый)",
+            "ADRIA Color 1 Tone Brown (карий)",
+        ]:
+            ensure_product(nm, g_c1)
+        g_c2 = ensure_group("ADRIA Color 2 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 2 Tone True Sapphire (сапфир)",
+            "ADRIA Color 2 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 2 Tone Brown (карий)",
+            "ADRIA Color 2 Tone Green (зеленый)",
+            "ADRIA Color 2 Tone Gray (серый)",
+            "ADRIA Color 2 Tone Amethyst (аметист)",
+            "ADRIA Color 2 Tone Hazel (орех)",
+        ]:
+            ensure_product(nm, g_c2)
+        g_c3 = ensure_group("ADRIA Color 3 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 3 Tone Green (зеленый)",
+            "ADRIA Color 3 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 3 Tone True Sapphire (сапфир)",
+            "ADRIA Color 3 Tone Gray (серый)",
+            "ADRIA Color 3 Tone Brown (карий)",
+            "ADRIA Color 3 Tone Honey (медовый)",
+            "ADRIA Color 3 Tone Hazel (орех)",
+            "ADRIA Color 3 Tone Pure Hazel (насыщенный орех)",
+            "ADRIA Color 3 Tone Amethyst (аметист)",
+        ]:
+            ensure_product(nm, g_c3)
+        g_crazy = ensure_group("ADRIA Crazy", g_color_quarterly)
+        for nm in [
+            "ADRIA Crazy Black Out (черное пятно)",
+            "ADRIA Crazy MSN (сеть)",
+            "ADRIA Crazy Hot Red (яркий красный)",
+            "ADRIA Crazy Zombo (зомбо)",
+            "ADRIA Crazy White Vampire (белый вампир)",
+            "ADRIA Crazy White Out (белое пятно)",
+            "ADRIA Crazy Maniac (маньяк)",
+            "ADRIA Crazy Blue Angelic (голубой ангел)",
+            "ADRIA Crazy Blue Wheel (голубое колесо)",
+            "ADRIA Crazy Demon (демон)",
+            "ADRIA Crazy Robot (робот)",
+            "ADRIA Crazy Psyho (психо)",
+            "ADRIA Crazy Solid Yellow (сплошной желтый)",
+            "ADRIA Crazy White Cat (белая кошка)",
+            "ADRIA Crazy Black Star (черная звезда)",
+            "ADRIA Crazy Blood (кровь)",
+            "ADRIA Crazy Cross (крест)",
+            "ADRIA Crazy Devil (дьявол)",
+            "ADRIA Crazy Eagle (орел)",
+            "ADRIA Crazy Green Banshee (зеленая опасность)",
+            "ADRIA Crazy Green Cat (зеленая кошка)",
+            "ADRIA Crazy Lunatic (лунатик)",
+            "ADRIA Crazy Pink (розовый)",
+            "ADRIA Crazy Red Cat (красная кошка)",
+            "ADRIA Crazy Sharingan (шаринган)",
+            "ADRIA Crazy Target (мишень)",
+            "ADRIA Crazy Wild Fire (дикий огонь)",
+            "ADRIA Crazy Yellow Cat (желтая кошка)",
+            "ADRIA Crazy Yellow Wolf (желтый волк)",
+            "ADRIA Crazy Red Vampire (красный вампир)",
+        ]:
+            ensure_product(nm, g_crazy)
+        g_sclera = ensure_group("ADRIA Sclera Pro", g_color_quarterly)
+        ensure_product("ADRIA Sclera Pro Demon look", g_sclera)
+        g_neon = ensure_group("ADRIA Neon", g_color_quarterly)
+        for nm in [
+            "ADRIA Neon Green (зеленый)",
+            "ADRIA Neon Blue (голубой)",
+            "ADRIA Neon White (белый)",
+            "ADRIA Neon Pink (розовый)",
+            "ADRIA Neon Lemon (лимонный)",
+            "ADRIA Neon Violet (фиолетовый)",
+            "ADRIA Neon Orange (оранжевый)",
+        ]:
+            ensure_product(nm, g_neon)
+        g_color_daily = ensure_group("Однодневные цветные линзы", g_color)
+        for nm in [
+            "ADRIA WOW (30 линз) Latin (светло-карий)",
+            "ADRIA WOW (30 линз) Jazz Black (черный)",
+            "ADRIA WOW (30 линз) Rhapsody (темно-карий)",
+            "ADRIA WOW (30 линз) Soul Brown (карий)",
+            "ADRIA MIX (10 линз) Light Green (зеленый)",
+            "ADRIA MIX (10 линз) Blue (голубой)",
+            "ADRIA MIX (10 линз) Pearl Gray (серый)",
+            "ADRIA MIX (30 линз) (3 цвета в упаковке)",
+        ]:
+            ensure_product(nm, g_color_daily)
+
+        # Alcon
+        alcon = ensure_group("Alcon", contacts_gid)
+        g_daily = ensure_group("Однодневные линзы", alcon)
+        for nm in [
+            "Dailies Total 1 30pk 8.6 BC",
+            "Dailies Total 1 90pk 8.6 BC",
+            "Precision 1 30pk 8.3 BC",
+            "Precision 1 90pk 8.3 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.7 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_daily)
+        g_monthly = ensure_group("Ежемесячные линзы", alcon)
+        for nm in [
+            "AIR Optix Aqua 3pk 8.6 BC",
+            "AIR Optix Aqua 6pk 8.6 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.4 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 6pk 8.6 BC",
+            "Total 30 3pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly)
+        g_mf = ensure_group("Линзы мультифакальные", alcon)
+        for nm in [
+            "Air Optix Plus Hydraglyde For Astigmatism 3pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 6pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 9pk 8.7 BC",
+            "AIR OPTIX plus HydraGlyde Multifocal 3pk 8.6 BC",
+            "Dailies Total 1 Multifocal 30pk 8.5 BC",
+            "Total 30 for Astigmatism 3pk 8.4 BC",
+        ]:
+            ensure_product(nm, g_mf)
+
+        # Bausch+Lomb
+        bl = ensure_group("Bausch+Lomb", contacts_gid)
+        g_monthly_bl = ensure_group("Ежемесячные линзы", bl)
+        for nm in [
+            "SofLens 59 6pk 8.6 BC",
+            "PureVision 2 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly_bl)
+        g_quarterly_bl = ensure_group("Квартальные линзы", bl)
+        for nm in [
+            "Optima FW 4pk 8.4 BC",
+            "Optima FW 4pk 8.7 BC",
+        ]:
+            ensure_product(nm, g_quarterly_bl)
+
+        # Растворы
+        solutions = ensure_group("Растворы", contacts_gid)
+        s_adria = ensure_group("Adria", solutions)
+        for nm in [
+            "ADRIA CITY Moist 360ml",
+            "ADRIA (DENIQ HIGH FRESH YAL) 360ml",
+            "ADRIA Plus 60ml",
+            "ADRIA Plus 250ml",
+        ]:
+            ensure_product(nm, s_adria)
+        s_renu_mps = ensure_group("Renu MPS", solutions)
+        for nm in [
+            "Renu MPS 120ml",
+            "Renu MPS 240ml",
+            "Renu MPS 360ml",
+        ]:
+            ensure_product(nm, s_renu_mps)
+        s_renu_multi = ensure_group("Renu MultiPlus", solutions)
+        for nm in [
+            "Renu MultiPlus 60ml",
+            "Renu MultiPlus 120ml",
+            "Renu MultiPlus 240ml",
+            "Renu MultiPlus 360ml",
+        ]:
+            ensure_product(nm, s_renu_multi)
+        s_renu_adv = ensure_group("Renu Advanced", solutions)
+        for nm in [
+            "Renu Advanced 100ml",
+            "Renu Advanced 360ml",
+        ]:
+            ensure_product(nm, s_renu_adv)
+        s_acuvue = ensure_group("Acuvue", solutions)
+        for nm in [
+            "Acuvue 100ml",
+            "Acuvue 300ml",
+            "Acuvue 360ml",
+        ]:
+            ensure_product(nm, s_acuvue)
+        s_likon = ensure_group("Ликонтин", solutions)
+        for nm in [
+            "Ликонтин-Универсал 120ml",
+            "Ликонтин-Универсал 240ml",
+        ]:
+            ensure_product(nm, s_likon)
+        s_optimed = ensure_group("OPTIMED", solutions)
+        for nm in [
+            "OPTIMED Про Актив 125ml",
+            "OPTIMED Про Актив 125ml",
+        ]:
+            ensure_product(nm, s_optimed)
+        for nm in [
+            "AOSEPT Plus HydraGlyde 360ml",
+            "OptiFree Express 355ml",
+            "Энзимный очиститель \"OPTIMED\" 3ml",
+            "Ликонтин 5ml  (раствор для энзимной очистки)",
+            "Avizor Таблетки 10 шт.",
+        ]:
+            ensure_product(nm, solutions)
+
+        # Капли
+        drops = ensure_group("Капли", contacts_gid)
+        for nm in [
+            "ADRIA Relax 10ml",
+            "OPTIMED Про Актив 10ml",
+            "Avizor Comfort Drops 15ml",
+            "Avizor Moisture Drops 15ml",
+            "Опти-Фри 15ml",
+            "Ликонтин - Комфорт 18ml",
+        ]:
+            ensure_product(nm, drops)
+
     # --- Products Meridian with Groups ---
     def list_product_groups_meridian(self) -> list[dict]:
-        rows = self.conn.execute("SELECT id, name, sort_order FROM product_groups_meridian ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
-        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"]} for r in rows]
+        rows = self.conn.execute("SELECT id, name, sort_order, parent_id FROM product_groups_meridian ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
+        return [{"id": r["id"], "name": r["name"], "sort_order": r["sort_order"], "parent_id": r["parent_id"]} for r in rows]
 
-    def _next_group_sort_meridian(self) -> int:
-        row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_meridian;").fetchone()
+    def _next_group_sort_meridian(self, parent_id: int | None) -> int:
+        if parent_id is None:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_meridian WHERE parent_id IS NULL;").fetchone()
+        else:
+            row = self.conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM product_groups_meridian WHERE parent_id=?;", (parent_id,)).fetchone()
         return (row["m"] or 0) + 1
 
-    def add_product_group_meridian(self, name: str) -> int:
-        sort_order = self._next_group_sort_meridian()
-        cur = self.conn.execute("INSERT INTO product_groups_meridian (name, sort_order) VALUES (?, ?);", (name, sort_order))
+    def add_product_group_meridian(self, name: str, parent_id: int | None = None) -> int:
+        sort_order = self._next_group_sort_meridian(parent_id)
+        cur = self.conn.execute("INSERT INTO product_groups_meridian (name, sort_order, parent_id) VALUES (?, ?, ?);", (name, sort_order, parent_id))
         self.conn.commit()
         return cur.lastrowid
 
-    def update_product_group_meridian(self, group_id: int, name: str):
-        self.conn.execute("UPDATE product_groups_meridian SET name=? WHERE id=?;", (name, group_id))
+    def update_product_group_meridian(self, group_id: int, name: str, parent_id: int | None = None):
+        self.conn.execute("UPDATE product_groups_meridian SET name=?, parent_id=? WHERE id=?;", (name, parent_id, group_id))
         self.conn.commit()
 
     def delete_product_group_meridian(self, group_id: int):
@@ -425,10 +1229,18 @@ class AppDB:
         self.conn.commit()
 
     def move_group_meridian(self, group_id: int, direction: int):
-        rows = self.conn.execute("SELECT id, sort_order FROM product_groups_meridian ORDER BY sort_order ASC, id ASC;").fetchall()
+        # Move within siblings for the same parent_id
+        r = self.conn.execute("SELECT id, parent_id, sort_order FROM product_groups_meridian WHERE id=?;", (group_id,)).fetchone()
+        if not r:
+            return
+        parent_id = r["parent_id"]
+        rows = self.conn.execute(
+            "SELECT id, sort_order FROM product_groups_meridian WHERE (parent_id IS ? OR parent_id = ?) ORDER BY sort_order ASC, id ASC;",
+            (None if parent_id is None else parent_id, parent_id),
+        ).fetchall()
         idx = None
-        for i, r in enumerate(rows):
-            if r["id"] == group_id:
+        for i, row in enumerate(rows):
+            if row["id"] == group_id:
                 idx = i
                 break
         if idx is None:
@@ -504,7 +1316,7 @@ class AppDB:
     # --- MKL Orders ---
     def list_mkl_orders(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, fio, phone, product, sph, cyl, ax, bc, qty, status, date, COALESCE(comment,'') AS comment FROM mkl_orders ORDER BY id DESC;"
+            "SELECT id, fio, phone, product, sph, cyl, ax, \"add\", bc, qty, status, date, COALESCE(comment,'') AS comment FROM mkl_orders ORDER BY id DESC;"
         ).fetchall()
         return [
             {
@@ -515,6 +1327,7 @@ class AppDB:
                 "sph": r["sph"] or "",
                 "cyl": r["cyl"] or "",
                 "ax": r["ax"] or "",
+                "add": r["add"] or "",
                 "bc": r["bc"] or "",
                 "qty": r["qty"] or "",
                 "status": r["status"],
@@ -527,8 +1340,8 @@ class AppDB:
     def add_mkl_order(self, order: dict) -> int:
         cur = self.conn.execute(
             """
-            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, bc, qty, status, date, comment)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO mkl_orders (fio, phone, product, sph, cyl, ax, "add", bc, qty, status, date, comment)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 order.get("fio", ""),
@@ -537,6 +1350,7 @@ class AppDB:
                 order.get("sph", ""),
                 order.get("cyl", ""),
                 order.get("ax", ""),
+                order.get("add", ""),
                 order.get("bc", ""),
                 order.get("qty", ""),
                 order.get("status", "Не заказан"),
@@ -551,9 +1365,10 @@ class AppDB:
         # Only update provided fields
         cols = []
         vals = []
-        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "bc", "qty", "status", "date", "comment"):
+        for k in ("fio", "phone", "product", "sph", "cyl", "ax", "add", "bc", "qty", "status", "date", "comment"):
             if k in fields:
-                cols.append(f"{k}=?")
+                col_name = "\"add\"" if k == "add" else k
+                cols.append(f"{col_name}=?")
                 vals.append(fields[k])
         if cols:
             vals.append(order_id)
@@ -573,7 +1388,7 @@ class AppDB:
 
     def get_meridian_items(self, order_id: int) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, order_id, product, sph, cyl, ax, d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
+            "SELECT id, order_id, product, sph, cyl, ax, \"add\", d, qty FROM meridian_items WHERE order_id=? ORDER BY id ASC;",
             (order_id,),
         ).fetchall()
         return [
@@ -584,6 +1399,7 @@ class AppDB:
                 "sph": r["sph"] or "",
                 "cyl": r["cyl"] or "",
                 "ax": r["ax"] or "",
+                "add": r["add"] or "",
                 "d": r["d"] or "",
                 "qty": r["qty"] or "",
             }
@@ -599,8 +1415,8 @@ class AppDB:
         for it in items:
             self.conn.execute(
                 """
-                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, "add", d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     order_id,
@@ -608,6 +1424,7 @@ class AppDB:
                     it.get("sph", ""),
                     it.get("cyl", ""),
                     it.get("ax", ""),
+                    it.get("add", ""),
                     it.get("d", ""),
                     it.get("qty", ""),
                 ),
@@ -633,8 +1450,8 @@ class AppDB:
         for it in items:
             self.conn.execute(
                 """
-                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, d, qty)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO meridian_items (order_id, product, sph, cyl, ax, "add", d, qty)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     order_id,
@@ -642,6 +1459,7 @@ class AppDB:
                     it.get("sph", ""),
                     it.get("cyl", ""),
                     it.get("ax", ""),
+                    it.get("add", ""),
                     it.get("d", ""),
                     it.get("qty", ""),
                 ),
