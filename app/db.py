@@ -23,9 +23,9 @@ class AppDB:
             self._ensure_mkl_seed_brands()
         except Exception:
             pass
-        # Manual one-time mirroring: create 'Контактные Линзы' at the bottom and copy MKL structure into Meridian
+        # One-time static seed for Meridian: create a bottom group 'Контактные Линзы' with the same structure as MKL (no runtime copy)
         try:
-            self._ensure_meridian_contacts_from_mkl()
+            self._ensure_meridian_seed_contacts()
         except Exception:
             pass
         
@@ -888,14 +888,14 @@ class AppDB:
             ]:
                 ensure_product(nm, drops)
 
-    # --- Mirror MKL catalog into Meridian under "Контактные Линзы" (bottom group) ---
-    def _ensure_meridian_contacts_from_mkl(self):
+    # --- Static seed for Meridian 'Контактные Линзы' with the same structure as MKL ---
+    def _ensure_meridian_seed_contacts(self):
         """
-        Create top-level group 'Контактные Линзы' in Meridian catalog and
-        mirror the entire MKL groups/products structure under it.
-        Idempotent: if the group already exists, do nothing.
+        Create 'Контактные Линзы' at top level in Meridian with a curated static structure
+        equivalent to MKL catalog (Adria, Alcon, Bausch+Lomb, Растворы, Капли), but seeded
+        directly without reading MKL at runtime. Idempotent by names.
         """
-        # Check existing top-level group
+        # If group exists, do nothing
         row = self.conn.execute(
             "SELECT id FROM product_groups_meridian WHERE name=? AND parent_id IS NULL;",
             ("Контактные Линзы",),
@@ -903,47 +903,303 @@ class AppDB:
         if row:
             return
 
-        # Create bottom group by using next sort value on top-level
+        # Create top-level group
         contacts_gid = self.add_product_group_meridian("Контактные Линзы", None)
 
-        # Build MKL group tree
-        mkl_groups = self.list_product_groups_mkl()
-        children_map: dict[int | None, list[dict]] = {}
-        by_id: dict[int, dict] = {}
-        for g in mkl_groups:
-            by_id[g["id"]] = g
-            children_map.setdefault(g["parent_id"], []).append(g)
-        # Sort children by sort_order then name
-        for k in list(children_map.keys()):
-            children_map[k].sort(key=lambda x: (x.get("sort_order", 0), (x.get("name", "") or "").lower()))
+        def ensure_group(name: str, parent_id: int | None) -> int:
+            r = self.conn.execute(
+                "SELECT id FROM product_groups_meridian WHERE name=? AND (parent_id IS ? OR parent_id = ?);",
+                (name, None if parent_id is None else parent_id, parent_id),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_group_meridian(name, parent_id)
 
-        def copy_group_tree(mkl_group: dict, meridian_parent_id: int):
-            # Create meridian group
-            new_gid = self.add_product_group_meridian(mkl_group["name"], meridian_parent_id)
-            # Copy products from this group
-            try:
-                prods = self.list_products_mkl_by_group(mkl_group["id"])
-            except Exception:
-                prods = []
-            for p in prods:
-                self.add_product_meridian(p["name"], new_gid)
-            # Recurse children
-            for child in children_map.get(mkl_group["id"], []):
-                copy_group_tree(child, new_gid)
+        def ensure_product(name: str, gid: int):
+            r = self.conn.execute(
+                "SELECT id FROM products_meridian WHERE name=? AND group_id=?;",
+                (name, gid),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_meridian(name, gid)
 
-        # Copy all top-level MKL groups under contacts_gid
-        for top in children_map.get(None, []):
-            copy_group_tree(top, contacts_gid)
+        # Adria
+        adria = ensure_group("Adria", contacts_gid)
+        g_daily = ensure_group("Однодневные линзы", adria)
+        for nm in [
+            "Adria GO 180pk 8.6 BC",
+            "Adria GO 90pk 8.6 BC",
+            "Adria GO 30pk 8.6 BC",
+            "Adria GO 10pk 8.6 BC",
+            "Adria GO 5pk 8.6 BC",
+            "ADRIA X 30pk 8.6 BC",
+            "ADRIA EGO 30pk 8.6 BC",
+            "Adria Zero 90pk 8.6 BC",
+            "Adria Zero 30pk 8.6 BC",
+            "Adria Zero 5pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_daily)
+        g_monthly = ensure_group("Ежемесячные линзы", adria)
+        for nm in [
+            "Adria sport 6pk 8.6 BC",
+            "Adria O2O2 2pk 8.6 BC",
+            "Adria O2O2 6pk 8.6 BC",
+            "Adria O2O2 12pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly)
+        g_quarterly = ensure_group("Квартальные линзы", adria)
+        for nm in [
+            "ADRIA Season 2pk 8.6 BC",
+            "ADRIA Season 4pk 8.6 BC",
+            "ADRIA Season 4pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_quarterly)
+        g_multifocal = ensure_group("Мультифакальные линзы", adria)
+        for nm in [
+            "Adria O2O2 Toric 2pk 8.6 BC",
+            "Adria O2O2 Toric 6pk 8.6 BC",
+            "Adria O2O2 Multifocal 2pk 8.6 BC",
+            "Adria O2O2 Multifocal 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_multifocal)
+        g_color = ensure_group("Цветные линзы", adria)
+        g_color_quarterly = ensure_group("Квартальные линзы", g_color)
+        g_effect = ensure_group("ADRIA Effect", g_color_quarterly)
+        for nm in [
+            "ADRIA Effect Topaz (топаз)",
+            "ADRIA Effect Grafit (графит)",
+            "ADRIA Effect Cristal (кристалл)",
+            "ADRIA Effect Quartz (кварц)",
+            "ADRIA Effect Ivory (айвори)",
+            "ADRIA Effect Caramel (карамель)",
+        ]:
+            ensure_product(nm, g_effect)
+        g_glam = ensure_group("ADRIA Glamorous", g_color_quarterly)
+        for nm in [
+            "ADRIA Glamorous Blue (голубой)",
+            "ADRIA Glamorous Black (черный)",
+            "ADRIA Glamorous Violet (фиолетовый)",
+            "ADRIA Glamorous Turquoise (бирюзовый)",
+            "ADRIA Glamorous Brown (карий)",
+            "ADRIA Glamorous Green (зеленый)",
+            "ADRIA Glamorous Gray (серый)",
+            "ADRIA Glamorous Gold (золото)",
+            "ADRIA Glamorous Pure Gold (чистое золото)",
+        ]:
+            ensure_product(nm, g_glam)
+        g_c1 = ensure_group("ADRIA Color 1 Tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 1 Tone Blue (голубой)",
+            "ADRIA Color 1 Tone Green (зеленый)",
+            "ADRIA Color 1 Tone Lavender (лаванда)",
+            "ADRIA Color 1 Tone Gray (серый)",
+            "ADRIA Color 1 Tone Brown (карий)",
+        ]:
+            ensure_product(nm, g_c1)
+        g_c2 = ensure_group("ADRIA Color 2 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 2 Tone True Sapphire (сапфир)",
+            "ADRIA Color 2 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 2 Tone Brown (карий)",
+            "ADRIA Color 2 Tone Green (зеленый)",
+            "ADRIA Color 2 Tone Gray (серый)",
+            "ADRIA Color 2 Tone Amethyst (аметист)",
+            "ADRIA Color 2 Tone Hazel (орех)",
+        ]:
+            ensure_product(nm, g_c2)
+        g_c3 = ensure_group("ADRIA Color 3 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 3 Tone Green (зеленый)",
+            "ADRIA Color 3 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 3 Tone True Sapphire (сапфир)",
+            "ADRIA Color 3 Tone Gray (серый)",
+            "ADRIA Color 3 Tone Brown (карий)",
+            "ADRIA Color 3 Tone Honey (медовый)",
+            "ADRIA Color 3 Tone Hazel (орех)",
+            "ADRIA Color 3 Tone Pure Hazel (насыщенный орех)",
+            "ADRIA Color 3 Tone Amethyst (аметист)",
+        ]:
+            ensure_product(nm, g_c3)
+        g_crazy = ensure_group("ADRIA Crazy", g_color_quarterly)
+        for nm in [
+            "ADRIA Crazy Black Out (черное пятно)",
+            "ADRIA Crazy MSN (сеть)",
+            "ADRIA Crazy Hot Red (яркий красный)",
+            "ADRIA Crazy Zombo (зомбо)",
+            "ADRIA Crazy White Vampire (белый вампир)",
+            "ADRIA Crazy White Out (белое пятно)",
+            "ADRIA Crazy Maniac (маньяк)",
+            "ADRIA Crazy Blue Angelic (голубой ангел)",
+            "ADRIA Crazy Blue Wheel (голубое колесо)",
+            "ADRIA Crazy Demon (демон)",
+            "ADRIA Crazy Robot (робот)",
+            "ADRIA Crazy Psyho (психо)",
+            "ADRIA Crazy Solid Yellow (сплошной желтый)",
+            "ADRIA Crazy White Cat (белая кошка)",
+            "ADRIA Crazy Black Star (черная звезда)",
+            "ADRIA Crazy Blood (кровь)",
+            "ADRIA Crazy Cross (крест)",
+            "ADRIA Crazy Devil (дьявол)",
+            "ADRIA Crazy Eagle (орел)",
+            "ADRIA Crazy Green Banshee (зеленая опасность)",
+            "ADRIA Crazy Green Cat (зеленая кошка)",
+            "ADRIA Crazy Lunatic (лунатик)",
+            "ADRIA Crazy Pink (розовый)",
+            "ADRIA Crazy Red Cat (красная кошка)",
+            "ADRIA Crazy Sharingan (шаринган)",
+            "ADRIA Crazy Target (мишень)",
+            "ADRIA Crazy Wild Fire (дикий огонь)",
+            "ADRIA Crazy Yellow Cat (желтая кошка)",
+            "ADRIA Crazy Yellow Wolf (желтый волк)",
+            "ADRIA Crazy Red Vampire (красный вампир)",
+        ]:
+            ensure_product(nm, g_crazy)
+        g_sclera = ensure_group("ADRIA Sclera Pro", g_color_quarterly)
+        ensure_product("ADRIA Sclera Pro Demon look", g_sclera)
+        g_neon = ensure_group("ADRIA Neon", g_color_quarterly)
+        for nm in [
+            "ADRIA Neon Green (зеленый)",
+            "ADRIA Neon Blue (голубой)",
+            "ADRIA Neon White (белый)",
+            "ADRIA Neon Pink (розовый)",
+            "ADRIA Neon Lemon (лимонный)",
+            "ADRIA Neon Violet (фиолетовый)",
+            "ADRIA Neon Orange (оранжевый)",
+        ]:
+            ensure_product(nm, g_neon)
+        g_color_daily = ensure_group("Однодневные цветные линзы", g_color)
+        for nm in [
+            "ADRIA WOW (30 линз) Latin (светло-карий)",
+            "ADRIA WOW (30 линз) Jazz Black (черный)",
+            "ADRIA WOW (30 линз) Rhapsody (темно-карий)",
+            "ADRIA WOW (30 линз) Soul Brown (карий)",
+            "ADRIA MIX (10 линз) Light Green (зеленый)",
+            "ADRIA MIX (10 линз) Blue (голубой)",
+            "ADRIA MIX (10 линз) Pearl Gray (серый)",
+            "ADRIA MIX (30 линз) (3 цвета в упаковке)",
+        ]:
+            ensure_product(nm, g_color_daily)
 
-        # Handle MKL products without a group (group_id IS NULL) by creating "Без группы"
-        try:
-            ungroupped = [p for p in self.list_products_mkl() if p.get("group_id") is None]
-        except Exception:
-            ungroupped = []
-        if ungroupped:
-            gid_misc = self.add_product_group_meridian("Без группы", contacts_gid)
-            for p in ungroupped:
-                self.add_product_meridian(p["name"], gid_misc)
+        # Alcon
+        alcon = ensure_group("Alcon", contacts_gid)
+        g_daily = ensure_group("Однодневные линзы", alcon)
+        for nm in [
+            "Dailies Total 1 30pk 8.6 BC",
+            "Dailies Total 1 90pk 8.6 BC",
+            "Precision 1 30pk 8.3 BC",
+            "Precision 1 90pk 8.3 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.7 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_daily)
+        g_monthly = ensure_group("Ежемесячные линзы", alcon)
+        for nm in [
+            "AIR Optix Aqua 3pk 8.6 BC",
+            "AIR Optix Aqua 6pk 8.6 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.4 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 6pk 8.6 BC",
+            "Total 30 3pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly)
+        g_mf = ensure_group("Линзы мультифакальные", alcon)
+        for nm in [
+            "Air Optix Plus Hydraglyde For Astigmatism 3pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 6pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 9pk 8.7 BC",
+            "AIR OPTIX plus HydraGlyde Multifocal 3pk 8.6 BC",
+            "Dailies Total 1 Multifocal 30pk 8.5 BC",
+            "Total 30 for Astigmatism 3pk 8.4 BC",
+        ]:
+            ensure_product(nm, g_mf)
+
+        # Bausch+Lomb
+        bl = ensure_group("Bausch+Lomb", contacts_gid)
+        g_monthly_bl = ensure_group("Ежемесячные линзы", bl)
+        for nm in [
+            "SofLens 59 6pk 8.6 BC",
+            "PureVision 2 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly_bl)
+        g_quarterly_bl = ensure_group("Квартальные линзы", bl)
+        for nm in [
+            "Optima FW 4pk 8.4 BC",
+            "Optima FW 4pk 8.7 BC",
+        ]:
+            ensure_product(nm, g_quarterly_bl)
+
+        # Растворы
+        solutions = ensure_group("Растворы", contacts_gid)
+        s_adria = ensure_group("Adria", solutions)
+        for nm in [
+            "ADRIA CITY Moist 360ml",
+            "ADRIA (DENIQ HIGH FRESH YAL) 360ml",
+            "ADRIA Plus 60ml",
+            "ADRIA Plus 250ml",
+        ]:
+            ensure_product(nm, s_adria)
+        s_renu_mps = ensure_group("Renu MPS", solutions)
+        for nm in [
+            "Renu MPS 120ml",
+            "Renu MPS 240ml",
+            "Renu MPS 360ml",
+        ]:
+            ensure_product(nm, s_renu_mps)
+        s_renu_multi = ensure_group("Renu MultiPlus", solutions)
+        for nm in [
+            "Renu MultiPlus 60ml",
+            "Renu MultiPlus 120ml",
+            "Renu MultiPlus 240ml",
+            "Renu MultiPlus 360ml",
+        ]:
+            ensure_product(nm, s_renu_multi)
+        s_renu_adv = ensure_group("Renu Advanced", solutions)
+        for nm in [
+            "Renu Advanced 100ml",
+            "Renu Advanced 360ml",
+        ]:
+            ensure_product(nm, s_renu_adv)
+        s_acuvue = ensure_group("Acuvue", solutions)
+        for nm in [
+            "Acuvue 100ml",
+            "Acuvue 300ml",
+            "Acuvue 360ml",
+        ]:
+            ensure_product(nm, s_acuvue)
+        s_likon = ensure_group("Ликонтин", solutions)
+        for nm in [
+            "Ликонтин-Универсал 120ml",
+            "Ликонтин-Универсал 240ml",
+        ]:
+            ensure_product(nm, s_likon)
+        s_optimed = ensure_group("OPTIMED", solutions)
+        for nm in [
+            "OPTIMED Про Актив 125ml",
+            "OPTIMED Про Актив 125ml",
+        ]:
+            ensure_product(nm, s_optimed)
+        for nm in [
+            "AOSEPT Plus HydraGlyde 360ml",
+            "OptiFree Express 355ml",
+            "Энзимный очиститель \"OPTIMED\" 3ml",
+            "Ликонтин 5ml  (раствор для энзимной очистки)",
+            "Avizor Таблетки 10 шт.",
+        ]:
+            ensure_product(nm, solutions)
+
+        # Капли
+        drops = ensure_group("Капли", contacts_gid)
+        for nm in [
+            "ADRIA Relax 10ml",
+            "OPTIMED Про Актив 10ml",
+            "Avizor Comfort Drops 15ml",
+            "Avizor Moisture Drops 15ml",
+            "Опти-Фри 15ml",
+            "Ликонтин - Комфорт 18ml",
+        ]:
+            ensure_product(nm, drops)
 
     # --- Products Meridian with Groups ---
     def list_product_groups_meridian(self) -> list[dict]:
