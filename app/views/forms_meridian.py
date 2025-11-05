@@ -139,19 +139,35 @@ class MeridianProductPickerInline(ttk.Frame):
             cur = max(min_v, min(max_v, cur))
             var.set(str(cur))
 
+        # Replace comma with dot in decimal entries
+        def _normalize_decimal(var: tk.StringVar):
+            try:
+                txt = (var.get() or "")
+                if "," in txt:
+                    var.set(txt.replace(",", "."))
+            except Exception:
+                pass
+
         # SPH row (− / input / +)
         ttk.Label(right, text="SPH (−30…+30, 0.25)").grid(row=1, column=0, sticky="w", pady=(6, 0))
         sph_row = ttk.Frame(right); sph_row.grid(row=1, column=1, sticky="w", pady=(6, 0))
         ttk.Button(sph_row, text="−", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, -1)).grid(row=0, column=0)
-        ttk.Entry(sph_row, textvariable=self.sph_var, width=6, justify="center").grid(row=0, column=1, sticky="w", padx=4)
+        sph_entry = ttk.Entry(sph_row, textvariable=self.sph_var, width=6, justify="center")
+        sph_entry.grid(row=0, column=1, sticky="w", padx=4)
         ttk.Button(sph_row, text="+", width=3, command=lambda: _nudge(self.sph_var, -30.0, 30.0, 0.25, +1)).grid(row=0, column=2)
+        # Normalize comma to dot on typing and snap to 0.25 on focus out
+        sph_entry.bind("<KeyRelease>", lambda e: self._normalize_decimal(self.sph_var))
+        sph_entry.bind("<FocusOut>", lambda e: self.sph_var.set(self._snap(self.sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)))
 
         # CYL row (− / input / +)
         ttk.Label(right, text="CYL (−10…+10, 0.25)").grid(row=1, column=2, sticky="w", pady=(6, 0))
         cyl_row = ttk.Frame(right); cyl_row.grid(row=1, column=3, sticky="w", pady=(6, 0))
         ttk.Button(cyl_row, text="−", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, -1)).grid(row=0, column=0)
-        ttk.Entry(cyl_row, textvariable=self.cyl_var, width=6, justify="center").grid(row=0, column=1, sticky="w", padx=4)
+        cyl_entry = ttk.Entry(cyl_row, textvariable=self.cyl_var, width=6, justify="center")
+        cyl_entry.grid(row=0, column=1, sticky="w", padx=4)
         ttk.Button(cyl_row, text="+", width=3, command=lambda: _nudge(self.cyl_var, -10.0, 10.0, 0.25, +1)).grid(row=0, column=2)
+        cyl_entry.bind("<KeyRelease>", lambda e: self._normalize_decimal(self.cyl_var))
+        cyl_entry.bind("<FocusOut>", lambda e: self.cyl_var.set(self._snap(self.cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)))
 
         # AX row adjacent to label
         ax_row = ttk.Frame(right); ax_row.grid(row=1, column=4, sticky="w", pady=(6, 0))
