@@ -23,6 +23,11 @@ class AppDB:
             self._ensure_mkl_seed_brands()
         except Exception:
             pass
+        # Mirror MKL catalog into Meridian under a bottom group "Контактные Линзы"
+        try:
+            self._ensure_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def _init_schema(self):
         cur = self.conn.cursor()
@@ -881,6 +886,63 @@ class AppDB:
                 "Ликонтин - Комфорт 18ml",
             ]:
                 ensure_product(nm, drops)
+
+    # --- Mirror MKL catalog into Meridian under "Контактные Линзы" (bottom group) ---
+    def _ensure_meridian_contacts_from_mkl(self):
+        """
+        Create top-level group 'Контактные Линзы' in Meridian catalog and
+        mirror the entire MKL groups/products structure under it.
+        Idempotent: if the group already exists, do nothing.
+        """
+        # Check existing top-level group
+        row = self.conn.execute(
+            "SELECT id FROM product_groups_meridian WHERE name=? AND parent_id IS NULL;",
+            ("Контактные Линзы",),
+        ).fetchone()
+        if row:
+            return
+
+        # Create bottom group by using next sort value on top-level
+        contacts_gid = self.add_product_group_meridian("Контактные Линзы", None)
+
+        # Build MKL group tree
+        mkl_groups = self.list_product_groups_mkl()
+        children_map: dict[int | None, list[dict]] = {}
+        by_id: dict[int, dict] = {}
+        for g in mkl_groups:
+            by_id[g["id"]] = g
+            children_map.setdefault(g["parent_id"], []).append(g)
+        # Sort children by sort_order then name
+        for k in list(children_map.keys()):
+            children_map[k].sort(key=lambda x: (x.get("sort_order", 0), (x.get("name", "") or "").lower()))
+
+        def copy_group_tree(mkl_group: dict, meridian_parent_id: int):
+            # Create meridian group
+            new_gid = self.add_product_group_meridian(mkl_group["name"], meridian_parent_id)
+            # Copy products from this group
+            try:
+                prods = self.list_products_mkl_by_group(mkl_group["id"])
+            except Exception:
+                prods = []
+            for p in prods:
+                self.add_product_meridian(p["name"], new_gid)
+            # Recurse children
+            for child in children_map.get(mkl_group["id"], []):
+                copy_group_tree(child, new_gid)
+
+        # Copy all top-level MKL groups under contacts_gid
+        for top in children_map.get(None, []):
+            copy_group_tree(top, contacts_gid)
+
+        # Handle MKL products without a group (group_id IS NULL) by creating "Без группы"
+        try:
+            ungroupped = [p for p in self.list_products_mkl() if p.get("group_id") is None]
+        except Exception:
+            ungroupped = []
+        if ungroupped:
+            gid_misc = self.add_product_group_meridian("Без группы", contacts_gid)
+            for p in ungroupped:
+                self.add_product_meridian(p["name"], gid_misc)
 
     # --- Products Meridian with Groups ---
     def list_product_groups_meridian(self) -> list[dict]:
