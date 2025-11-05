@@ -56,7 +56,7 @@ REM --onefile: produce a single exe
 REM --windowed: no console window
 REM --icon: use application icon
 REM --add-data: include assets and default settings into the bundle
-set ADD_DATA=--add-data "app\assets;app\assets" --add-data "settings.json;."
+set ADD_DATA=--add-data "app\assets;app\assets" --add-data "settings.json;." --add-data "data.db;."
 %PYEXE% -m PyInstaller --clean --noconfirm ^
   --onefile ^
   --windowed ^
