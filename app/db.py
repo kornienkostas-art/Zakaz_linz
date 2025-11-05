@@ -1081,6 +1081,48 @@ class AppDB:
         ]:
             ensure_product(nm, g_color_daily)
 
+        # Acuvue (Johnson & Johnson)
+        acuvue = ensure_group("Acuvue (Johnson & Johnson)", contacts_gid)
+        g_daily_ac = ensure_group("Однодневные линзы", acuvue)
+        for nm in [
+            "1-DAY Acuvue MOIST 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST 30pk 9.0 BC",
+            "1-DAY Acuvue MOIST 90pk 8.5 BC",
+            "1-DAY Acuvue MOIST 90pk 9.0 BC",
+            "1-DAY Acuvue MOIST 180pk 8.5 BC",
+            "1-DAY Acuvue MOIST 180pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 30pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 30pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 90pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 90pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 180pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 180pk 9.0 BC",
+            "ACUVUE OASYS MAX 1-Day 30pk 8.5 BC",
+            "ACUVUE OASYS MAX 1-Day 30pk 9.0 BC",
+        ]:
+            ensure_product(nm, g_daily_ac)
+        g_biweek_ac = ensure_group("Двухнедельные линзы", acuvue)
+        for nm in [
+            "Acuvue 2 6pk 8.3 BC",
+            "Acuvue 2 6pk 8.7 BC",
+            "Acuvue Oasys 6pk 8.4 BC",
+            "Acuvue Oasys 6pk 8.8 BC",
+            "Acuvue Oasys 12pk 8.4 BC",
+            "Acuvue Oasys 12pk 8.8 BC",
+            "Acuvue Oasys 24pk 8.4 BC",
+            "Acuvue Oasys 24pk 8.8 BC",
+        ]:
+            ensure_product(nm, g_biweek_ac)
+        g_biweek_mf_ac = ensure_group("Двухнедельные линзы мультифокальные", acuvue)
+        for nm in [
+            "Acuvue Oasys for ASTIGMATISM 6pk 8.6 BC",
+            "1-DAY Acuvue MOIST for ASTIGMATISM 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST for ASTIGMATISM 90pk 8.5 BC",
+            "1-DAY Acuvue Oasys With Hydraluxe for ASTIGMATISM 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST Multifocal 30pk 8.4 BC",
+        ]:
+            ensure_product(nm, g_biweek_mf_ac)
+
         # Alcon
         alcon = ensure_group("Alcon", contacts_gid)
         g_daily = ensure_group("Однодневные линзы", alcon)
