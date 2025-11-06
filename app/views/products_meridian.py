@@ -75,8 +75,18 @@ class ProductsMeridianView(ttk.Frame):
         self.master.rowconfigure(0, weight=1)
         self.grid(sticky="nsew")
 
-        self._build_ui()
-        self._reload(initial_seed=False)uild_ui()
+        # Построение UI с защитой от ошибок, чтобы окно не было пустым
+        try:
+            self._build_ui()
+            self._reload(initial_seed=False)
+        except Exception as e:
+            holder = ttk.Frame(self, padding=16, style="Card.TFrame")
+            holder.pack(fill="both", expand=True)
+            ttk.Label(holder, text="Ошибка при открытии справочника товаров Меридиан.", style="Title.TLabel").pack(anchor="w")
+            ttk.Label(holder, text=f"{e}", style="Subtitle.TLabel", foreground="#7f1d1d").pack(anchor="w", pady=(4, 12))
+            btns = ttk.Frame(holder, style="Card.TFrame"); btns.pack(fill="x")
+            ttk.Button(btns, text="← Назад", style="Back.TButton", command=self._go_back).pack(side="left")
+            ttk.Button(btns, text="Повторить", style="Menu.TButton", command=self._retry_build).pack(side="left", padx=(8, 0))uild_ui()
         self._reload()
 
     def _build_ui(self):
@@ -121,6 +131,22 @@ class ProductsMeridianView(ttk.Frame):
 
         # Double-click expand/collapse only on groups (по всей строке)
         self.tree.bind("<Double-1>", self._on_double_click)
+
+    def _retry_build(self):
+        try:
+            for w in list(self.winfo_children()):
+                try:
+                    w.destroy()
+                except Exception:
+                    pass
+            self._build_ui()
+            self._reload(initial_seed=False)
+        except Exception as e:
+            try:
+                from tkinter import messagebox
+                messagebox.showerror("Товары Меридиан", f"Не удалось восстановить интерфейс:\n{e}")
+            except Exception:
+                pass
 
     def _go_back(self):
         try:
