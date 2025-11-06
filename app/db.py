@@ -7,28 +7,30 @@ class AppDB:
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
-        # Enable foreign keys
+        # Флаг, чтобы не запускать синхронизацию во время массового сида
+        self._sync_enabled = False
         try:
             self.conn.execute("PRAGMA foreign_keys = ON;")
         except Exception:
             pass
         self._init_schema()
-        # Optional seed for MKL catalog (Adria hierarchy)
+        # Сид Меридиан (если база абсолютно пустая) — необязателен, оставим как есть
         try:
-            self._ensure_mkl_seed_adria()
+            self._seed_meridian_default_if_empty()
         except Exception:
             pass
-        # Additional seed for other brands and solutions (idempotent)
+        # Сид МКЛ: выполняем целиком, а синхронизацию включим после
         try:
+            self._ensure_mkl_seed_adria()
             self._ensure_mkl_seed_brands()
         except Exception:
             pass
-        # One-time static seed for Meridian: create a bottom group 'Контактные Линзы' with the same structure as MKL (no runtime copy)
+        # Включаем синхронизацию и один раз зеркалим МКЛ -> Меридиан
+        self._sync_enabled = True
         try:
-            self._ensure_meridian_seed_contacts()
+            self.sync_meridian_contacts_from_mkl()
         except Exception:
-            pass
-        
+            pass 
 
     def _init_schema(self):
         cur = self.conn.cursor()
@@ -214,6 +216,133 @@ class AppDB:
 
         self.conn.commit()
 
+    def _seed_meridian_default_if_empty(self):
+        cur = self.conn.cursor()
+        try:
+            g_count = cur.execute("SELECT COUNT(*) FROM product_groups_meridian;").fetchone()[0]
+            p_count = cur.execute("SELECT COUNT(*) FROM products_meridian;").fetchone()[0]
+        except Exception:
+            return
+        if (g_count or 0) > 0 or (p_count or 0) > 0:
+            return
+
+        data = [
+            ("ПОЛИМЕРНЫЕ ЛИНЗЫ", [
+                "1.81 ASPHERIC HMC KOREA",
+                "1.76 SUPER+ASPHERIC, BLUE KOREA",
+                "1.74 ASPHERIC HMC KOREA",
+                "1.67 ASPHERIC HMC/EMI KOREA",
+                "1.67 ASPHERIC KOREA",
+                "1.67 AS BLUE BLOCKER KOREA",
+                "1.67 DOUBLE ASPHERIC, BLUE BLOCKER KOREA",
+                "1.61 ASPHERIC HMC/EMI",
+                "1.61 BLUE LIGHT BLOCKER",
+                "1.61 SPH HMC MR-8",
+                "1.61 BLUE LIGHT LOCKER HARD CLEAN COATED",
+                "1.61 BLUE LIGHT BLOCKER MR-8",
+                "1.61 AS MR-8",
+                "1.61 PERIFOCAL KOREA",
+                "1.61 ANTI-FOG AR UV420",
+                "1.61 Defocus BLUE LIGHT BLOCKER UV420",
+                "1.61 STELLEST LENSES",
+                "1.56 BLUE LIGHT BLOCKER",
+                "1.56 AS COMPUTRON",
+                "1.56 HI-MAX HMC",
+                "1.56 KINDER HMC",
+                "1.56 GOLD HMC/EMI",
+                "1.56 ASPHERIC NEW MIRACLE HMC/EMI",
+                "1.56 ANTI-FOG BLUE LIGHT BLOCKER",
+                "1.56 SPH под ПОКРАСКУ",
+                "1.49 CR-39 глаукомные",
+                "1.49 SPH",
+            ]),
+            ("ПОЛИМЕРНЫЕ ПОЛЯРИЗАЦИОННЫЕ ЛИНЗЫ", [
+                "1.61 POLARIZED GREY HC",
+                "1.61 POLARIZED Brown HC",
+                "1.56 POLARIZED GREY",
+                "1.56 POLARIZED Brown",
+                "1.56 POLARIZED HMC GREY",
+                "1.56 POLARIZED HMC Brown",
+                "1.56 MIRROR POLARIZED",
+            ]),
+            ("ПОЛИМЕРНЫЕ ТОНИРОВАННЫЕ ЛИНЗЫ", [
+                "1.61 AS HI-MAX НМС 80% GREY",
+                "1.61 AS HI-MAX НМС 80% Brown",
+                "1.56 HI-MAX 20% GREY",
+                "1.56 HI-MAX 20% Brown",
+                "1.56 HI-MAX 50% GREY",
+                "1.56 HI-MAX 50% Brown",
+                "1.56 GRADIENT GREY",
+                "1.56 GRADIENT Brown",
+            ]),
+            ("ПОЛИМЕРНЫЕ ФОТОХРОМНЫЕ ЛИНЗЫ", [
+                "1.74 PHOTOCHROMIC HMC GREY",
+                "1.74 PHOTOCHROMIC HMC Brown",
+                "1.67 PHOTOCHROMIC BLUE BLOCKER GREY",
+                "1.67 PHOTOCHROMIC BLUE BLOCKER Brown",
+                "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA GREY",
+                "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA Brown",
+                "1.61 PHOTOCHROMIC HMC GREY",
+                "1.61 PHOTOCHROMIC HMC Brown",
+                "1.61 TRANSITIONS BLUE BLOCKER PHOTO GREY",
+                "1.56 PHOTOCHROME PINK GREEN",
+                "1.56 PHOTOCHROME BLUE",
+                "1.56 PHOTOCHROME VIOLET",
+                "1.56 PHOTOCHROME GREEN",
+                "1.56 PHOTOCHROMIC GREY",
+                "1.56 PHOTOCHROMIC Brown",
+                "1.56 PHOTOCHROMIC TRANSITIONS GREY",
+                "1.56 PHOTOCHROMIC TRANSITIONS Brown",
+                "1.56 TRANSITIONS BLUE LIGHT BLOCKER PHOTO GREY",
+                "1.56 PHOTOCHROMIC HMC GREY",
+                "1.56 PHOTOCHROMIC HMC Brown",
+                "1.56 POLARIZED PHOTOCHROMIC GREY HMC",
+            ]),
+            ("ПОЛИМЕРНЫЕ БИФОКАЛЬНЫЕ, ПРОГРЕССИВНЫЕ ЛИНЗЫ", [
+                "1.56 PROGRESSIVE",
+                "1.56 PROGRESSIVE HMC",
+                "1.59 POLYCARBONATE PROGRESSIVE HMC",
+                "1.56 OFFICE BLUE LIGHT BLOCKER",
+                "1.56 OFFICE HMC",
+                "1.56 BIFOCAL F TOP HMC",
+                "1.49 BIFOCAL F TOP",
+                "1.56 PHOTOCHROMIC PROGRESSIVE GREY",
+                "1.56 PHOTOCHROMIC PROGRESSIVE Brown",
+                "1.56 PHOTOCHROMIC BIFOCAL GREY",
+                "1.56 PHOTOCHROMIC BIFOCAL Brown",
+            ]),
+            ("ПОИМЕРНЫЕ ЛИНЗЫ ДЛЯ ВОЖДЕНИЯ", [
+                "1.61 AS DRIVING LENS BLUE LOCKER (AR/blue) KOREA",
+                "1.56 YELLOW FARA EMI (AR/blue)",
+                "1.56 YELLOW-FARA POLARIZED (AR/blue)",
+                "1.56 YELLOW-FARA PHOTOCHROMIC GREY (AR/green)",
+            ]),
+            ("ПОЛИКАРБОНАТНЫЕ ЛИНЗЫ", [
+                "1.59 POLYCARBONAT HMC",
+                "1.59 POLYCARBONAT",
+                "1.59 POLYCARBONAT BLUE LIGHT BLOCKER",
+                "1.59 POLYCARBONAT PHOTOCHROMIC GREY",
+            ]),
+            ("МИНЕРАЛЬНЫЕ ЛИНЗЫ", [
+                "1.71 GLASS COMPUTRON GREEN",
+                "1.71 GLASS COMPUTRON BLUE",
+                "1.71 WHITE GLASS HI-INDEX",
+                "1.523 WHITE GLASS",
+                "1.523 GLASS PHOTOCHROMIC GREY",
+                "1.523 GLASS PHOTOCHROMIC BROWN",
+                "1.523 GLASS GREY",
+                "1.523 GLASS BROWN",
+                "1.523 GLASS GREEN",
+                "1.523 GLASS YELLOW FARA",
+                "1.523 GLASS BIFOCAL F-TOP",
+            ]),
+        ]
+
+        for gname, items in data:
+            gid = self.add_product_group_meridian(gname, None)
+            for nm in items:
+                self.add_product_meridian(nm, gid)
+
     # --- Clients ---
     def list_clients(self) -> list[dict]:
         rows = self.conn.execute("SELECT id, fio, phone FROM clients ORDER BY fio COLLATE NOCASE;").fetchall()
@@ -354,17 +483,29 @@ class AppDB:
         sort_order = self._next_group_sort_mkl(parent_id)
         cur = self.conn.execute("INSERT INTO product_groups_mkl (name, sort_order, parent_id) VALUES (?, ?, ?);", (name, sort_order, parent_id))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
         return cur.lastrowid
 
     def update_product_group_mkl(self, group_id: int, name: str, parent_id: int | None = None):
         self.conn.execute("UPDATE product_groups_mkl SET name=?, parent_id=? WHERE id=?;", (name, parent_id, group_id))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def delete_product_group_mkl(self, group_id: int):
         # Detach products from group, then delete group; child groups will be cascaded by FK
         self.conn.execute("UPDATE products_mkl SET group_id=NULL WHERE group_id=?;", (group_id,))
         self.conn.execute("DELETE FROM product_groups_mkl WHERE id=?;", (group_id,))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def move_group_mkl(self, group_id: int, direction: int):
         # Move within siblings (same parent_id)
@@ -391,6 +532,10 @@ class AppDB:
         self.conn.execute("UPDATE product_groups_mkl SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
         self.conn.execute("UPDATE product_groups_mkl SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def list_products_mkl(self) -> list[dict]:
         rows = self.conn.execute("SELECT id, name, group_id, sort_order FROM products_mkl ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
@@ -414,6 +559,10 @@ class AppDB:
         sort_order = self._next_product_sort_mkl(group_id)
         cur = self.conn.execute("INSERT INTO products_mkl (name, group_id, sort_order) VALUES (?, ?, ?);", (name, group_id, sort_order))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
         return cur.lastrowid
 
     def update_product_mkl(self, product_id: int, name: str, group_id: int | None = None):
@@ -422,10 +571,18 @@ class AppDB:
         else:
             self.conn.execute("UPDATE products_mkl SET name=?, group_id=? WHERE id=?;", (name, group_id, product_id))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def delete_product_mkl(self, product_id: int):
         self.conn.execute("DELETE FROM products_mkl WHERE id=?;", (product_id,))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def move_product_mkl(self, product_id: int, direction: int):
         r = self.conn.execute("SELECT id, group_id, sort_order FROM products_mkl WHERE id=?;", (product_id,)).fetchone()
@@ -451,20 +608,17 @@ class AppDB:
         self.conn.execute("UPDATE products_mkl SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
         self.conn.execute("UPDATE products_mkl SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     # --- Seed MKL catalog (Adria hierarchy and products) ---
     def _ensure_mkl_seed_adria(self):
         """
-        Create Adria group tree with products if it doesn't exist yet.
-        Idempotent: checks 'Adria' top-level group presence; if found, does nothing.
+        Seed MKL catalog for 'Adria' brand with hierarchical groups and products.
+        Idempotent: checks by names and parent_id.
         """
-        row = self.conn.execute(
-            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
-            ("Adria",),
-        ).fetchone()
-        if row:
-            return  # already seeded (or manually created)
-
         def ensure_group(name: str, parent_id: int | None) -> int:
             r = self.conn.execute(
                 "SELECT id FROM product_groups_mkl WHERE name=? AND (parent_id IS ? OR parent_id = ?);",
@@ -483,15 +637,8 @@ class AppDB:
                 return r["id"]
             return self.add_product_mkl(name, gid)
 
-        # Build hierarchy
         adria = ensure_group("Adria", None)
         g_daily = ensure_group("Однодневные линзы", adria)
-        g_monthly = ensure_group("Ежемесячные линзы", adria)
-        g_quarterly = ensure_group("Квартальные линзы", adria)
-        g_multifocal = ensure_group("Мультифакальные линзы", adria)
-        g_color = ensure_group("Цветные линзы", adria)
-
-        # Однодневные линзы
         for nm in [
             "Adria GO 180pk 8.6 BC",
             "Adria GO 90pk 8.6 BC",
@@ -506,7 +653,7 @@ class AppDB:
         ]:
             ensure_product(nm, g_daily)
 
-        # Ежемесячные линзы
+        g_monthly = ensure_group("Ежемесячные линзы", adria)
         for nm in [
             "Adria sport 6pk 8.6 BC",
             "Adria O2O2 2pk 8.6 BC",
@@ -515,7 +662,7 @@ class AppDB:
         ]:
             ensure_product(nm, g_monthly)
 
-        # Квартальные линзы
+        g_quarterly = ensure_group("Квартальные линзы", adria)
         for nm in [
             "ADRIA Season 2pk 8.6 BC",
             "ADRIA Season 4pk 8.6 BC",
@@ -523,7 +670,7 @@ class AppDB:
         ]:
             ensure_product(nm, g_quarterly)
 
-        # Мультифакальные линзы
+        g_multifocal = ensure_group("Мультифакальные линзы", adria)
         for nm in [
             "Adria O2O2 Toric 2pk 8.6 BC",
             "Adria O2O2 Toric 6pk 8.6 BC",
@@ -532,7 +679,8 @@ class AppDB:
         ]:
             ensure_product(nm, g_multifocal)
 
-        # Цветные линзы → Квартальные линзы
+        # Цветные
+        g_color = ensure_group("Цветные линзы", adria)
         g_color_quarterly = ensure_group("Квартальные линзы", g_color)
 
         # ADRIA Effect
@@ -671,9 +819,9 @@ class AppDB:
     # --- Seed MKL catalog for other brands and solutions ---
     def _ensure_mkl_seed_brands(self):
         """
-        Seed additional MKL brands: Acuvue (Johnson & Johnson), Alcon, Bausch+Lomb,
-        and utility groups: Растворы, Капли.
-        Idempotent: checks for top-level group presence before seeding.
+        Seed MKL brands: Acuvue (Johnson & Johnson), Alcon, Bausch+Lomb,
+        plus utility groups Растворы (с подгруппами) и Капли.
+        Idempotent by names and parent_id.
         """
         def ensure_group(name: str, parent_id: int | None) -> int:
             r = self.conn.execute(
@@ -694,199 +842,180 @@ class AppDB:
             return self.add_product_mkl(name, gid)
 
         # Acuvue (Johnson & Johnson)
-        acuvue_row = self.conn.execute(
-            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
-            ("Acuvue (Johnson & Johnson)",),
-        ).fetchone()
-        if not acuvue_row:
-            acuvue = ensure_group("Acuvue (Johnson & Johnson)", None)
-            g_daily = ensure_group("Однодневные линзы", acuvue)
-            for nm in [
-                "1-DAY Acuvue MOIST 30pk 8.5 BC",
-                "1-DAY Acuvue MOIST 30pk 9.0 BC",
-                "1-DAY Acuvue MOIST 90pk 8.5 BC",
-                "1-DAY Acuvue MOIST 90pk 9.0 BC",
-                "1-DAY Acuvue MOIST 180pk 8.5 BC",
-                "1-DAY Acuvue MOIST 180pk 9.0 BC",
-                "1-Day Acuvue Oasys With Hydraluxe 30pk 8.5 BC",
-                "1-Day Acuvue Oasys With Hydraluxe 30pk 9.0 BC",
-                "1-Day Acuvue Oasys With Hydraluxe 90pk 8.5 BC",
-                "1-Day Acuvue Oasys With Hydraluxe 90pk 9.0 BC",
-                "1-Day Acuvue Oasys With Hydraluxe 180pk 8.5 BC",
-                "1-Day Acuvue Oasys With Hydraluxe 180pk 9.0 BC",
-                "ACUVUE OASYS MAX 1-Day 30pk 8.5 BC",
-                "ACUVUE OASYS MAX 1-Day 30pk 9.0 BC",
-            ]:
-                ensure_product(nm, g_daily)
-            g_biweek = ensure_group("Двухнедельные линзы", acuvue)
-            for nm in [
-                "Acuvue 2 6pk 8.3 BC",
-                "Acuvue 2 6pk 8.7 BC",
-                "Acuvue Oasys 6pk 8.4 BC",
-                "Acuvue Oasys 6pk 8.8 BC",
-                "Acuvue Oasys 12pk 8.4 BC",
-                "Acuvue Oasys 12pk 8.8 BC",
-                "Acuvue Oasys 24pk 8.4 BC",
-                "Acuvue Oasys 24pk 8.8 BC",
-            ]:
-                ensure_product(nm, g_biweek)
-            g_biweek_mf = ensure_group("Двухнедельные линзы мультифокальные", acuvue)
-            for nm in [
-                "Acuvue Oasys for ASTIGMATISM 6pk 8.6 BC",
-                "1-DAY Acuvue MOIST for ASTIGMATISM 30pk 8.5 BC",
-                "1-DAY Acuvue MOIST for ASTIGMATISM 90pk 8.5 BC",
-                "1-DAY Acuvue Oasys With Hydraluxe for ASTIGMATISM 30pk 8.5 BC",
-                "1-DAY Acuvue MOIST Multifocal 30pk 8.4 BC",
-            ]:
-                ensure_product(nm, g_biweek_mf)
+        acuvue = ensure_group("Acuvue (Johnson & Johnson)", None)
+        g_daily_ac = ensure_group("Однодневные линзы", acuvue)
+        for nm in [
+            "1-DAY Acuvue MOIST 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST 30pk 9.0 BC",
+            "1-DAY Acuvue MOIST 90pk 8.5 BC",
+            "1-DAY Acuvue MOIST 90pk 9.0 BC",
+            "1-DAY Acuvue MOIST 180pk 8.5 BC",
+            "1-DAY Acuvue MOIST 180pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 30pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 30pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 90pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 90pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 180pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 180pk 9.0 BC",
+            "ACUVUE OASYS MAX 1-Day 30pk 8.5 BC",
+            "ACUVUE OASYS MAX 1-Day 30pk 9.0 BC",
+        ]:
+            ensure_product(nm, g_daily_ac)
+
+        g_biweek_ac = ensure_group("Двухнедельные линзы", acuvue)
+        for nm in [
+            "Acuvue 2 6pk 8.3 BC",
+            "Acuvue 2 6pk 8.7 BC",
+            "Acuvue Oasys 6pk 8.4 BC",
+            "Acuvue Oasys 6pk 8.8 BC",
+            "Acuvue Oasys 12pk 8.4 BC",
+            "Acuvue Oasys 12pk 8.8 BC",
+            "Acuvue Oasys 24pk 8.4 BC",
+            "Acuvue Oasys 24pk 8.8 BC",
+        ]:
+            ensure_product(nm, g_biweek_ac)
+
+        g_biweek_mf_ac = ensure_group("Двухнедельные линзы мультифокальные", acuvue)
+        for nm in [
+            "Acuvue Oasys for ASTIGMATISM 6pk 8.6 BC",
+            "1-DAY Acuvue MOIST for ASTIGMATISM 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST for ASTIGMATISM 90pk 8.5 BC",
+            "1-DAY Acuvue Oasys With Hydraluxe for ASTIGMATISM 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST Multifocal 30pk 8.4 BC",
+        ]:
+            ensure_product(nm, g_biweek_mf_ac)
 
         # Alcon
-        alcon_row = self.conn.execute(
-            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
-            ("Alcon",),
-        ).fetchone()
-        if not alcon_row:
-            alcon = ensure_group("Alcon", None)
-            g_daily = ensure_group("Однодневные линзы", alcon)
-            for nm in [
-                "Dailies Total 1 30pk 8.6 BC",
-                "Dailies Total 1 90pk 8.6 BC",
-                "Precision 1 30pk 8.3 BC",
-                "Precision 1 90pk 8.3 BC",
-                "Dailies Aqua Comfort Plus 30pk 8.7 BC",
-                "Dailies Aqua Comfort Plus 30pk 8.9 BC",
-            ]:
-                ensure_product(nm, g_daily)
-            g_monthly = ensure_group("Ежемесячные линзы", alcon)
-            for nm in [
-                "AIR Optix Aqua 3pk 8.6 BC",
-                "AIR Optix Aqua 6pk 8.6 BC",
-                "AIR Optix Night&Day AQUA 3pk 8.4 BC",
-                "AIR Optix Night&Day AQUA 3pk 8.6 BC",
-                "Air Optix Plus HydraGlyde 3pk 8.6 BC",
-                "Air Optix Plus HydraGlyde 6pk 8.6 BC",
-                "Total 30 3pk 8.6 BC",
-            ]:
-                ensure_product(nm, g_monthly)
-            g_mf = ensure_group("Линзы мультифакальные", alcon)
-            for nm in [
-                "Air Optix Plus Hydraglyde For Astigmatism 3pk 8.7 BC",
-                "Air Optix Plus Hydraglyde For Astigmatism 6pk 8.7 BC",
-                "Air Optix Plus Hydraglyde For Astigmatism 9pk 8.7 BC",
-                "AIR OPTIX plus HydraGlyde Multifocal 3pk 8.6 BC",
-                "Dailies Total 1 Multifocal 30pk 8.5 BC",
-                "Total 30 for Astigmatism 3pk 8.4 BC",
-            ]:
-                ensure_product(nm, g_mf)
+        alcon = ensure_group("Alcon", None)
+        g_daily_al = ensure_group("Однодневные линзы", alcon)
+        for nm in [
+            "Dailies Total 1 30pk 8.6 BC",
+            "Dailies Total 1 90pk 8.6 BC",
+            "Precision 1 30pk 8.3 BC",
+            "Precision 1 90pk 8.3 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.7 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_daily_al)
+
+        g_monthly_al = ensure_group("Ежемесячные линзы", alcon)
+        for nm in [
+            "AIR Optix Aqua 3pk 8.6 BC",
+            "AIR Optix Aqua 6pk 8.6 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.4 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 6pk 8.6 BC",
+            "Total 30 3pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly_al)
+
+        g_mf_al = ensure_group("Линзы мультифакальные", alcon)
+        for nm in [
+            "Air Optix Plus Hydraglyde For Astigmatism 3pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 6pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 9pk 8.7 BC",
+            "AIR OPTIX plus HydraGlyde Multifocal 3pk 8.6 BC",
+            "Dailies Total 1 Multifocal 30pk 8.5 BC",
+            "Total 30 for Astigmatism 3pk 8.4 BC",
+        ]:
+            ensure_product(nm, g_mf_al)
 
         # Bausch+Lomb
-        bl_row = self.conn.execute(
-            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
-            ("Bausch+Lomb",),
-        ).fetchone()
-        if not bl_row:
-            bl = ensure_group("Bausch+Lomb", None)
-            g_monthly = ensure_group("Ежемесячные линзы", bl)
-            for nm in [
-                "SofLens 59 6pk 8.6 BC",
-                "PureVision 2 6pk 8.6 BC",
-            ]:
-                ensure_product(nm, g_monthly)
-            g_quarterly = ensure_group("Квартальные линзы", bl)
-            for nm in [
-                "Optima FW 4pk 8.4 BC",
-                "Optima FW 4pk 8.7 BC",
-            ]:
-                ensure_product(nm, g_quarterly)
+        bl = ensure_group("Bausch+Lomb", None)
+        g_monthly_bl = ensure_group("Ежемесячные линзы", bl)
+        for nm in [
+            "SofLens 59 6pk 8.6 BC",
+            "PureVision 2 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly_bl)
+
+        g_quarterly_bl = ensure_group("Квартальные линзы", bl)
+        for nm in [
+            "Optima FW 4pk 8.4 BC",
+            "Optima FW 4pk 8.7 BC",
+        ]:
+            ensure_product(nm, g_quarterly_bl)
 
         # Растворы
-        sol_row = self.conn.execute(
-            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
-            ("Растворы",),
-        ).fetchone()
-        if not sol_row:
-            solutions = ensure_group("Растворы", None)
-            # Adria subgroup under solutions
-            s_adria = ensure_group("Adria", solutions)
-            for nm in [
-                "ADRIA CITY Moist 360ml",
-                "ADRIA (DENIQ HIGH FRESH YAL) 360ml",
-                "ADRIA Plus 60ml",
-                "ADRIA Plus 250ml",
-            ]:
-                ensure_product(nm, s_adria)
-            # Renu MPS
-            s_renu_mps = ensure_group("Renu MPS", solutions)
-            for nm in [
-                "Renu MPS 120ml",
-                "Renu MPS 240ml",
-                "Renu MPS 360ml",
-            ]:
-                ensure_product(nm, s_renu_mps)
-            # Renu MultiPlus
-            s_renu_multi = ensure_group("Renu MultiPlus", solutions)
-            for nm in [
-                "Renu MultiPlus 60ml",
-                "Renu MultiPlus 120ml",
-                "Renu MultiPlus 240ml",
-                "Renu MultiPlus 360ml",
-            ]:
-                ensure_product(nm, s_renu_multi)
-            # Renu Advanced
-            s_renu_adv = ensure_group("Renu Advanced", solutions)
-            for nm in [
-                "Renu Advanced 100ml",
-                "Renu Advanced 360ml",
-            ]:
-                ensure_product(nm, s_renu_adv)
-            # Acuvue
-            s_acuvue = ensure_group("Acuvue", solutions)
-            for nm in [
-                "Acuvue 100ml",
-                "Acuvue 300ml",
-                "Acuvue 360ml",
-            ]:
-                ensure_product(nm, s_acuvue)
-            # Ликонтин
-            s_likon = ensure_group("Ликонтин", solutions)
-            for nm in [
-                "Ликонтин-Универсал 120ml",
-                "Ликонтин-Универсал 240ml",
-            ]:
-                ensure_product(nm, s_likon)
-            # OPTIMED
-            s_optimed = ensure_group("OPTIMED", solutions)
-            for nm in [
-                "OPTIMED Про Актив 125ml",
-                "OPTIMED Про Актив 125ml",
-            ]:
-                ensure_product(nm, s_optimed)
-            # Products directly under solutions
-            for nm in [
-                "AOSEPT Plus HydraGlyde 360ml",
-                "OptiFree Express 355ml",
-                "Энзимный очиститель \"OPTIMED\" 3ml",
-                "Ликонтин 5ml  (раствор для энзимной очистки)",
-                "Avizor Таблетки 10 шт.",
-            ]:
-                ensure_product(nm, solutions)
+        solutions = ensure_group("Растворы", None)
 
-        # Капли (top-level group with products)
-        drops_row = self.conn.execute(
-            "SELECT id FROM product_groups_mkl WHERE name=? AND parent_id IS NULL;",
-            ("Капли",),
-        ).fetchone()
-        if not drops_row:
-            drops = ensure_group("Капли", None)
-            for nm in [
-                "ADRIA Relax 10ml",
-                "OPTIMED Про Актив 10ml",
-                "Avizor Comfort Drops 15ml",
-                "Avizor Moisture Drops 15ml",
-                "Опти-Фри 15ml",
-                "Ликонтин - Комфорт 18ml",
-            ]:
-                ensure_product(nm, drops)
+        s_adria = ensure_group("Adria", solutions)
+        for nm in [
+            "ADRIA CITY Moist 360ml",
+            "ADRIA (DENIQ HIGH FRESH YAL) 360ml",
+            "ADRIA Plus 60ml",
+            "ADRIA Plus 250ml",
+        ]:
+            ensure_product(nm, s_adria)
+
+        s_renu_mps = ensure_group("Renu MPS", solutions)
+        for nm in [
+            "Renu MPS 120ml",
+            "Renu MPS 240ml",
+            "Renu MPS 360ml",
+        ]:
+            ensure_product(nm, s_renu_mps)
+
+        s_renu_multi = ensure_group("Renu MultiPlus", solutions)
+        for nm in [
+            "Renu MultiPlus 60ml",
+            "Renu MultiPlus 120ml",
+            "Renu MultiPlus 240ml",
+            "Renu MultiPlus 360ml",
+        ]:
+            ensure_product(nm, s_renu_multi)
+
+        s_renu_adv = ensure_group("Renu Advanced", solutions)
+        for nm in [
+            "Renu Advanced 100ml",
+            "Renu Advanced 360ml",
+        ]:
+            ensure_product(nm, s_renu_adv)
+
+        s_acuvue_sol = ensure_group("Acuvue", solutions)
+        for nm in [
+            "Acuvue 100ml",
+            "Acuvue 300ml",
+            "Acuvue 360ml",
+        ]:
+            ensure_product(nm, s_acuvue_sol)
+
+        s_likon = ensure_group("Ликонтин", solutions)
+        for nm in [
+            "Ликонтин-Универсал 120ml",
+            "Ликонтин-Универсал 240ml",
+        ]:
+            ensure_product(nm, s_likon)
+
+        s_optimed = ensure_group("OPTIMED", solutions)
+        for nm in [
+            "OPTIMED Про Актив 125ml",
+            "OPTIMED Про Актив 125ml",
+        ]:
+            ensure_product(nm, s_optimed)
+
+        # Товары прямо в группе Растворы
+        for nm in [
+            "AOSEPT Plus HydraGlyde 360ml",
+            "OptiFree Express 355ml",
+            "Энзимный очиститель \"OPTIMED\" 3ml",
+            "Ликонтин 5ml  (раствор для энзимной очистки)",
+            "Avizor Таблетки 10 шт.",
+        ]:
+            ensure_product(nm, solutions)
+
+        # Капли
+        drops = ensure_group("Капли", None)
+        for nm in [
+            "ADRIA Relax 10ml",
+            "OPTIMED Про Актив 10ml",
+            "Avizor Comfort Drops 15ml",
+            "Avizor Moisture Drops 15ml",
+            "Опти-Фри 15ml",
+            "Ликонтин - Комфорт 18ml",
+        ]:
+            ensure_product(nm, drops)
 
     # --- Static seed for Meridian 'Контактные Линзы' with the same structure as MKL ---
     def _ensure_meridian_seed_contacts(self):
@@ -1354,6 +1483,109 @@ class AppDB:
         self.conn.execute("UPDATE products_meridian SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
         self.conn.execute("UPDATE products_meridian SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
+
+    def sync_meridian_contacts_from_mkl(self):
+        """
+        Обновляет в 'Товары (Меридиан)' отдельную группу «Контактные Линзы МКЛ»,
+        которая зеркалирует весь каталог МКЛ:
+          - НЕ трогает другие группы Меридиан.
+          - Полностью пересобирает содержимое только внутри «Контактные Линзы МКЛ».
+        Вызывается при запуске и после любых изменений в каталоге МКЛ.
+        """
+        # Во время первоначального сида отключаем синхронизацию
+        if not getattr(self, "_sync_enabled", True):
+            return
+
+        cur = self.conn.cursor()
+
+        # 1) Найти/создать верхнеуровневую группу «Контактные Линзы МКЛ»
+        row = cur.execute(
+            "SELECT id FROM product_groups_meridian WHERE name=? AND parent_id IS NULL;",
+            ("Контактные Линзы МКЛ",),
+        ).fetchone()
+        if row:
+            top_gid = row["id"]
+        else:
+            top_gid = self.add_product_group_meridian("Контактные Линзы МКЛ", None)
+
+        # 2) Очистить только поддерево внутри этой группы (товары и группы)
+        try:
+            # Удалить товары внутри всех дочерних групп топ-группы (используем рекурсивный CTE)
+            cur.execute(
+                """
+                WITH RECURSIVE sub(id) AS (
+                    SELECT id FROM product_groups_meridian WHERE parent_id=?
+                    UNION ALL
+                    SELECT g.id FROM product_groups_meridian g
+                    JOIN sub s ON g.parent_id = s.id
+                )
+                DELETE FROM products_meridian
+                WHERE group_id IN (SELECT id FROM sub);
+                """,
+                (top_gid,),
+            )
+            # Удалить товары в специальной дочерней группе «Без группы» (если она есть)
+            bz = cur.execute(
+                "SELECT id FROM product_groups_meridian WHERE name=? AND parent_id=?;",
+                ("Без группы", top_gid),
+            ).fetchone()
+            if bz:
+                cur.execute("DELETE FROM products_meridian WHERE group_id=?;", (bz["id"],))
+            # Удалить дочерние группы (каскадом удалятся их подгруппы)
+            cur.execute("DELETE FROM product_groups_meridian WHERE parent_id=?;", (top_gid,))
+            self.conn.commit()
+        except Exception:
+            # Не прерываем синхронизацию, просто продолжаем пересборку
+            pass
+
+        # 3) Получить структуру МКЛ
+        rows_g = self.conn.execute(
+            "SELECT id, name, parent_id, sort_order FROM product_groups_mkl ORDER BY sort_order ASC, id ASC;"
+        ).fetchall()
+        rows_p = self.conn.execute(
+            "SELECT id, name, group_id, sort_order FROM products_mkl ORDER BY sort_order ASC, id ASC;"
+        ).fetchall()
+
+        # 4) Создать дерево MKL под top_gid
+        gid_map = {}
+
+        top_level = [g for g in rows_g if g["parent_id"] is None]
+        others = [g for g in rows_g if g["parent_id"] is not None]
+
+        for g in top_level:
+            new_gid = self.add_product_group_meridian(g["name"], top_gid)
+            gid_map[g["id"]] = new_gid
+
+        pending = others[:]
+        max_iters = 10000
+        while pending and max_iters > 0:
+            rest = []
+            for g in pending:
+                parent_mkl = g["parent_id"]
+                parent_mer = gid_map.get(parent_mkl)
+                if parent_mer is not None:
+                    new_gid = self.add_product_group_meridian(g["name"], parent_mer)
+                    gid_map[g["id"]] = new_gid
+                else:
+                    rest.append(g)
+            if len(rest) == len(pending):
+                break
+            pending = rest
+            max_iters -= 1
+
+        # 5) Добавить товары
+        # MKL товары без группы -> создаём дочернюю «Без группы» внутри top_gid
+        ungrouped_gid = None
+        for p in rows_p:
+            mk_gid = p["group_id"]
+            if mk_gid is None:
+                if ungrouped_gid is None:
+                    ungrouped_gid = self.add_product_group_meridian("Без группы", top_gid)
+                self.add_product_meridian(p["name"], ungrouped_gid)
+            else:
+                mer_gid = gid_map.get(mk_gid)
+                if mer_gid is not None:
+                    self.add_product_meridian(p["name"], mer_gid)
 
     # --- MKL Orders ---
     def list_mkl_orders(self) -> list[dict]:
