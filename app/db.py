@@ -779,8 +779,204 @@ class AppDB:
 
     # --- Seed MKL catalog for other brands and solutions ---
     def _ensure_mkl_seed_brands(self):
-        # Seed removed: no automatic population of MKL brands/solutions/drops.
-        pass
+        """
+        Seed MKL brands: Acuvue (Johnson & Johnson), Alcon, Bausch+Lomb,
+        plus utility groups Растворы (с подгруппами) и Капли.
+        Idempotent by names and parent_id.
+        """
+        def ensure_group(name: str, parent_id: int | None) -> int:
+            r = self.conn.execute(
+                "SELECT id FROM product_groups_mkl WHERE name=? AND (parent_id IS ? OR parent_id = ?);",
+                (name, None if parent_id is None else parent_id, parent_id),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_group_mkl(name, parent_id)
+
+        def ensure_product(name: str, gid: int):
+            r = self.conn.execute(
+                "SELECT id FROM products_mkl WHERE name=? AND group_id=?;",
+                (name, gid),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_mkl(name, gid)
+
+        # Acuvue (Johnson & Johnson)
+        acuvue = ensure_group("Acuvue (Johnson & Johnson)", None)
+        g_daily_ac = ensure_group("Однодневные линзы", acuvue)
+        for nm in [
+            "1-DAY Acuvue MOIST 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST 30pk 9.0 BC",
+            "1-DAY Acuvue MOIST 90pk 8.5 BC",
+            "1-DAY Acuvue MOIST 90pk 9.0 BC",
+            "1-DAY Acuvue MOIST 180pk 8.5 BC",
+            "1-DAY Acuvue MOIST 180pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 30pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 30pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 90pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 90pk 9.0 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 180pk 8.5 BC",
+            "1-Day Acuvue Oasys With Hydraluxe 180pk 9.0 BC",
+            "ACUVUE OASYS MAX 1-Day 30pk 8.5 BC",
+            "ACUVUE OASYS MAX 1-Day 30pk 9.0 BC",
+        ]:
+            ensure_product(nm, g_daily_ac)
+
+        g_biweek_ac = ensure_group("Двухнедельные линзы", acuvue)
+        for nm in [
+            "Acuvue 2 6pk 8.3 BC",
+            "Acuvue 2 6pk 8.7 BC",
+            "Acuvue Oasys 6pk 8.4 BC",
+            "Acuvue Oasys 6pk 8.8 BC",
+            "Acuvue Oasys 12pk 8.4 BC",
+            "Acuvue Oasys 12pk 8.8 BC",
+            "Acuvue Oasys 24pk 8.4 BC",
+            "Acuvue Oasys 24pk 8.8 BC",
+        ]:
+            ensure_product(nm, g_biweek_ac)
+
+        g_biweek_mf_ac = ensure_group("Двухнедельные линзы мультифокальные", acuvue)
+        for nm in [
+            "Acuvue Oasys for ASTIGMATISM 6pk 8.6 BC",
+            "1-DAY Acuvue MOIST for ASTIGMATISM 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST for ASTIGMATISM 90pk 8.5 BC",
+            "1-DAY Acuvue Oasys With Hydraluxe for ASTIGMATISM 30pk 8.5 BC",
+            "1-DAY Acuvue MOIST Multifocal 30pk 8.4 BC",
+        ]:
+            ensure_product(nm, g_biweek_mf_ac)
+
+        # Alcon
+        alcon = ensure_group("Alcon", None)
+        g_daily_al = ensure_group("Однодневные линзы", alcon)
+        for nm in [
+            "Dailies Total 1 30pk 8.6 BC",
+            "Dailies Total 1 90pk 8.6 BC",
+            "Precision 1 30pk 8.3 BC",
+            "Precision 1 90pk 8.3 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.7 BC",
+            "Dailies Aqua Comfort Plus 30pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_daily_al)
+
+        g_monthly_al = ensure_group("Ежемесячные линзы", alcon)
+        for nm in [
+            "AIR Optix Aqua 3pk 8.6 BC",
+            "AIR Optix Aqua 6pk 8.6 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.4 BC",
+            "AIR Optix Night&Day AQUA 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 3pk 8.6 BC",
+            "Air Optix Plus HydraGlyde 6pk 8.6 BC",
+            "Total 30 3pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly_al)
+
+        g_mf_al = ensure_group("Линзы мультифакальные", alcon)
+        for nm in [
+            "Air Optix Plus Hydraglyde For Astigmatism 3pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 6pk 8.7 BC",
+            "Air Optix Plus Hydraglyde For Astigmatism 9pk 8.7 BC",
+            "AIR OPTIX plus HydraGlyde Multifocal 3pk 8.6 BC",
+            "Dailies Total 1 Multifocal 30pk 8.5 BC",
+            "Total 30 for Astigmatism 3pk 8.4 BC",
+        ]:
+            ensure_product(nm, g_mf_al)
+
+        # Bausch+Lomb
+        bl = ensure_group("Bausch+Lomb", None)
+        g_monthly_bl = ensure_group("Ежемесячные линзы", bl)
+        for nm in [
+            "SofLens 59 6pk 8.6 BC",
+            "PureVision 2 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly_bl)
+
+        g_quarterly_bl = ensure_group("Квартальные линзы", bl)
+        for nm in [
+            "Optima FW 4pk 8.4 BC",
+            "Optima FW 4pk 8.7 BC",
+        ]:
+            ensure_product(nm, g_quarterly_bl)
+
+        # Растворы
+        solutions = ensure_group("Растворы", None)
+
+        s_adria = ensure_group("Adria", solutions)
+        for nm in [
+            "ADRIA CITY Moist 360ml",
+            "ADRIA (DENIQ HIGH FRESH YAL) 360ml",
+            "ADRIA Plus 60ml",
+            "ADRIA Plus 250ml",
+        ]:
+            ensure_product(nm, s_adria)
+
+        s_renu_mps = ensure_group("Renu MPS", solutions)
+        for nm in [
+            "Renu MPS 120ml",
+            "Renu MPS 240ml",
+            "Renu MPS 360ml",
+        ]:
+            ensure_product(nm, s_renu_mps)
+
+        s_renu_multi = ensure_group("Renu MultiPlus", solutions)
+        for nm in [
+            "Renu MultiPlus 60ml",
+            "Renu MultiPlus 120ml",
+            "Renu MultiPlus 240ml",
+            "Renu MultiPlus 360ml",
+        ]:
+            ensure_product(nm, s_renu_multi)
+
+        s_renu_adv = ensure_group("Renu Advanced", solutions)
+        for nm in [
+            "Renu Advanced 100ml",
+            "Renu Advanced 360ml",
+        ]:
+            ensure_product(nm, s_renu_adv)
+
+        s_acuvue_sol = ensure_group("Acuvue", solutions)
+        for nm in [
+            "Acuvue 100ml",
+            "Acuvue 300ml",
+            "Acuvue 360ml",
+        ]:
+            ensure_product(nm, s_acuvue_sol)
+
+        s_likon = ensure_group("Ликонтин", solutions)
+        for nm in [
+            "Ликонтин-Универсал 120ml",
+            "Ликонтин-Универсал 240ml",
+        ]:
+            ensure_product(nm, s_likon)
+
+        s_optimed = ensure_group("OPTIMED", solutions)
+        for nm in [
+            "OPTIMED Про Актив 125ml",
+            "OPTIMED Про Актив 125ml",
+        ]:
+            ensure_product(nm, s_optimed)
+
+        # Товары прямо в группе Растворы
+        for nm in [
+            "AOSEPT Plus HydraGlyde 360ml",
+            "OptiFree Express 355ml",
+            "Энзимный очиститель \"OPTIMED\" 3ml",
+            "Ликонтин 5ml  (раствор для энзимной очистки)",
+            "Avizor Таблетки 10 шт.",
+        ]:
+            ensure_product(nm, solutions)
+
+        # Капли
+        drops = ensure_group("Капли", None)
+        for nm in [
+            "ADRIA Relax 10ml",
+            "OPTIMED Про Актив 10ml",
+            "Avizor Comfort Drops 15ml",
+            "Avizor Moisture Drops 15ml",
+            "Опти-Фри 15ml",
+            "Ликонтин - Комфорт 18ml",
+        ]:
+            ensure_product(nm, drops)
 
     # --- Static seed for Meridian 'Контактные Линзы' with the same structure as MKL ---
     def _ensure_meridian_seed_contacts(self):
