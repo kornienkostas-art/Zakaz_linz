@@ -7,13 +7,16 @@ class AppDB:
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
-        # Enable foreign keys
         try:
             self.conn.execute("PRAGMA foreign_keys = ON;")
         except Exception:
             pass
         self._init_schema()
-        # Seeding disabled per request: do not auto-populate catalogs/groups.
+        # Seed Meridian catalog once when empty with requested groups/items
+        try:
+            self._seed_meridian_default_if_empty()
+        except Exception:
+            pass
         
 
     def _init_schema(self):
@@ -199,6 +202,133 @@ class AppDB:
         )
 
         self.conn.commit()
+
+    def _seed_meridian_default_if_empty(self):
+        cur = self.conn.cursor()
+        try:
+            g_count = cur.execute("SELECT COUNT(*) FROM product_groups_meridian;").fetchone()[0]
+            p_count = cur.execute("SELECT COUNT(*) FROM products_meridian;").fetchone()[0]
+        except Exception:
+            return
+        if (g_count or 0) > 0 or (p_count or 0) > 0:
+            return
+
+        data = [
+            ("ПОЛИМЕРНЫЕ ЛИНЗЫ", [
+                "1.81 ASPHERIC HMC KOREA",
+                "1.76 SUPER+ASPHERIC, BLUE KOREA",
+                "1.74 ASPHERIC HMC KOREA",
+                "1.67 ASPHERIC HMC/EMI KOREA",
+                "1.67 ASPHERIC KOREA",
+                "1.67 AS BLUE BLOCKER KOREA",
+                "1.67 DOUBLE ASPHERIC, BLUE BLOCKER KOREA",
+                "1.61 ASPHERIC HMC/EMI",
+                "1.61 BLUE LIGHT BLOCKER",
+                "1.61 SPH HMC MR-8",
+                "1.61 BLUE LIGHT LOCKER HARD CLEAN COATED",
+                "1.61 BLUE LIGHT BLOCKER MR-8",
+                "1.61 AS MR-8",
+                "1.61 PERIFOCAL KOREA",
+                "1.61 ANTI-FOG AR UV420",
+                "1.61 Defocus BLUE LIGHT BLOCKER UV420",
+                "1.61 STELLEST LENSES",
+                "1.56 BLUE LIGHT BLOCKER",
+                "1.56 AS COMPUTRON",
+                "1.56 HI-MAX HMC",
+                "1.56 KINDER HMC",
+                "1.56 GOLD HMC/EMI",
+                "1.56 ASPHERIC NEW MIRACLE HMC/EMI",
+                "1.56 ANTI-FOG BLUE LIGHT BLOCKER",
+                "1.56 SPH под ПОКРАСКУ",
+                "1.49 CR-39 глаукомные",
+                "1.49 SPH",
+            ]),
+            ("ПОЛИМЕРНЫЕ ПОЛЯРИЗАЦИОННЫЕ ЛИНЗЫ", [
+                "1.61 POLARIZED GREY HC",
+                "1.61 POLARIZED Brown HC",
+                "1.56 POLARIZED GREY",
+                "1.56 POLARIZED Brown",
+                "1.56 POLARIZED HMC GREY",
+                "1.56 POLARIZED HMC Brown",
+                "1.56 MIRROR POLARIZED",
+            ]),
+            ("ПОЛИМЕРНЫЕ ТОНИРОВАННЫЕ ЛИНЗЫ", [
+                "1.61 AS HI-MAX НМС 80% GREY",
+                "1.61 AS HI-MAX НМС 80% Brown",
+                "1.56 HI-MAX 20% GREY",
+                "1.56 HI-MAX 20% Brown",
+                "1.56 HI-MAX 50% GREY",
+                "1.56 HI-MAX 50% Brown",
+                "1.56 GRADIENT GREY",
+                "1.56 GRADIENT Brown",
+            ]),
+            ("ПОЛИМЕРНЫЕ ФОТОХРОМНЫЕ ЛИНЗЫ", [
+                "1.74 PHOTOCHROMIC HMC GREY",
+                "1.74 PHOTOCHROMIC HMC Brown",
+                "1.67 PHOTOCHROMIC BLUE BLOCKER GREY",
+                "1.67 PHOTOCHROMIC BLUE BLOCKER Brown",
+                "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA GREY",
+                "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA Brown",
+                "1.61 PHOTOCHROMIC HMC GREY",
+                "1.61 PHOTOCHROMIC HMC Brown",
+                "1.61 TRANSITIONS BLUE BLOCKER PHOTO GREY",
+                "1.56 PHOTOCHROME PINK GREEN",
+                "1.56 PHOTOCHROME BLUE",
+                "1.56 PHOTOCHROME VIOLET",
+                "1.56 PHOTOCHROME GREEN",
+                "1.56 PHOTOCHROMIC GREY",
+                "1.56 PHOTOCHROMIC Brown",
+                "1.56 PHOTOCHROMIC TRANSITIONS GREY",
+                "1.56 PHOTOCHROMIC TRANSITIONS Brown",
+                "1.56 TRANSITIONS BLUE LIGHT BLOCKER PHOTO GREY",
+                "1.56 PHOTOCHROMIC HMC GREY",
+                "1.56 PHOTOCHROMIC HMC Brown",
+                "1.56 POLARIZED PHOTOCHROMIC GREY HMC",
+            ]),
+            ("ПОЛИМЕРНЫЕ БИФОКАЛЬНЫЕ, ПРОГРЕССИВНЫЕ ЛИНЗЫ", [
+                "1.56 PROGRESSIVE",
+                "1.56 PROGRESSIVE HMC",
+                "1.59 POLYCARBONATE PROGRESSIVE HMC",
+                "1.56 OFFICE BLUE LIGHT BLOCKER",
+                "1.56 OFFICE HMC",
+                "1.56 BIFOCAL F TOP HMC",
+                "1.49 BIFOCAL F TOP",
+                "1.56 PHOTOCHROMIC PROGRESSIVE GREY",
+                "1.56 PHOTOCHROMIC PROGRESSIVE Brown",
+                "1.56 PHOTOCHROMIC BIFOCAL GREY",
+                "1.56 PHOTOCHROMIC BIFOCAL Brown",
+            ]),
+            ("ПОИМЕРНЫЕ ЛИНЗЫ ДЛЯ ВОЖДЕНИЯ", [
+                "1.61 AS DRIVING LENS BLUE LOCKER (AR/blue) KOREA",
+                "1.56 YELLOW FARA EMI (AR/blue)",
+                "1.56 YELLOW-FARA POLARIZED (AR/blue)",
+                "1.56 YELLOW-FARA PHOTOCHROMIC GREY (AR/green)",
+            ]),
+            ("ПОЛИКАРБОНАТНЫЕ ЛИНЗЫ", [
+                "1.59 POLYCARBONAT HMC",
+                "1.59 POLYCARBONAT",
+                "1.59 POLYCARBONAT BLUE LIGHT BLOCKER",
+                "1.59 POLYCARBONAT PHOTOCHROMIC GREY",
+            ]),
+            ("МИНЕРАЛЬНЫЕ ЛИНЗЫ", [
+                "1.71 GLASS COMPUTRON GREEN",
+                "1.71 GLASS COMPUTRON BLUE",
+                "1.71 WHITE GLASS HI-INDEX",
+                "1.523 WHITE GLASS",
+                "1.523 GLASS PHOTOCHROMIC GREY",
+                "1.523 GLASS PHOTOCHROMIC BROWN",
+                "1.523 GLASS GREY",
+                "1.523 GLASS BROWN",
+                "1.523 GLASS GREEN",
+                "1.523 GLASS YELLOW FARA",
+                "1.523 GLASS BIFOCAL F-TOP",
+            ]),
+        ]
+
+        for gname, items in data:
+            gid = self.add_product_group_meridian(gname, None)
+            for nm in items:
+                self.add_product_meridian(nm, gid)
 
     # --- Clients ---
     def list_clients(self) -> list[dict]:
