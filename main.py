@@ -63,8 +63,6 @@ def ensure_settings(path: str):
                     # Single instance behavior
                     "single_instance_enabled": True,
                     "single_instance_port": 46465,
-                    # One-time DB reset flag (when True on next start data.db will be recreated empty)
-                    "reset_db_once": False,
                 },
                 f,
                 ensure_ascii=False,
@@ -104,8 +102,6 @@ def load_settings(path: str) -> dict:
                 # Single instance
                 "single_instance_enabled": True,
                 "single_instance_port": 46465,
-                # One-time DB reset flag
-                "reset_db_once": False,
             }
             for k, v in defaults.items():
                 data.setdefault(k, v)
