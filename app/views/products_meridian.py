@@ -86,8 +86,7 @@ class ProductsMeridianView(ttk.Frame):
             ttk.Label(holder, text=f"{e}", style="Subtitle.TLabel", foreground="#7f1d1d").pack(anchor="w", pady=(4, 12))
             btns = ttk.Frame(holder, style="Card.TFrame"); btns.pack(fill="x")
             ttk.Button(btns, text="← Назад", style="Back.TButton", command=self._go_back).pack(side="left")
-            ttk.Button(btns, text="Повторить", style="Menu.TButton", command=self._retry_build).pack(side="left", padx=(8, 0))uild_ui()
-        self._reload()
+            ttk.Button(btns, text="Повторить", style="Menu.TButton", command=self._retry_build).pack(side="left", padx=(8, 0))
 
     def _build_ui(self):
         try:
