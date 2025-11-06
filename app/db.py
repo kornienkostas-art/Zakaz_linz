@@ -27,8 +27,7 @@ class AppDB:
         try:
             self.sync_meridian_contacts_from_mkl()
         except Exception:
-            pass
-    _code  new </ 
+            pass 
 
     def _init_schema(self):
         cur = self.conn.cursor()
