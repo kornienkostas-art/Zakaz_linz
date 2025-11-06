@@ -10,8 +10,22 @@ from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
 from app.utils import install_crosslayout_shortcuts, apply_builtins_fresh_style
 
-SETTINGS_FILE = "settings.json"
-DB_FILE = "data.db"
+# Resolve storage directory deterministically to avoid mixing different working dirs
+def _get_storage_dir() -> str:
+    try:
+        import sys
+        # If packaged (PyInstaller), store next to the executable
+        if getattr(sys, "frozen", False):
+            return os.path.dirname(sys.executable)
+        # Else store next to the source main.py file
+        return os.path.dirname(os.path.abspath(__file__))
+    except Exception:
+        # Fallback to current directory
+        return os.getcwd()
+
+STORAGE_DIR = _get_storage_dir()
+SETTINGS_FILE = os.path.join(STORAGE_DIR, "settings.json")
+DB_FILE = os.path.join(STORAGE_DIR, "data.db")
 
 
 def ensure_settings(path: str):
@@ -303,6 +317,11 @@ def main():
     except Exception:
         pass
     root.app_settings = app_settings
+    # Expose resolved settings path for other modules (tray) to persist reliably
+    try:
+        root.app_settings_path = SETTINGS_FILE
+    except Exception:
+        pass
     ui_scale = float(app_settings.get("ui_scale", 1.25))
     try:
         root.tk.call("tk", "scaling", ui_scale)

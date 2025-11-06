@@ -237,13 +237,18 @@ def _start_tray(master):
                     geom = master.geometry()
                     settings = getattr(master, "app_settings", {}) or {}
                     settings["main_geometry"] = geom
+                    # Persist geometry to the resolved settings path (next to exe or source), not CWD
                     try:
                         import json
-                        with open("settings.json", "r", encoding="utf-8") as f:
-                            data = json.load(f)
+                        settings_path = getattr(master, "app_settings_path", os.path.abspath("settings.json"))
+                        if os.path.isfile(settings_path):
+                            with open(settings_path, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                        else:
+                            data = {}
                         if isinstance(data, dict):
                             data["main_geometry"] = geom
-                            with open("settings.json", "w", encoding="utf-8") as f:
+                            with open(settings_path, "w", encoding="utf-8") as f:
                                 json.dump(data, f, ensure_ascii=False, indent=2)
                     except Exception:
                         pass
