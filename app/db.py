@@ -23,7 +23,12 @@ class AppDB:
             self._ensure_mkl_seed_brands()
         except Exception:
             pass
-        
+        # Mirror MKL catalog into Meridian under top-level group 'Контактные линзы МКЛ'
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
+    _code  new </ 
 
     def _init_schema(self):
         cur = self.conn.cursor()
@@ -476,17 +481,29 @@ class AppDB:
         sort_order = self._next_group_sort_mkl(parent_id)
         cur = self.conn.execute("INSERT INTO product_groups_mkl (name, sort_order, parent_id) VALUES (?, ?, ?);", (name, sort_order, parent_id))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
         return cur.lastrowid
 
     def update_product_group_mkl(self, group_id: int, name: str, parent_id: int | None = None):
         self.conn.execute("UPDATE product_groups_mkl SET name=?, parent_id=? WHERE id=?;", (name, parent_id, group_id))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def delete_product_group_mkl(self, group_id: int):
         # Detach products from group, then delete group; child groups will be cascaded by FK
         self.conn.execute("UPDATE products_mkl SET group_id=NULL WHERE group_id=?;", (group_id,))
         self.conn.execute("DELETE FROM product_groups_mkl WHERE id=?;", (group_id,))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def move_group_mkl(self, group_id: int, direction: int):
         # Move within siblings (same parent_id)
@@ -513,6 +530,10 @@ class AppDB:
         self.conn.execute("UPDATE product_groups_mkl SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
         self.conn.execute("UPDATE product_groups_mkl SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def list_products_mkl(self) -> list[dict]:
         rows = self.conn.execute("SELECT id, name, group_id, sort_order FROM products_mkl ORDER BY sort_order ASC, name COLLATE NOCASE;").fetchall()
@@ -536,6 +557,10 @@ class AppDB:
         sort_order = self._next_product_sort_mkl(group_id)
         cur = self.conn.execute("INSERT INTO products_mkl (name, group_id, sort_order) VALUES (?, ?, ?);", (name, group_id, sort_order))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
         return cur.lastrowid
 
     def update_product_mkl(self, product_id: int, name: str, group_id: int | None = None):
@@ -544,10 +569,18 @@ class AppDB:
         else:
             self.conn.execute("UPDATE products_mkl SET name=?, group_id=? WHERE id=?;", (name, group_id, product_id))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def delete_product_mkl(self, product_id: int):
         self.conn.execute("DELETE FROM products_mkl WHERE id=?;", (product_id,))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     def move_product_mkl(self, product_id: int, direction: int):
         r = self.conn.execute("SELECT id, group_id, sort_order FROM products_mkl WHERE id=?;", (product_id,)).fetchone()
@@ -573,6 +606,10 @@ class AppDB:
         self.conn.execute("UPDATE products_mkl SET sort_order=? WHERE id=?;", (b["sort_order"], a["id"]))
         self.conn.execute("UPDATE products_mkl SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
+        try:
+            self.sync_meridian_contacts_from_mkl()
+        except Exception:
+            pass
 
     # --- Seed MKL catalog (Adria hierarchy and products) ---
     def _ensure_mkl_seed_adria(self):
