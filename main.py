@@ -9,6 +9,8 @@ from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
 from app.utils import install_crosslayout_shortcuts, apply_builtins_fresh_style
+import socket
+import threading
 
 # Resolve storage directory deterministically to avoid mixing different working dirs
 def _get_storage_dir() -> str:
@@ -58,6 +60,9 @@ def ensure_settings(path: str):
                     "notify_sound_alias": "SystemAsterisk",
                     "notify_sound_mode": "alias",
                     "notify_sound_file": "",
+                    # Single instance behavior
+                    "single_instance_enabled": True,
+                    "single_instance_port": 46465,
                 },
                 f,
                 ensure_ascii=False,
@@ -94,6 +99,9 @@ def load_settings(path: str) -> dict:
                 "notify_sound_alias": "SystemAsterisk",
                 "notify_sound_mode": "alias",  # 'alias' or 'file'
                 "notify_sound_file": "",
+                # Single instance
+                "single_instance_enabled": True,
+                "single_instance_port": 46465,
             }
             for k, v in defaults.items():
                 data.setdefault(k, v)
@@ -172,7 +180,65 @@ def _bind_minimize_to_tray(root: tk.Tk):
         pass
 
 
+def _single_instance_try_signal(port: int) -> bool:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.6)
+            s.connect(("127.0.0.1", int(port)))
+            s.sendall(b"SHOW")
+            return True
+    except Exception:
+        return False
+
+def _single_instance_start_server(root: tk.Tk, port: int):
+    def server():
+        try:
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind(("127.0.0.1", int(port)))
+            srv.listen(5)
+        except Exception:
+            # Port in use or bind failed — skip server
+            return
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except Exception:
+                break
+            try:
+                data = conn.recv(16)
+                if data and data.strip().upper() == b"SHOW":
+                    try:
+                        root.after(0, lambda: (_stop_tray(root), root.deiconify()))
+                        # Bring to front
+                        root.after(50, lambda: root.attributes("-topmost", True))
+                        root.after(350, lambda: root.attributes("-topmost", False))
+                        # If tray enabled and minimized, also restore main window via helper
+                        try:
+                            from app.tray import _show_main_window
+                            root.after(0, lambda: _show_main_window(root))
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    t = threading.Thread(target=server, daemon=True)
+    t.start()
+
 def main():
+    # Early settings load to check single-instance toggle
+    early_settings = load_settings(SETTINGS_FILE)
+    if bool(early_settings.get("single_instance_enabled", True)):
+        port = int(early_settings.get("single_instance_port", 46465))
+        # If an instance is already running, signal it to show and exit this process
+        if _single_instance_try_signal(port):
+            return
+
     # High-DPI scaling for readability (Windows)
     try:
         from ctypes import windll
@@ -520,6 +586,13 @@ def main():
     # Start scheduler loop
     try:
         root.after(3_000, _check_and_notify)
+    except Exception:
+        pass
+
+    # Start single-instance server to handle subsequent exe launches
+    try:
+        if bool(app_settings.get("single_instance_enabled", True)):
+            _single_instance_start_server(root, int(app_settings.get("single_instance_port", 46465)))
     except Exception:
         pass
 
