@@ -63,6 +63,8 @@ def ensure_settings(path: str):
                     # Single instance behavior
                     "single_instance_enabled": True,
                     "single_instance_port": 46465,
+                    # One-time DB reset flag (when True on next start data.db will be recreated empty)
+                    "reset_db_once": False,
                 },
                 f,
                 ensure_ascii=False,
@@ -102,6 +104,8 @@ def load_settings(path: str) -> dict:
                 # Single instance
                 "single_instance_enabled": True,
                 "single_instance_port": 46465,
+                # One-time DB reset flag
+                "reset_db_once": False,
             }
             for k, v in defaults.items():
                 data.setdefault(k, v)
@@ -424,6 +428,23 @@ def main():
                     root.geometry(f"{sw}x{sh}+0+0")
                 except Exception:
                     pass
+
+    # One-time DB reset if requested in settings
+    try:
+        if bool(app_settings.get("reset_db_once", False)):
+            try:
+                if os.path.isfile(DB_FILE):
+                    os.remove(DB_FILE)
+            except Exception:
+                pass
+            # Flip the flag and persist
+            try:
+                app_settings["reset_db_once"] = False
+                save_settings(SETTINGS_FILE, app_settings)
+            except Exception:
+                pass
+    except Exception:
+        pass
 
     # Ensure DB
     root.db = AppDB(DB_FILE)
