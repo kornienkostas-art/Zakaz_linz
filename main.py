@@ -1,9 +1,11 @@
 import atexit
 import json
 import os
+import shutil
 import tkinter as tk
 from tkinter import filedialog, ttk
 from tkinter import font as tkfont
+from datetime import datetime
 
 from app.db import AppDB
 from app.views.main import MainWindow
@@ -28,6 +30,48 @@ def _get_storage_dir() -> str:
 STORAGE_DIR = _get_storage_dir()
 SETTINGS_FILE = os.path.join(STORAGE_DIR, "settings.json")
 DB_FILE = os.path.join(STORAGE_DIR, "data.db")
+
+# --- DB backup (weekly rotation, keep last 7 days) ---
+def backup_db_weekly(db_path: str, base_dir: str):
+    try:
+        if not os.path.isfile(db_path):
+            return
+        backup_dir = os.path.join(base_dir, "Копия БД")
+        try:
+            os.makedirs(backup_dir, exist_ok=True)
+        except Exception:
+            pass
+        # Today's stamp
+        today = datetime.now().strftime("%Y-%m-%d")
+        # File name: data.db_YYYY-MM-DD.sqlite (or .db)
+        backup_name = f"data.db_{today}.db"
+        backup_path = os.path.join(backup_dir, backup_name)
+        # Create only if not exists
+        if not os.path.isfile(backup_path):
+            shutil.copy2(db_path, backup_path)
+        # Rotation: keep last 7 files by date in name
+        files = []
+        for fn in os.listdir(backup_dir):
+            if fn.startswith("data.db_") and fn.endswith(".db"):
+                # Extract date safely
+                try:
+                    stamp = fn[len("data.db_"):-len(".db")]
+                    dt = datetime.strptime(stamp, "%Y-%m-%d")
+                except Exception:
+                    dt = None
+                files.append((dt, fn))
+        # Sort by date descending, drop entries with None date last
+        files.sort(key=lambda x: (x[0] is None, x[0] or datetime.min), reverse=True)
+        # Keep first 7 valid dated backups, delete the rest
+        keep = 7
+        for i, (dt, fn) in enumerate(files):
+            if i >= keep:
+                try:
+                    os.remove(os.path.join(backup_dir, fn))
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
 
 def ensure_settings(path: str):
@@ -439,6 +483,12 @@ def main():
                 save_settings(SETTINGS_FILE, app_settings)
             except Exception:
                 pass
+    except Exception:
+        pass
+
+    # Create DB backup (weekly rotation, keep last 7)
+    try:
+        backup_db_weekly(DB_FILE, STORAGE_DIR)
     except Exception:
         pass
 
