@@ -6,6 +6,7 @@ from app.utils import fade_transition
 from app.utils import create_tooltip
 from app.utils import format_phone_mask
 from app.utils import set_initial_geometry
+from app.utils import center_on_screen
 
 
 class SelectClientDialog(tk.Toplevel):
@@ -583,8 +584,9 @@ class OrderForm(tk.Toplevel):
         self.title("Редактирование заказа МКЛ")
         self.configure(bg="#f8fafc")
         # Сделаем окно выше, чтобы поле комментария было хорошо видно
-        set_initial_geometry(self, min_w=900, min_h=780, center_to=master)
-        # Дополнительно установим стартовый размер ближе к 80% экрана
+        # Центрируем по экрану (не относительно родителя)
+        set_initial_geometry(self, min_w=900, min_h=780, center_to=None)
+        # Дополнительно установим стартовый размер ближе к 80% экрана и еще раз центрируем
         try:
             self.update_idletasks()
             sw = self.winfo_screenwidth()
@@ -592,6 +594,7 @@ class OrderForm(tk.Toplevel):
             tw = max(900, int(sw * 0.75))
             th = max(780, int(sh * 0.80))
             self.geometry(f"{tw}x{th}")
+            center_on_screen(self)
         except Exception:
             pass
         self.transient(master)
