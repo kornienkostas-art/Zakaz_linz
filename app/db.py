@@ -17,6 +17,12 @@ class AppDB:
             self._seed_meridian_default_if_empty()
         except Exception:
             pass
+        # Seed MKL catalog (Adria + brands/solutions/drops) idempotently
+        try:
+            self._ensure_mkl_seed_adria()
+            self._ensure_mkl_seed_brands()
+        except Exception:
+            pass
         
 
     def _init_schema(self):
@@ -570,8 +576,206 @@ class AppDB:
 
     # --- Seed MKL catalog (Adria hierarchy and products) ---
     def _ensure_mkl_seed_adria(self):
-        # Seed removed: no automatic population of MKL catalog.
-        pass
+        """
+        Seed MKL catalog for 'Adria' brand with hierarchical groups and products.
+        Idempotent: checks by names and parent_id.
+        """
+        def ensure_group(name: str, parent_id: int | None) -> int:
+            r = self.conn.execute(
+                "SELECT id FROM product_groups_mkl WHERE name=? AND (parent_id IS ? OR parent_id = ?);",
+                (name, None if parent_id is None else parent_id, parent_id),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_group_mkl(name, parent_id)
+
+        def ensure_product(name: str, gid: int):
+            r = self.conn.execute(
+                "SELECT id FROM products_mkl WHERE name=? AND group_id=?;",
+                (name, gid),
+            ).fetchone()
+            if r:
+                return r["id"]
+            return self.add_product_mkl(name, gid)
+
+        adria = ensure_group("Adria", None)
+        g_daily = ensure_group("Однодневные линзы", adria)
+        for nm in [
+            "Adria GO 180pk 8.6 BC",
+            "Adria GO 90pk 8.6 BC",
+            "Adria GO 30pk 8.6 BC",
+            "Adria GO 10pk 8.6 BC",
+            "Adria GO 5pk 8.6 BC",
+            "ADRIA X 30pk 8.6 BC",
+            "ADRIA EGO 30pk 8.6 BC",
+            "Adria Zero 90pk 8.6 BC",
+            "Adria Zero 30pk 8.6 BC",
+            "Adria Zero 5pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_daily)
+
+        g_monthly = ensure_group("Ежемесячные линзы", adria)
+        for nm in [
+            "Adria sport 6pk 8.6 BC",
+            "Adria O2O2 2pk 8.6 BC",
+            "Adria O2O2 6pk 8.6 BC",
+            "Adria O2O2 12pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_monthly)
+
+        g_quarterly = ensure_group("Квартальные линзы", adria)
+        for nm in [
+            "ADRIA Season 2pk 8.6 BC",
+            "ADRIA Season 4pk 8.6 BC",
+            "ADRIA Season 4pk 8.9 BC",
+        ]:
+            ensure_product(nm, g_quarterly)
+
+        g_multifocal = ensure_group("Мультифакальные линзы", adria)
+        for nm in [
+            "Adria O2O2 Toric 2pk 8.6 BC",
+            "Adria O2O2 Toric 6pk 8.6 BC",
+            "Adria O2O2 Multifocal 2pk 8.6 BC",
+            "Adria O2O2 Multifocal 6pk 8.6 BC",
+        ]:
+            ensure_product(nm, g_multifocal)
+
+        # Цветные
+        g_color = ensure_group("Цветные линзы", adria)
+        g_color_quarterly = ensure_group("Квартальные линзы", g_color)
+
+        # ADRIA Effect
+        g_effect = ensure_group("ADRIA Effect", g_color_quarterly)
+        for nm in [
+            "ADRIA Effect Topaz (топаз)",
+            "ADRIA Effect Grafit (графит)",
+            "ADRIA Effect Cristal (кристалл)",
+            "ADRIA Effect Quartz (кварц)",
+            "ADRIA Effect Ivory (айвори)",
+            "ADRIA Effect Caramel (карамель)",
+        ]:
+            ensure_product(nm, g_effect)
+
+        # ADRIA Glamorous
+        g_glam = ensure_group("ADRIA Glamorous", g_color_quarterly)
+        for nm in [
+            "ADRIA Glamorous Blue (голубой)",
+            "ADRIA Glamorous Black (черный)",
+            "ADRIA Glamorous Violet (фиолетовый)",
+            "ADRIA Glamorous Turquoise (бирюзовый)",
+            "ADRIA Glamorous Brown (карий)",
+            "ADRIA Glamorous Green (зеленый)",
+            "ADRIA Glamorous Gray (серый)",
+            "ADRIA Glamorous Gold (золото)",
+            "ADRIA Glamorous Pure Gold (чистое золото)",
+        ]:
+            ensure_product(nm, g_glam)
+
+        # ADRIA Color 1 Tone
+        g_c1 = ensure_group("ADRIA Color 1 Tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 1 Tone Blue (голубой)",
+            "ADRIA Color 1 Tone Green (зеленый)",
+            "ADRIA Color 1 Tone Lavender (лаванда)",
+            "ADRIA Color 1 Tone Gray (серый)",
+            "ADRIA Color 1 Tone Brown (карий)",
+        ]:
+            ensure_product(nm, g_c1)
+
+        # ADRIA Color 2 Tone
+        g_c2 = ensure_group("ADRIA Color 2 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 2 Tone True Sapphire (сапфир)",
+            "ADRIA Color 2 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 2 Tone Brown (карий)",
+            "ADRIA Color 2 Tone Green (зеленый)",
+            "ADRIA Color 2 Tone Gray (серый)",
+            "ADRIA Color 2 Tone Amethyst (аметист)",
+            "ADRIA Color 2 Tone Hazel (орех)",
+        ]:
+            ensure_product(nm, g_c2)
+
+        # ADRIA Color 3 Tone
+        g_c3 = ensure_group("ADRIA Color 3 tone", g_color_quarterly)
+        for nm in [
+            "ADRIA Color 3 Tone Green (зеленый)",
+            "ADRIA Color 3 Tone Turquoise (бирюзовый)",
+            "ADRIA Color 3 Tone True Sapphire (сапфир)",
+            "ADRIA Color 3 Tone Gray (серый)",
+            "ADRIA Color 3 Tone Brown (карий)",
+            "ADRIA Color 3 Tone Honey (медовый)",
+            "ADRIA Color 3 Tone Hazel (орех)",
+            "ADRIA Color 3 Tone Pure Hazel (насыщенный орех)",
+            "ADRIA Color 3 Tone Amethyst (аметист)",
+        ]:
+            ensure_product(nm, g_c3)
+
+        # ADRIA Crazy
+        g_crazy = ensure_group("ADRIA Crazy", g_color_quarterly)
+        for nm in [
+            "ADRIA Crazy Black Out (черное пятно)",
+            "ADRIA Crazy MSN (сеть)",
+            "ADRIA Crazy Hot Red (яркий красный)",
+            "ADRIA Crazy Zombo (зомбо)",
+            "ADRIA Crazy White Vampire (белый вампир)",
+            "ADRIA Crazy White Out (белое пятно)",
+            "ADRIA Crazy Maniac (маньяк)",
+            "ADRIA Crazy Blue Angelic (голубой ангел)",
+            "ADRIA Crazy Blue Wheel (голубое колесо)",
+            "ADRIA Crazy Demon (демон)",
+            "ADRIA Crazy Robot (робот)",
+            "ADRIA Crazy Psyho (психо)",
+            "ADRIA Crazy Solid Yellow (сплошной желтый)",
+            "ADRIA Crazy White Cat (белая кошка)",
+            "ADRIA Crazy Black Star (черная звезда)",
+            "ADRIA Crazy Blood (кровь)",
+            "ADRIA Crazy Cross (крест)",
+            "ADRIA Crazy Devil (дьявол)",
+            "ADRIA Crazy Eagle (орел)",
+            "ADRIA Crazy Green Banshee (зеленая опасность)",
+            "ADRIA Crazy Green Cat (зеленая кошка)",
+            "ADRIA Crazy Lunatic (лунатик)",
+            "ADRIA Crazy Pink (розовый)",
+            "ADRIA Crazy Red Cat (красная кошка)",
+            "ADRIA Crazy Sharingan (шаринган)",
+            "ADRIA Crazy Target (мишень)",
+            "ADRIA Crazy Wild Fire (дикий огонь)",
+            "ADRIA Crazy Yellow Cat (желтая кошка)",
+            "ADRIA Crazy Yellow Wolf (желтый волк)",
+            "ADRIA Crazy Red Vampire (красный вампир)",
+        ]:
+            ensure_product(nm, g_crazy)
+
+        # ADRIA Sclera Pro
+        g_sclera = ensure_group("ADRIA Sclera Pro", g_color_quarterly)
+        ensure_product("ADRIA Sclera Pro Demon look", g_sclera)
+
+        # ADRIA Neon
+        g_neon = ensure_group("ADRIA Neon", g_color_quarterly)
+        for nm in [
+            "ADRIA Neon Green (зеленый)",
+            "ADRIA Neon Blue (голубой)",
+            "ADRIA Neon White (белый)",
+            "ADRIA Neon Pink (розовый)",
+            "ADRIA Neon Lemon (лимонный)",
+            "ADRIA Neon Violet (фиолетовый)",
+            "ADRIA Neon Orange (оранжевый)",
+        ]:
+            ensure_product(nm, g_neon)
+
+        # Однодневные цветные линзы (подгруппа в Цветные линзы)
+        g_color_daily = ensure_group("Однодневные цветные линзы", g_color)
+        for nm in [
+            "ADRIA WOW (30 линз) Latin (светло-карий)",
+            "ADRIA WOW (30 линз) Jazz Black (черный)",
+            "ADRIA WOW (30 линз) Rhapsody (темно-карий)",
+            "ADRIA WOW (30 линз) Soul Brown (карий)",
+            "ADRIA MIX (10 линз) Light Green (зеленый)",
+            "ADRIA MIX (10 линз) Blue (голубой)",
+            "ADRIA MIX (10 линз) Pearl Gray (серый)",
+            "ADRIA MIX (30 линз) (3 цвета в упаковке)",
+        ]:
+            ensure_product(nm, g_color_daily)
 
     # --- Seed MKL catalog for other brands and solutions ---
     def _ensure_mkl_seed_brands(self):
