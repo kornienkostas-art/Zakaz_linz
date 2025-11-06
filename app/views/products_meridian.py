@@ -60,113 +60,7 @@ class NameDialog(tk.Toplevel):
         self.destroy()
 
 
-MERIDIAN_SEED = [
-    ("ПОЛИМЕРНЫЕ ЛИНЗЫ", [
-        "1.81 ASPHERIC HMC KOREA",
-        "1.76 SUPER+ASPHERIC, BLUE KOREA",
-        "1.74 ASPHERIC HMC KOREA",
-        "1.67 ASPHERIC HMC/EMI KOREA",
-        "1.67 ASPHERIC KOREA",
-        "1.67 AS BLUE BLOCKER KOREA",
-        "1.67 DOUBLE ASPHERIC, BLUE BLOCKER KOREA",
-        "1.61 ASPHERIC HMC/EMI",
-        "1.61 BLUE LIGHT BLOCKER",
-        "1.61 SPH HMC MR-8",
-        "1.61 BLUE LIGHT LOCKER HARD CLEAN COATED",
-        "1.61 BLUE LIGHT BLOCKER MR-8",
-        "1.61 AS MR-8",
-        "1.61 PERIFOCAL KOREA",
-        "1.61 ANTI-FOG AR UV420",
-        "1.61 Defocus BLUE LIGHT BLOCKER UV420",
-        "1.61 STELLEST LENSES",
-        "1.56 BLUE LIGHT BLOCKER",
-        "1.56 AS COMPUTRON",
-        "1.56 HI-MAX HMC",
-        "1.56 KINDER HMC",
-        "1.56 GOLD HMC/EMI",
-        "1.56 ASPHERIC NEW MIRACLE HMC/EMI",
-        "1.56 ANTI-FOG BLUE LIGHT BLOCKER",
-        "1.56 SPH под ПОКРАСКУ",
-        "1.49 CR-39 глаукомные",
-        "1.49 SPH",
-    ]),
-    ("ПОЛИМЕРНЫЕ ПОЛЯРИЗАЦИОННЫЕ ЛИНЗЫ", [
-        "1.61 POLARIZED GREY HC",
-        "1.61 POLARIZED Brown HC",
-        "1.56 POLARIZED GREY",
-        "1.56 POLARIZED Brown",
-        "1.56 POLARIZED HMC GREY",
-        "1.56 POLARIZED HMC Brown",
-        "1.56 MIRROR POLARIZED",
-    ]),
-    ("ПОЛИМЕРНЫЕ ТОНИРОВАННЫЕ ЛИНЗЫ", [
-        "1.61 AS HI-MAX НМС 80% GREY",
-        "1.61 AS HI-MAX НМС 80% Brown",
-        "1.56 HI-MAX 20% GREY",
-        "1.56 HI-MAX 20% Brown",
-        "1.56 HI-MAX 50% GREY",
-        "1.56 HI-MAX 50% Brown",
-        "1.56 GRADIENT GREY",
-        "1.56 GRADIENT Brown",
-    ]),
-    ("ПОЛИМЕРНЫЕ ФОТОХРОМНЫЕ ЛИНЗЫ", [
-        "1.74 PHOTOCHROMIC HMC GREY",
-        "1.74 PHOTOCHROMIC HMC Brown",
-        "1.67 PHOTOCHROMIC BLUE BLOCKER GREY",
-        "1.67 PHOTOCHROMIC BLUE BLOCKER Brown",
-        "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA GREY",
-        "1.61 MR-8 PHOTOCHROMIC BLUE BLOCKER KOREA Brown",
-        "1.61 PHOTOCHROMIC HMC GREY",
-        "1.61 PHOTOCHROMIC HMC Brown",
-        "1.61 TRANSITIONS BLUE BLOCKER PHOTO GREY",
-        "1.56 PHOTOCHROMIC GREY",
-        "1.56 PHOTOCHROMIC Brown",
-        "1.56 PHOTOCHROMIC TRANSITIONS GREY",
-        "1.56 PHOTOCHROMIC TRANSITIONS Brown",
-        "1.56 TRANSITIONS BLUE LIGHT BLOCKER PHOTO GREY",
-        "1.56 PHOTOCHROMIC HMC GREY",
-        "1.56 PHOTOCHROMIC HMC Brown",
-        "1.56 POLARIZED PHOTOCHROMIC GREY HMC",
-    ]),
-    ("ПОЛИМЕРНЫЕ БИФОКАЛЬНЫЕ, ПРОГРЕССИВНЫЕ ЛИНЗЫ", [
-        "1.56 PROGRESSIVE",
-        "1.56 PROGRESSIVE HMC",
-        "1.59 POLYCARBONATE PROGRESSIVE HMC",
-        "1.56 OFFICE BLUE LIGHT BLOCKER",
-        "1.56 OFFICE HMC",
-        "1.56 BIFOCAL F TOP HMC",
-        "1.49 BIFOCAL F TOP",
-        "1.56 PHOTOCHROMIC PROGRESSIVE GREY",
-        "1.56 PHOTOCHROMIC PROGRESSIVE Brown",
-        "1.56 PHOTOCHROMIC BIFOCAL GREY",
-        "1.56 PHOTOCHROMIC BIFOCAL Brown",
-    ]),
-    ("ПОЛИМЕРНЫЕ ЛИНЗЫ ДЛЯ ВОЖДЕНИЯ", [
-        "1.61 AS DRIVING LENS BLUE LOCKER (AR/blue) KOREA",
-        "1.56 YELLOW FARA EMI (AR/blue)",
-        "1.56 YELLOW-FARA POLARIZED (AR/blue)",
-        "1.56 YELLOW-FARA PHOTOCHROMIC GREY (AR/green)",
-    ]),
-    ("ПОЛИКАРБОНАТНЫЕ ЛИНЗЫ", [
-        "1.59 POLYCARBONAT HMC",
-        "1.59 POLYCARBONAT",
-        "1.59 POLYCARBONAT BLUE LIGHT BLOCKER",
-        "1.59 POLYCARBONAT PHOTOCHROMIC GREY",
-    ]),
-    ("МИНЕРАЛЬНЫЕ ЛИНЗЫ", [
-        "1.71 GLASS COMPUTRON GREEN",
-        "1.71 GLASS COMPUTRON BLUE",
-        "1.71 WHITE GLASS HI-INDEX",
-        "1.523 WHITE GLASS",
-        "1.523 GLASS PHOTOCHROMIC GREY",
-        "1.523 GLASS PHOTOCHROMIC BROWN",
-        "1.523 GLASS GREY",
-        "1.523 GLASS BROWN",
-        "1.523 GLASS GREEN",
-        "1.523 GLASS YELLOW FARA",
-        "1.523 GLASS BIFOCAL F-TOP",
-    ]),
-]
+
 
 
 class ProductsMeridianView(ttk.Frame):
@@ -181,51 +75,104 @@ class ProductsMeridianView(ttk.Frame):
         self.master.rowconfigure(0, weight=1)
         self.grid(sticky="nsew")
 
-        self._build_ui()
-        self._reload(initial_seed=True)
+        # Построение UI с защитой от ошибок, чтобы окно не было пустым
+        try:
+            self._build_ui()
+            self._reload(initial_seed=False)
+        except Exception as e:
+            holder = ttk.Frame(self, padding=16, style="Card.TFrame")
+            holder.pack(fill="both", expand=True)
+            ttk.Label(holder, text="Ошибка при открытии справочника товаров Меридиан.", style="Title.TLabel").pack(anchor="w")
+            ttk.Label(holder, text=f"{e}", style="Subtitle.TLabel", foreground="#7f1d1d").pack(anchor="w", pady=(4, 12))
+            btns = ttk.Frame(holder, style="Card.TFrame"); btns.pack(fill="x")
+            ttk.Button(btns, text="← Назад", style="Back.TButton", command=self._go_back).pack(side="left")
+            ttk.Button(btns, text="Повторить", style="Menu.TButton", command=self._retry_build).pack(side="left", padx=(8, 0))
 
     def _build_ui(self):
-        toolbar = ttk.Frame(self, style="Card.TFrame", padding=(16, 12))
-        toolbar.pack(fill="x")
-        ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
+        try:
+            toolbar = ttk.Frame(self, style="Card.TFrame", padding=16)
+            toolbar.pack(fill="x")
+            ttk.Button(toolbar, text="← Назад", style="Accent.TButton", command=self._go_back).pack(side="left")
 
-        card = ttk.Frame(self, style="Card.TFrame", padding=16)
-        card.pack(fill="both", expand=True)
+            card = ttk.Frame(self, style="Card.TFrame", padding=16)
+            card.pack(fill="both", expand=True)
 
-        header = ttk.Label(card, text="Товары (Меридиан): группы и позиции", style="Title.TLabel")
-        header.grid(row=0, column=0, sticky="w", columnspan=3)
-        ttk.Separator(card).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 12))
+            header = ttk.Label(card, text="Товары (Меридиан): группы и позиции", style="Title.TLabel")
+            header.grid(row=0, column=0, sticky="w", columnspan=3)
+            ttk.Separator(card).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 12))
 
-        # Actions (single row + universal move arrows)
-        bar = ttk.Frame(card, style="Card.TFrame")
-        bar.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
-        ttk.Button(bar, text="Добавить группу", style="Menu.TButton", command=self._add_group).pack(side="left")
-        ttk.Button(bar, text="Добавить подгруппу", style="Menu.TButton", command=self._add_subgroup).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Переименовать группу", style="Menu.TButton", command=self._rename_group).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Удалить группу", style="Menu.TButton", command=self._delete_group).pack(side="left", padx=(8, 0))
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=12)
-        ttk.Button(bar, text="Добавить товар", style="Menu.TButton", command=self._add_product).pack(side="left")
-        ttk.Button(bar, text="Редактировать товар", style="Menu.TButton", command=self._edit_product).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="Удалить товар", style="Menu.TButton", command=self._delete_product).pack(side="left", padx=(8, 0))
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=12)
-        ttk.Button(bar, text="▲", width=4, style="Menu.TButton", command=lambda: self._move_selected(-1)).pack(side="left", padx=(8, 0))
-        ttk.Button(bar, text="▼", width=4, style="Menu.TButton", command=lambda: self._move_selected(+1)).pack(side="left", padx=(4, 0))
+            # Actions (single row + universal move arrows)
+            bar = ttk.Frame(card, style="Card.TFrame")
+            bar.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
+            ttk.Button(bar, text="Добавить группу", style="Menu.TButton", command=self._add_group).pack(side="left")
+            ttk.Button(bar, text="Добавить подгруппу", style="Menu.TButton", command=self._add_subgroup).pack(side="left", padx=(8, 0))
+            ttk.Button(bar, text="Переименовать группу", style="Menu.TButton", command=self._rename_group).pack(side="left", padx=(8, 0))
+            ttk.Button(bar, text="Удалить группу", style="Menu.TButton", command=self._delete_group).pack(side="left", padx=(8, 0))
+            ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=12)
+            ttk.Button(bar, text="Добавить товар", style="Menu.TButton", command=self._add_product).pack(side="left")
+            ttk.Button(bar, text="Редактировать товар", style="Menu.TButton", command=self._edit_product).pack(side="left", padx=(8, 0))
+            ttk.Button(bar, text="Удалить товар", style="Menu.TButton", command=self._delete_product).pack(side="left", padx=(8, 0))
+            ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=12)
+            ttk.Button(bar, text="▲", width=4, style="Menu.TButton", command=lambda: self._move_selected(-1)).pack(side="left", padx=(8, 0))
+            ttk.Button(bar, text="▼", width=4, style="Menu.TButton", command=lambda: self._move_selected(+1)).pack(side="left", padx=(4, 0))
 
-        # Tree
-        self.tree = ttk.Treeview(card, columns=("name",), show="tree", style="Data.Treeview")
-        self.tree.heading("#0", text="Группы / Товары", anchor="w")
-        self.tree.column("#0", width=720, anchor="w")
+            # Tree
+            self.tree = ttk.Treeview(card, columns=("name",), show="tree", style="Data.Treeview")
+            self.tree.heading("#0", text="Группы / Товары", anchor="w")
+            self.tree.column("#0", width=720, anchor="w")
 
-        y_scroll = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscroll=y_scroll.set)
+            y_scroll = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
+            self.tree.configure(yscroll=y_scroll.set)
 
-        self.tree.grid(row=3, column=0, sticky="nsew")
-        y_scroll.grid(row=3, column=1, sticky="ns")
-        card.columnconfigure(0, weight=1)
-        card.rowconfigure(3, weight=1)
+            self.tree.grid(row=3, column=0, sticky="nsew")
+            y_scroll.grid(row=3, column=1, sticky="ns")
+            card.columnconfigure(0, weight=1)
+            card.rowconfigure(3, weight=1)
 
-        # Double-click expand/collapse only on groups (по всей строке)
-        self.tree.bind("<Double-1>", self._on_double_click)
+            # Double-click expand/collapse only on groups (по всей строке)
+            self.tree.bind("<Double-1>", self._on_double_click)
+        except Exception:
+            # Минимальный дубль интерфейса без стилей, чтобы не оставлять пустой экран
+            toolbar = ttk.Frame(self, padding=8)
+            toolbar.pack(fill="x")
+            ttk.Button(toolbar, text="← Назад", command=self._go_back).pack(side="left")
+            ttk.Button(toolbar, text="Добавить группу", command=self._add_group).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Добавить подгруппу", command=self._add_subgroup).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Переименовать группу", command=self._rename_group).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Удалить группу", command=self._delete_group).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Добавить товар", command=self._add_product).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Редактировать товар", command=self._edit_product).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="Удалить товар", command=self._delete_product).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="▲", width=4, command=lambda: self._move_selected(-1)).pack(side="left", padx=(8, 0))
+            ttk.Button(toolbar, text="▼", width=4, command=lambda: self._move_selected(+1)).pack(side="left", padx=(4, 0))
+
+            body = ttk.Frame(self, padding=8)
+            body.pack(fill="both", expand=True)
+            ttk.Separator(body).pack(fill="x", pady=(4, 8))
+            self.tree = ttk.Treeview(body, columns=("name",), show="tree")
+            self.tree.heading("#0", text="Группы / Товары", anchor="w")
+            self.tree.column("#0", width=720, anchor="w")
+            y_scroll = ttk.Scrollbar(body, orient="vertical", command=self.tree.yview)
+            self.tree.configure(yscroll=y_scroll.set)
+            self.tree.pack(side="left", fill="both", expand=True)
+            y_scroll.pack(side="left", fill="y")
+            self.tree.bind("<Double-1>", self._on_double_click)
+
+    def _retry_build(self):
+        try:
+            for w in list(self.winfo_children()):
+                try:
+                    w.destroy()
+                except Exception:
+                    pass
+            self._build_ui()
+            self._reload(initial_seed=False)
+        except Exception as e:
+            try:
+                from tkinter import messagebox
+                messagebox.showerror("Товары Меридиан", f"Не удалось восстановить интерфейс:\n{e}")
+            except Exception:
+                pass
 
     def _go_back(self):
         try:
@@ -234,20 +181,7 @@ class ProductsMeridianView(ttk.Frame):
             if callable(self.on_back):
                 self.on_back()
 
-    def _seed_if_empty(self):
-        try:
-            groups = self.db.list_product_groups_meridian()
-            prods = self.db.list_products_meridian()
-        except Exception:
-            return
-        if groups or prods:
-            return
-        # Seed with provided data, cleaning spaces and fixing typos
-        for gname, items in MERIDIAN_SEED:
-            gname = _clean_spaces(gname)
-            gid = self.db.add_product_group_meridian(gname)
-            for nm in items:
-                self.db.add_product_meridian(_clean_spaces(nm), gid)
+    
 
     def _capture_state(self):
         open_gids = set()
@@ -271,8 +205,7 @@ class ProductsMeridianView(ttk.Frame):
         return open_gids, sel
 
     def _reload(self, initial_seed: bool = False, preserve_state: bool = False, open_gids: set | None = None, select_pref: dict | None = None):
-        if initial_seed and self.db:
-            self._seed_if_empty()
+        # initial_seed больше не используется: сиды удалены
         if preserve_state and (open_gids is None or select_pref is None):
             # auto-capture if not provided
             og, sel = self._capture_state()

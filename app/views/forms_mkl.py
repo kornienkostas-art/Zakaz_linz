@@ -6,6 +6,7 @@ from app.utils import fade_transition
 from app.utils import create_tooltip
 from app.utils import format_phone_mask
 from app.utils import set_initial_geometry
+from app.utils import center_on_screen
 
 
 class SelectClientDialog(tk.Toplevel):
@@ -413,8 +414,9 @@ class NewMKLOrderView(ttk.Frame):
         self.qty_spin.grid(row=5, column=1, sticky="w", padx=(0, 8))
 
         ttk.Label(card, text="Комментарий", style="Subtitle.TLabel").grid(row=8, column=0, sticky="w", columnspan=2, pady=(12, 0))
-        self.comment_text = tk.Text(card, height=4)
-        self.comment_text.grid(row=9, column=0, columnspan=2, sticky="nsew")
+        # Увеличим высоту поля комментария
+        self.comment_text = tk.Text(card, height=8)
+        self.comment_text.grid(row=9, column=0, columnspan=2, sticky="nsew", pady=(0, 4))
 
         # Footer actions
         ttk.Separator(card).grid(row=10, column=0, columnspan=2, sticky="ew", pady=(12, 12))
@@ -581,7 +583,20 @@ class OrderForm(tk.Toplevel):
         super().__init__(master)
         self.title("Редактирование заказа МКЛ")
         self.configure(bg="#f8fafc")
-        set_initial_geometry(self, min_w=720, min_h=640, center_to=master)
+        # Сделаем окно выше, чтобы поле комментария было хорошо видно
+        # Центрируем по экрану (не относительно родителя)
+        set_initial_geometry(self, min_w=900, min_h=780, center_to=None)
+        # Дополнительно установим стартовый размер ближе к 80% экрана и еще раз центрируем
+        try:
+            self.update_idletasks()
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            tw = max(900, int(sw * 0.75))
+            th = max(780, int(sh * 0.80))
+            self.geometry(f"{tw}x{th}")
+            center_on_screen(self)
+        except Exception:
+            pass
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)

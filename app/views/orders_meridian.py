@@ -125,15 +125,14 @@ class MeridianOrdersView(ttk.Frame):
         fade_transition(self.master, swap)
 
     def _open_products(self):
-        def swap():
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.products_meridian import ProductsMeridianView
-            from app.views.main import MainWindow
-            ProductsMeridianView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
-        fade_transition(self.master, swap)
+        # Откроем без анимации, чтобы исключить проблемы с alpha и событиями
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        from app.views.products_meridian import ProductsMeridianView
+        from app.views.main import MainWindow
+        ProductsMeridianView(self.master, getattr(self.master, "db", None), on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)))
 
     def _selected_index(self):
         sel = self.tree.selection()
