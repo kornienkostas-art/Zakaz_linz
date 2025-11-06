@@ -1486,25 +1486,59 @@ class AppDB:
 
     def sync_meridian_contacts_from_mkl(self):
         """
-        Зеркалирует каталог МКЛ в 'Товары (Меридиан)' без добавления главной группы:
-        - Полностью очищает текущие группы/товары Меридиан.
-        - Создаёт те же группы и подгруппы, что в МКЛ (верхний уровень МКЛ становится верхним уровнем в Меридиан).
-        - Переносит все товары в соответствующие группы.
+        Обновляет в 'Товары (Меридиан)' отдельную группу «Контактные Линзы МКЛ»,
+        которая зеркалирует весь каталог МКЛ:
+          - НЕ трогает другие группы Меридиан.
+          - Полностью пересобирает содержимое только внутри «Контактные Линзы МКЛ».
         Вызывается при запуске и после любых изменений в каталоге МКЛ.
         """
-        # Во время первоначального сида отключаем синхронизацию, чтобы избежать зависаний
+        # Во время первоначального сида отключаем синхронизацию
         if not getattr(self, "_sync_enabled", True):
             return
 
         cur = self.conn.cursor()
+
+        # 1) Найти/создать верхнеуровневую группу «Контактные Линзы МКЛ»
+        row = cur.execute(
+            "SELECT id FROM product_groups_meridian WHERE name=? AND parent_id IS NULL;",
+            ("Контактные Линзы МКЛ",),
+        ).fetchone()
+        if row:
+            top_gid = row["id"]
+        else:
+            top_gid = self.add_product_group_meridian("Контактные Линзы МКЛ", None)
+
+        # 2) Очистить только поддерево внутри этой группы (товары и группы)
         try:
-            cur.execute("DELETE FROM products_meridian;")
-            cur.execute("DELETE FROM product_groups_meridian;")
+            # Удалить товары внутри всех дочерних групп топ-группы (используем рекурсивный CTE)
+            cur.execute(
+                """
+                WITH RECURSIVE sub(id) AS (
+                    SELECT id FROM product_groups_meridian WHERE parent_id=?
+                    UNION ALL
+                    SELECT g.id FROM product_groups_meridian g
+                    JOIN sub s ON g.parent_id = s.id
+                )
+                DELETE FROM products_meridian
+                WHERE group_id IN (SELECT id FROM sub);
+                """,
+                (top_gid,),
+            )
+            # Удалить товары в специальной дочерней группе «Без группы» (если она есть)
+            bz = cur.execute(
+                "SELECT id FROM product_groups_meridian WHERE name=? AND parent_id=?;",
+                ("Без группы", top_gid),
+            ).fetchone()
+            if bz:
+                cur.execute("DELETE FROM products_meridian WHERE group_id=?;", (bz["id"],))
+            # Удалить дочерние группы (каскадом удалятся их подгруппы)
+            cur.execute("DELETE FROM product_groups_meridian WHERE parent_id=?;", (top_gid,))
             self.conn.commit()
         except Exception:
-            return
+            # Не прерываем синхронизацию, просто продолжаем пересборку
+            pass
 
-        # Получаем структуру МКЛ
+        # 3) Получить структуру МКЛ
         rows_g = self.conn.execute(
             "SELECT id, name, parent_id, sort_order FROM product_groups_mkl ORDER BY sort_order ASC, id ASC;"
         ).fetchall()
@@ -1512,19 +1546,16 @@ class AppDB:
             "SELECT id, name, group_id, sort_order FROM products_mkl ORDER BY sort_order ASC, id ASC;"
         ).fetchall()
 
-        # Карта соответствий: gid MKL -> gid Meridian
+        # 4) Создать дерево MKL под top_gid
         gid_map = {}
 
-        # Сначала создаём все группы, повторяя parent_id (None остаётся верхним уровнем)
-        # Сделаем два прохода: сначала верхний уровень, затем остальные, чтобы parent существовал
         top_level = [g for g in rows_g if g["parent_id"] is None]
         others = [g for g in rows_g if g["parent_id"] is not None]
 
         for g in top_level:
-            new_gid = self.add_product_group_meridian(g["name"], None)
+            new_gid = self.add_product_group_meridian(g["name"], top_gid)
             gid_map[g["id"]] = new_gid
 
-        # Для остальных — создаём по мере готовности родителей, возможна вложенность >1
         pending = others[:]
         max_iters = 10000
         while pending and max_iters > 0:
@@ -1538,20 +1569,19 @@ class AppDB:
                 else:
                     rest.append(g)
             if len(rest) == len(pending):
-                # родитель не найден — прерываем, чтобы избежать бесконечного цикла
                 break
             pending = rest
             max_iters -= 1
 
-        # Добавляем товары
+        # 5) Добавить товары
+        # MKL товары без группы -> создаём дочернюю «Без группы» внутри top_gid
+        ungrouped_gid = None
         for p in rows_p:
             mk_gid = p["group_id"]
             if mk_gid is None:
-                # Товары без группы: создадим верхнеуровневую группу "Без группы" один раз
-                # и сложим туда все ungrouped
-                if "_ungrouped_gid" not in gid_map:
-                    gid_map["_ungrouped_gid"] = self.add_product_group_meridian("Без группы", None)
-                self.add_product_meridian(p["name"], gid_map["_ungrouped_gid"])
+                if ungrouped_gid is None:
+                    ungrouped_gid = self.add_product_group_meridian("Без группы", top_gid)
+                self.add_product_meridian(p["name"], ungrouped_gid)
             else:
                 mer_gid = gid_map.get(mk_gid)
                 if mer_gid is not None:
