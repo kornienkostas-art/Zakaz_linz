@@ -13,21 +13,7 @@ class AppDB:
         except Exception:
             pass
         self._init_schema()
-        # Optional seed for MKL catalog (Adria hierarchy)
-        try:
-            self._ensure_mkl_seed_adria()
-        except Exception:
-            pass
-        # Additional seed for other brands and solutions (idempotent)
-        try:
-            self._ensure_mkl_seed_brands()
-        except Exception:
-            pass
-        # One-time static seed for Meridian: create a bottom group 'Контактные Линзы' with the same structure as MKL (no runtime copy)
-        try:
-            self._ensure_meridian_seed_contacts()
-        except Exception:
-            pass
+        # Seeding disabled per request: do not auto-populate catalogs/groups.
         
 
     def _init_schema(self):
