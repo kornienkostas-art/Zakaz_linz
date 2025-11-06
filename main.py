@@ -1,17 +1,77 @@
 import atexit
 import json
 import os
+import shutil
 import tkinter as tk
 from tkinter import filedialog, ttk
 from tkinter import font as tkfont
+from datetime import datetime
 
 from app.db import AppDB
 from app.views.main import MainWindow
 from app.tray import _start_tray, _stop_tray, _windows_autostart_set, _windows_autostart_get
 from app.utils import install_crosslayout_shortcuts, apply_builtins_fresh_style
+import socket
+import threading
 
-SETTINGS_FILE = "settings.json"
-DB_FILE = "data.db"
+# Resolve storage directory deterministically to avoid mixing different working dirs
+def _get_storage_dir() -> str:
+    try:
+        import sys
+        # If packaged (PyInstaller), store next to the executable
+        if getattr(sys, "frozen", False):
+            return os.path.dirname(sys.executable)
+        # Else store next to the source main.py file
+        return os.path.dirname(os.path.abspath(__file__))
+    except Exception:
+        # Fallback to current directory
+        return os.getcwd()
+
+STORAGE_DIR = _get_storage_dir()
+SETTINGS_FILE = os.path.join(STORAGE_DIR, "settings.json")
+DB_FILE = os.path.join(STORAGE_DIR, "data.db")
+
+# --- DB backup (weekly rotation, keep last 7 days) ---
+def backup_db_weekly(db_path: str, base_dir: str):
+    try:
+        if not os.path.isfile(db_path):
+            return
+        backup_dir = os.path.join(base_dir, "Копия БД")
+        try:
+            os.makedirs(backup_dir, exist_ok=True)
+        except Exception:
+            pass
+        # Today's stamp
+        today = datetime.now().strftime("%Y-%m-%d")
+        # File name: data.db_YYYY-MM-DD.sqlite (or .db)
+        backup_name = f"data.db_{today}.db"
+        backup_path = os.path.join(backup_dir, backup_name)
+        # Create only if not exists
+        if not os.path.isfile(backup_path):
+            shutil.copy2(db_path, backup_path)
+        # Rotation: keep last 7 files by date in name
+        files = []
+        for fn in os.listdir(backup_dir):
+            if fn.startswith("data.db_") and fn.endswith(".db"):
+                # Extract date safely
+                try:
+                    stamp = fn[len("data.db_"):-len(".db")]
+                    dt = datetime.strptime(stamp, "%Y-%m-%d")
+                except Exception:
+                    dt = None
+                files.append((dt, fn))
+        # Sort by date descending, drop entries with None date last
+        files.sort(key=lambda x: (x[0] is None, x[0] or datetime.min), reverse=True)
+        # Keep first 7 valid dated backups, delete the rest
+        keep = 7
+        for i, (dt, fn) in enumerate(files):
+            if i >= keep:
+                try:
+                    os.remove(os.path.join(backup_dir, fn))
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
 
 def ensure_settings(path: str):
@@ -44,6 +104,9 @@ def ensure_settings(path: str):
                     "notify_sound_alias": "SystemAsterisk",
                     "notify_sound_mode": "alias",
                     "notify_sound_file": "",
+                    # Single instance behavior
+                    "single_instance_enabled": True,
+                    "single_instance_port": 46465,
                 },
                 f,
                 ensure_ascii=False,
@@ -80,6 +143,9 @@ def load_settings(path: str) -> dict:
                 "notify_sound_alias": "SystemAsterisk",
                 "notify_sound_mode": "alias",  # 'alias' or 'file'
                 "notify_sound_file": "",
+                # Single instance
+                "single_instance_enabled": True,
+                "single_instance_port": 46465,
             }
             for k, v in defaults.items():
                 data.setdefault(k, v)
@@ -158,7 +224,65 @@ def _bind_minimize_to_tray(root: tk.Tk):
         pass
 
 
+def _single_instance_try_signal(port: int) -> bool:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.6)
+            s.connect(("127.0.0.1", int(port)))
+            s.sendall(b"SHOW")
+            return True
+    except Exception:
+        return False
+
+def _single_instance_start_server(root: tk.Tk, port: int):
+    def server():
+        try:
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind(("127.0.0.1", int(port)))
+            srv.listen(5)
+        except Exception:
+            # Port in use or bind failed — skip server
+            return
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except Exception:
+                break
+            try:
+                data = conn.recv(16)
+                if data and data.strip().upper() == b"SHOW":
+                    try:
+                        root.after(0, lambda: (_stop_tray(root), root.deiconify()))
+                        # Bring to front
+                        root.after(50, lambda: root.attributes("-topmost", True))
+                        root.after(350, lambda: root.attributes("-topmost", False))
+                        # If tray enabled and minimized, also restore main window via helper
+                        try:
+                            from app.tray import _show_main_window
+                            root.after(0, lambda: _show_main_window(root))
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    t = threading.Thread(target=server, daemon=True)
+    t.start()
+
 def main():
+    # Early settings load to check single-instance toggle
+    early_settings = load_settings(SETTINGS_FILE)
+    if bool(early_settings.get("single_instance_enabled", True)):
+        port = int(early_settings.get("single_instance_port", 46465))
+        # If an instance is already running, signal it to show and exit this process
+        if _single_instance_try_signal(port):
+            return
+
     # High-DPI scaling for readability (Windows)
     try:
         from ctypes import windll
@@ -303,6 +427,11 @@ def main():
     except Exception:
         pass
     root.app_settings = app_settings
+    # Expose resolved settings path for other modules (tray) to persist reliably
+    try:
+        root.app_settings_path = SETTINGS_FILE
+    except Exception:
+        pass
     ui_scale = float(app_settings.get("ui_scale", 1.25))
     try:
         root.tk.call("tk", "scaling", ui_scale)
@@ -339,6 +468,29 @@ def main():
                     root.geometry(f"{sw}x{sh}+0+0")
                 except Exception:
                     pass
+
+    # One-time DB reset if requested in settings
+    try:
+        if bool(app_settings.get("reset_db_once", False)):
+            try:
+                if os.path.isfile(DB_FILE):
+                    os.remove(DB_FILE)
+            except Exception:
+                pass
+            # Flip the flag and persist
+            try:
+                app_settings["reset_db_once"] = False
+                save_settings(SETTINGS_FILE, app_settings)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Create DB backup (weekly rotation, keep last 7)
+    try:
+        backup_db_weekly(DB_FILE, STORAGE_DIR)
+    except Exception:
+        pass
 
     # Ensure DB
     root.db = AppDB(DB_FILE)
@@ -501,6 +653,13 @@ def main():
     # Start scheduler loop
     try:
         root.after(3_000, _check_and_notify)
+    except Exception:
+        pass
+
+    # Start single-instance server to handle subsequent exe launches
+    try:
+        if bool(app_settings.get("single_instance_enabled", True)):
+            _single_instance_start_server(root, int(app_settings.get("single_instance_port", 46465)))
     except Exception:
         pass
 
