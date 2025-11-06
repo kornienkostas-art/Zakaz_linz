@@ -1481,6 +1481,75 @@ class AppDB:
         self.conn.execute("UPDATE products_meridian SET sort_order=? WHERE id=?;", (a["sort_order"], b["id"]))
         self.conn.commit()
 
+    def sync_meridian_contacts_from_mkl(self):
+        """
+        Зеркалирует каталог МКЛ в 'Товары (Меридиан)' без добавления главной группы:
+        - Полностью очищает текущие группы/товары Меридиан.
+        - Создаёт те же группы и подгруппы, что в МКЛ (верхний уровень МКЛ становится верхним уровнем в Меридиан).
+        - Переносит все товары в соответствующие группы.
+        Вызывается при запуске и после любых изменений в каталоге МКЛ.
+        """
+        cur = self.conn.cursor()
+        try:
+            cur.execute("DELETE FROM products_meridian;")
+            cur.execute("DELETE FROM product_groups_meridian;")
+            self.conn.commit()
+        except Exception:
+            return
+
+        # Получаем структуру МКЛ
+        rows_g = self.conn.execute(
+            "SELECT id, name, parent_id, sort_order FROM product_groups_mkl ORDER BY sort_order ASC, id ASC;"
+        ).fetchall()
+        rows_p = self.conn.execute(
+            "SELECT id, name, group_id, sort_order FROM products_mkl ORDER BY sort_order ASC, id ASC;"
+        ).fetchall()
+
+        # Карта соответствий: gid MKL -> gid Meridian
+        gid_map = {}
+
+        # Сначала создаём все группы, повторяя parent_id (None остаётся верхним уровнем)
+        # Сделаем два прохода: сначала верхний уровень, затем остальные, чтобы parent существовал
+        top_level = [g for g in rows_g if g["parent_id"] is None]
+        others = [g for g in rows_g if g["parent_id"] is not None]
+
+        for g in top_level:
+            new_gid = self.add_product_group_meridian(g["name"], None)
+            gid_map[g["id"]] = new_gid
+
+        # Для остальных — создаём по мере готовности родителей, возможна вложенность >1
+        pending = others[:]
+        max_iters = 10000
+        while pending and max_iters > 0:
+            rest = []
+            for g in pending:
+                parent_mkl = g["parent_id"]
+                parent_mer = gid_map.get(parent_mkl)
+                if parent_mer is not None:
+                    new_gid = self.add_product_group_meridian(g["name"], parent_mer)
+                    gid_map[g["id"]] = new_gid
+                else:
+                    rest.append(g)
+            if len(rest) == len(pending):
+                # родитель не найден — прерываем, чтобы избежать бесконечного цикла
+                break
+            pending = rest
+            max_iters -= 1
+
+        # Добавляем товары
+        for p in rows_p:
+            mk_gid = p["group_id"]
+            if mk_gid is None:
+                # Товары без группы: создадим верхнеуровневую группу "Без группы" один раз
+                # и сложим туда все ungrouped
+                if "_ungrouped_gid" not in gid_map:
+                    gid_map["_ungrouped_gid"] = self.add_product_group_meridian("Без группы", None)
+                self.add_product_meridian(p["name"], gid_map["_ungrouped_gid"])
+            else:
+                mer_gid = gid_map.get(mk_gid)
+                if mer_gid is not None:
+                    self.add_product_meridian(p["name"], mer_gid)
+
     # --- MKL Orders ---
     def list_mkl_orders(self) -> list[dict]:
         rows = self.conn.execute(
