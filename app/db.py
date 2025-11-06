@@ -7,23 +7,26 @@ class AppDB:
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
+        # Флаг, чтобы не запускать синхронизацию во время массового сида
+        self._sync_enabled = False
         try:
             self.conn.execute("PRAGMA foreign_keys = ON;")
         except Exception:
             pass
         self._init_schema()
-        # Seed Meridian catalog once when empty with requested groups/items
+        # Сид Меридиан (если база абсолютно пустая) — необязателен, оставим как есть
         try:
             self._seed_meridian_default_if_empty()
         except Exception:
             pass
-        # Seed MKL catalog (Adria + brands/solutions/drops) idempotently
+        # Сид МКЛ: выполняем целиком, а синхронизацию включим после
         try:
             self._ensure_mkl_seed_adria()
             self._ensure_mkl_seed_brands()
         except Exception:
             pass
-        # Mirror MKL catalog into Meridian under top-level group 'Контактные линзы МКЛ'
+        # Включаем синхронизацию и один раз зеркалим МКЛ -> Меридиан
+        self._sync_enabled = True
         try:
             self.sync_meridian_contacts_from_mkl()
         except Exception:
@@ -1489,6 +1492,10 @@ class AppDB:
         - Переносит все товары в соответствующие группы.
         Вызывается при запуске и после любых изменений в каталоге МКЛ.
         """
+        # Во время первоначального сида отключаем синхронизацию, чтобы избежать зависаний
+        if not getattr(self, "_sync_enabled", True):
+            return
+
         cur = self.conn.cursor()
         try:
             cur.execute("DELETE FROM products_meridian;")
