@@ -564,34 +564,44 @@ def main():
 
         now = datetime.now()
 
-        # Meridian snooze
+        # Meridian notifications with snooze-by-minutes:
+        # - If snoozed_until is set and reached, notify immediately (independent of daily time).
+        # - Else notify only at scheduled time.
         until = _scheduler.get("snoozed_until")
-        if until and now < until:
-            pass
+        due = False
+        if until:
+            if now >= until:
+                due = True
+                # Reset the snooze gate so we can re-snooze or fall back to schedule next time
+                _scheduler["snoozed_until"] = None
         else:
             if _should_notify(now):
-                # Meridian 'Не заказан'
+                due = True
+
+        if due:
+            # Meridian 'Не заказан'
+            try:
+                db = getattr(root, "db", None)
+                orders = db.list_meridian_orders() if db else []
+                pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
+            except Exception:
+                pending = []
+            if pending:
+                _reveal_from_tray()
                 try:
-                    db = getattr(root, "db", None)
-                    orders = db.list_meridian_orders() if db else []
-                    pending = [o for o in orders if (o.get("status", "") or "").strip() == "Не заказан"]
+                    from app.views.notify import show_meridian_notification
+                    def on_snooze(minutes):
+                        # Schedule next notification after selected minutes from current check time
+                        _scheduler["snoozed_until"] = datetime.now() + timedelta(minutes=minutes)
+                    def on_mark_ordered():
+                        try:
+                            for o in pending:
+                                root.db.update_meridian_order(o["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+                        except Exception:
+                            pass
+                    show_meridian_notification(root, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
                 except Exception:
-                    pending = []
-                if pending:
-                    _reveal_from_tray()
-                    try:
-                        from app.views.notify import show_meridian_notification
-                        def on_snooze(minutes):
-                            _scheduler["snoozed_until"] = now + timedelta(minutes=minutes)
-                        def on_mark_ordered():
-                            try:
-                                for o in pending:
-                                    root.db.update_meridian_order(o["id"], {"status": "Заказан", "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
-                            except Exception:
-                                pass
-                        show_meridian_notification(root, pending, on_snooze=on_snooze, on_mark_ordered=on_mark_ordered)
-                    except Exception:
-                        pass
+                    pass
 
         # MKL notifications: time-based daily check with age threshold
         try:
