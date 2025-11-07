@@ -661,7 +661,7 @@ class MeridianOrderEditorView(ttk.Frame):
                 except Exception:
                     sph = it.get("sph",""); cyl = it.get("cyl",""); add = it.get("add","")
                 values = (it.get("product", ""), sph, cyl, it.get("ax", ""), add, it.get("d", ""), it.get("qty", ""))
-                self.items_tree.insert("", "end", iid=str(idx   pass
+                self.items_tree.insert("", "end", iid=str(idx), values=values)
 
     def _selected_item_index(self):
         sel = self.items_tree.selection()
