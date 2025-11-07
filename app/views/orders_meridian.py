@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from app.utils import fade_transition, center_on_screen
+from app.utils import fade_transition, center_on_screen, format_signed
 from app.db import AppDB  # type hint only
 
 
@@ -358,6 +358,8 @@ class MeridianOrdersView(ttk.Frame):
                 for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "Add")):
                     val = (it.get(key, "") or "").strip()
                     if val != "":
+                        if key in {"sph", "cyl", "add"}:
+                            val = format_signed(val)
                         parts.append(f"{label}: {val}")
                 dval = (it.get("d", "") or "").strip()
                 if dval != "":

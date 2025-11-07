@@ -96,6 +96,35 @@ def format_phone_mask(raw: str) -> str:
 
     return f"{prefix}-{tail[0:3]}-{tail[3:6]}-{tail[6:8]}-{tail[8:10]}"
 
+def format_signed(value: str) -> str:
+    """
+    Добавляет '+' для положительных чисел, сохраняет '-' для отрицательных,
+    '0' и пустые значения оставляет как есть.
+    Принимает строку, допускает запятую как десятичный разделитель.
+    Если значение не похоже на число — возвращает исходное.
+    """
+    txt = (value or "").strip()
+    if txt == "":
+        return ""
+    # normalize comma
+    vtxt = txt.replace(",", ".")
+    try:
+        num = float(vtxt)
+    except ValueError:
+        return txt
+    # keep '0' without sign
+    if abs(num) < 1e-9:
+        # Preserve original formatting like "0.00"
+        return txt if txt != "" else "0"
+    # positive -> add '+'
+    if num > 0:
+        # If original already had '+', keep it
+        if txt.startswith("+"):
+            return txt
+        return f"+{txt}"
+    # negative as-is
+    return txt
+
 
 def install_crosslayout_shortcuts(root: tk.Tk):
     """

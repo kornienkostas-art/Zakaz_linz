@@ -4,7 +4,7 @@ from tkinter import ttk, messagebox
 from tkinter import font as tkfont
 from datetime import datetime
 
-from app.utils import fade_transition, format_phone_mask, center_on_screen
+from app.utils import fade_transition, format_phone_mask, center_on_screen, format_signed
 from app.db import AppDB  # type hint only
 
 
@@ -364,6 +364,9 @@ class MKLOrdersView(ttk.Frame):
                 for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "ADD"), ("bc", "BC")):
                     val = (o.get(key, "") or "").strip()
                     if val != "":
+                        # Для Sph/Cyl/ADD добавляем '+' перед положительными значениями
+                        if key in {"sph", "cyl", "add"}:
+                            val = format_signed(val)
                         parts.append(f"{label}: {val}")
                 qty = (o.get("qty", "") or "").strip()
                 if qty != "":
@@ -422,10 +425,10 @@ class MKLOrdersView(ttk.Frame):
                 item.get("fio", ""),
                 masked_phone,
                 item.get("product", ""),
-                item.get("sph", ""),
-                item.get("cyl", ""),
+                format_signed(item.get("sph", "")),
+                format_signed(item.get("cyl", "")),
                 item.get("ax", ""),
-                item.get("add", ""),
+                format_signed(item.get("add", "")),
                 item.get("bc", ""),
                 item.get("qty", ""),
                 item.get("status", ""),

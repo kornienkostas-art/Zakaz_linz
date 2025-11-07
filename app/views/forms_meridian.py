@@ -421,7 +421,14 @@ class MeridianProductPickerInline(ttk.Frame):
         for i in self.basket.get_children():
             self.basket.delete(i)
         for idx, it in enumerate(self._basket):
-            self.basket.insert("", "end", iid=str(idx), values=(it["product"], it["sph"], it["cyl"], it["ax"], it.get("add",""), it["d"], it["qty"]))
+            try:
+                from app.utils import format_signed
+                sph = format_signed(it.get("sph",""))
+                cyl = format_signed(it.get("cyl",""))
+                add = format_signed(it.get("add",""))
+            except Exception:
+                sph = it.get("sph",""); cyl = it.get("cyl",""); add = it.get("add","")
+            self.basket.insert("", "end", iid=str(idx), values=(it["product"], sph, cyl, it["ax"], add, it["d"], it["qty"]))
         try:
             self._autosize_basket_columns()
         except Exception:
@@ -629,10 +636,15 @@ class MeridianOrderEditorView(ttk.Frame):
             for i in self.items_tree.get_children():
                 self.items_tree.delete(i)
             for idx, it in enumerate(self.items):
-                values = (it.get("product", ""), it.get("sph", ""), it.get("cyl", ""), it.get("ax", ""), it.get("add",""), it.get("d", ""), it.get("qty", ""))
-                self.items_tree.insert("", "end", iid=str(idx), values=values)
-        except Exception:
-            pass
+                try:
+                    from app.utils import format_signed
+                    sph = format_signed(it.get("sph",""))
+                    cyl = format_signed(it.get("cyl",""))
+                    add = format_signed(it.get("add",""))
+                except Exception:
+                    sph = it.get("sph",""); cyl = it.get("cyl",""); add = it.get("add","")
+                values = (it.get("product", ""), sph, cyl, it.get("ax", ""), add, it.get("d", ""), it.get("qty", ""))
+                self.items_tree.insert("", "end", iid=str(idx   pass
 
     def _selected_item_index(self):
         sel = self.items_tree.selection()
