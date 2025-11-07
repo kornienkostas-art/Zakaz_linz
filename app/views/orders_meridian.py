@@ -185,39 +185,37 @@ class MeridianOrdersView(ttk.Frame):
     
 
     def _new_order(self):
-        def swap():
-            try:
-                # Destroy current orders view first to avoid mixed geometry (pack vs grid)
-                self.destroy()
-            except Exception:
-                pass
-            from app.views.forms_meridian import MeridianOrderEditorView
-            from app.views.main import MainWindow
+        # Открываем без анимации, чтобы исключить проблемы с прозрачностью/циклом событий
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        from app.views.forms_meridian import MeridianOrderEditorView
+        from app.views.main import MainWindow
 
-            def on_save(order: dict):
-                db = getattr(self.master, "db", None)
-                title = (order.get("title", "") or "").strip()
-                if not title:
-                    try:
-                        existing = db.list_meridian_orders() if db else []
-                        title = f"Заказ Меридиан #{len(existing) + 1}"
-                    except Exception:
-                        title = "Заказ Меридиан"
-                    order["title"] = title
-                if db:
-                    try:
-                        db.add_meridian_order(order, order.get("items", []))
-                    except Exception as e:
-                        messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
+        def on_save(order: dict):
+            db = getattr(self.master, "db", None)
+            title = (order.get("title", "") or "").strip()
+            if not title:
+                try:
+                    existing = db.list_meridian_orders() if db else []
+                    title = f"Заказ Меридиан #{len(existing) + 1}"
+                except Exception:
+                    title = "Заказ Меридиан"
+                order["title"] = title
+            if db:
+                try:
+                    db.add_meridian_order(order, order.get("items", []))
+                except Exception as e:
+                    messagebox.showerror("База данных", f"Не удалось сохранить заказ Меридиан:\n{e}")
 
-            MeridianOrderEditorView(
-                self.master,
-                db=getattr(self.master, "db", None),
-                on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
-                on_save=on_save,
-                initial=None,
-            )
-        fade_transition(self.master, swap)
+        MeridianOrderEditorView(
+            self.master,
+            db=getattr(self.master, "db", None),
+            on_back=lambda: MeridianOrdersView(self.master, on_back=lambda: MainWindow(self.master)),
+            on_save=on_save,
+            initial=None,
+        )
 
     def _edit_order(self):
         idx = self._selected_index()

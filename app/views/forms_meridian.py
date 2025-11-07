@@ -566,7 +566,7 @@ class MeridianOrderEditorView(ttk.Frame):
         for it in (initial or {}).get("items", []):
             self.items.append(it.copy())
 
-        self._build_ui()
+        self._safe_build_ui(initial or {})
 
     def _build_ui(self):
         # Use grid to avoid unexpected top empty space
@@ -622,6 +622,23 @@ class MeridianOrderEditorView(ttk.Frame):
         ttk.Button(self._footer_btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
 
         self._refresh_items_view()
+
+    def _safe_build_ui(self, initial: dict):
+        try:
+            self._build_ui()
+        except Exception as e:
+            # Fallback UI to avoid пустое окно: покажем сообщение и кнопку «Назад»
+            holder = ttk.Frame(self, style="Card.TFrame", padding=16)
+            holder.grid(row=0, column=0, sticky="nsew")
+            try:
+                self.columnconfigure(0, weight=1)
+                self.rowconfigure(0, weight=1)
+            except Exception:
+                pass
+            ttk.Label(holder, text="Ошибка при построении формы нового заказа Меридиан.", style="Title.TLabel").pack(anchor="w")
+            ttk.Label(holder, text=str(e), style="Subtitle.TLabel", foreground="#7f1d1d").pack(anchor="w", pady=(4, 12))
+            btns = ttk.Frame(holder, style="Card.TFrame"); btns.pack(anchor="e", fill="x")
+            ttk.Button(btns, text="← Назад", style="Back.TButton", command=self._go_back).pack(side="right")
 
     def _go_back(self):
         try:
