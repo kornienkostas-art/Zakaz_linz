@@ -844,9 +844,23 @@ class MeridianOrderEditorView(ttk.Frame):
         ttk.Label(frame, text="AX (0…180)", style="Subtitle.TLabel").grid(row=2, column=2, sticky="w")
         ax_var = tk.StringVar(value=(current.get("ax","") or ""))
         ax_row = ttk.Frame(frame, style="Card.TFrame"); ax_row.grid(row=3, column=2, sticky="ew", padx=(0,8))
-        ttk.Button(ax_row, text="−", width=3, command=lambda: ax_var.set(snap_int(str(int(snap_int(ax_var.get(), 0, 180, allow_empty=True) or "0") - 1)), 0, 180, allow_empty=True))).pack(side="left")
+        def _ax_dec():
+            cur = snap_int(ax_var.get(), 0, 180, allow_empty=True) or "0"
+            try:
+                n = int(cur)
+            except Exception:
+                n = 0
+            ax_var.set(snap_int(str(n - 1), 0, 180, allow_empty=True))
+        def _ax_inc():
+            cur = snap_int(ax_var.get(), 0, 180, allow_empty=True) or "0"
+            try:
+                n = int(cur)
+            except Exception:
+                n = 0
+            ax_var.set(snap_int(str(n + 1), 0, 180, allow_empty=True))
+        ttk.Button(ax_row, text="−", width=3, command=_ax_dec).pack(side="left")
         ax_entry = ttk.Entry(ax_row, textvariable=ax_var, width=8, justify="center"); ax_entry.pack(side="left", padx=4)
-        ttk.Button(ax_row, text="+", width=3, command=lambda: ax_var.set(snap_int(str(int(snap_int(ax_var.get(), 0, 180, allow_empty=True) or "0") + 1)), 0, 180, allow_empty=True))).pack(side="left")
+        ttk.Button(ax_row, text="+", width=3, command=_ax_inc).pack(side="left")
         ax_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_int(v, 0, 180)), "%P"))
         ax_entry.bind("<FocusOut>", lambda e: ax_var.set(snap_int(ax_var.get(), 0, 180, allow_empty=True)))
 
