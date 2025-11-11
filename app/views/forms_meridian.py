@@ -900,9 +900,23 @@ class MeridianOrderEditorView(ttk.Frame):
         ttk.Label(frame, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=4, column=2, sticky="w", pady=(8,0))
         qty_var = tk.StringVar(value=str(current.get("qty","") or ""))
         qty_row = ttk.Frame(frame, style="Card.TFrame"); qty_row.grid(row=5, column=2, sticky="ew", padx=(0,8))
-        ttk.Button(qty_row, text="−", width=3, command=lambda: qty_var.set(snap_int(str(int(snap_int(qty_var.get(), 1, 20, allow_empty=False) or "1") - 1)), 1, 20, allow_empty=False))).pack(side="left")
+        def _qty_dec():
+            cur = snap_int(qty_var.get(), 1, 20, allow_empty=False) or "1"
+            try:
+                n = int(cur)
+            except Exception:
+                n = 1
+            qty_var.set(snap_int(str(n - 1), 1, 20, allow_empty=False))
+        def _qty_inc():
+            cur = snap_int(qty_var.get(), 1, 20, allow_empty=False) or "1"
+            try:
+                n = int(cur)
+            except Exception:
+                n = 1
+            qty_var.set(snap_int(str(n + 1), 1, 20, allow_empty=False))
+        ttk.Button(qty_row, text="−", width=3, command=_qty_dec).pack(side="left")
         qty_entry = ttk.Entry(qty_row, textvariable=qty_var, width=8, justify="center"); qty_entry.pack(side="left", padx=4)
-        ttk.Button(qty_row, text="+", width=3, command=lambda: qty_var.set(snap_int(str(int(snap_int(qty_var.get(), 1, 20, allow_empty=False) or "1") + 1)), 1, 20, allow_empty=False))).pack(side="left")
+        ttk.Button(qty_row, text="+", width=3, command=_qty_inc).pack(side="left")
         qty_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_int(v, 1, 20)), "%P"))
         qty_entry.bind("<FocusOut>", lambda e: qty_var.set(snap_int(qty_var.get(), 1, 20, allow_empty=False)))
 
