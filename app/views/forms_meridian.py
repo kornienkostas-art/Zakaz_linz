@@ -614,12 +614,19 @@ class MeridianOrderEditorView(ttk.Frame):
         self._items_toolbar = ttk.Frame(card, style="Card.TFrame")
         self._items_toolbar.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         ttk.Button(self._items_toolbar, text="Добавить позицию", style="Menu.TButton", command=self._add_item).pack(side="left")
+        ttk.Button(self._items_toolbar, text="Редактировать позицию", style="Menu.TButton", command=self._edit_item).pack(side="left", padx=(8, 0))
         ttk.Button(self._items_toolbar, text="Удалить позицию", style="Menu.TButton", command=self._delete_item).pack(side="left", padx=(8, 0))
 
         self._footer_btns = ttk.Frame(card, style="Card.TFrame")
         self._footer_btns.grid(row=4, column=0, sticky="e", pady=(12, 0))
         ttk.Button(self._footer_btns, text="Сохранить заказ", style="Menu.TButton", command=self._save).pack(side="right")
         ttk.Button(self._footer_btns, text="Отмена", style="Menu.TButton", command=self._go_back).pack(side="right", padx=(8, 0))
+
+        # Enable double-click to edit selected item
+        try:
+            self.items_tree.bind("<Double-1>", lambda e: self._edit_item())
+        except Exception:
+            pass
 
         self._refresh_items_view()
 
@@ -734,8 +741,85 @@ class MeridianOrderEditorView(ttk.Frame):
         messagebox.showerror("База данных", "DB недоступна для добавления позиции.")
 
     def _edit_item(self):
-        messagebox.showinfo("Редактирование", "Редактирование позиции отключено.")
-        return
+        idx = self._selected_item_index()
+        if idx is None:
+            return
+        if idx < 0 or idx >= len(self.items):
+            return
+        current = self.items[idx].copy()
+
+        # Dialog for editing fields
+        dlg = tk.Toplevel(self)
+        dlg.title("Редактирование позиции")
+        try:
+            set_initial_geometry(dlg, min_w=520, min_h=340, center_to=self.master)
+        except Exception:
+            pass
+        dlg.transient(self)
+        dlg.grab_set()
+
+        frame = ttk.Frame(dlg, style="Card.TFrame", padding=12)
+        frame.pack(fill="both", expand=True)
+        for i in range(4):
+            frame.columnconfigure(i, weight=1)
+
+        # Product
+        ttk.Label(frame, text="Товар", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", columnspan=4)
+        product_var = tk.StringVar(value=(current.get("product","") or ""))
+
+        ttk.Entry(frame, textvariable=product_var).grid(row=1, column=0, columnspan=4, sticky="ew", pady=(2,8))
+
+        # Row: SPH, CYL, AX
+        ttk.Label(frame, text="SPH", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w")
+        sph_var = tk.StringVar(value=(current.get("sph","") or ""))
+        ttk.Entry(frame, textvariable=sph_var).grid(row=3, column=0, sticky="ew", padx=(0,8))
+
+        ttk.Label(frame, text="CYL", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w")
+        cyl_var = tk.StringVar(value=(current.get("cyl","") or ""))
+        ttk.Entry(frame, textvariable=cyl_var).grid(row=3, column=1, sticky="ew", padx=(0,8))
+
+        ttk.Label(frame, text="AX", style="Subtitle.TLabel").grid(row=2, column=2, sticky="w")
+        ax_var = tk.StringVar(value=(current.get("ax","") or ""))
+        ttk.Entry(frame, textvariable=ax_var).grid(row=3, column=2, sticky="ew", padx=(0,8))
+
+        # Row: ADD, D, QTY
+        ttk.Label(frame, text="ADD", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8,0))
+        add_var = tk.StringVar(value=(current.get("add","") or ""))
+        ttk.Entry(frame, textvariable=add_var).grid(row=5, column=0, sticky="ew", padx=(0,8))
+
+        ttk.Label(frame, text="D (мм)", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8,0))
+        d_var = tk.StringVar(value=(current.get("d","") or ""))
+        ttk.Entry(frame, textvariable=d_var).grid(row=5, column=1, sticky="ew", padx=(0,8))
+
+        ttk.Label(frame, text="Количество", style="Subtitle.TLabel").grid(row=4, column=2, sticky="w", pady=(8,0))
+        qty_var = tk.StringVar(value=str(current.get("qty","") or ""))
+        ttk.Entry(frame, textvariable=qty_var).grid(row=5, column=2, sticky="ew", padx=(0,8))
+
+        # Buttons
+        btns = ttk.Frame(frame, style="Card.TFrame")
+        btns.grid(row=6, column=0, columnspan=4, sticky="e", pady=(12,0))
+        def on_ok():
+            # Apply edits (normalize commas to dots for decimals)
+            def norm(s: str) -> str:
+                return (s or "").replace(",", ".").strip()
+            updated = {
+                "product": (product_var.get() or "").strip(),
+                "sph": norm(sph_var.get()),
+                "cyl": norm(cyl_var.get()),
+                "ax": (ax_var.get() or "").strip(),
+                "add": norm(add_var.get()),
+                "d": (d_var.get() or "").strip(),
+                "qty": (qty_var.get() or "").strip(),
+            }
+            self.items[idx] = updated
+            self._refresh_items_view()
+            try:
+                dlg.destroy()
+            except Exception:
+                pass
+
+        ttk.Button(btns, text="ОК", style="Menu.TButton", command=on_ok).pack(side="right")
+        ttk.Button(btns, text="Отмена", style="Menu.TButton", command=dlg.destroy).pack(side="right", padx=(8,0))
 
     def _delete_item(self):
         idx = self._selected_item_index()
