@@ -763,6 +763,59 @@ class MeridianOrderEditorView(ttk.Frame):
         for i in range(4):
             frame.columnconfigure(i, weight=1)
 
+        # Validation helpers (local)
+        def vc_decimal(new_value: str, min_v: float, max_v: float) -> bool:
+            v = (new_value or "").replace(",", ".")
+            if v == "":
+                return True
+            if v in {"+", "-", ".", "-.", "+.", ",", "-,", "+,"}:
+                return True
+            try:
+                num = float(v)
+            except ValueError:
+                return False
+            return (min_v <= num <= max_v)
+
+        def vc_int(new_value: str, min_v: int, max_v: int) -> bool:
+            v = (new_value or "").strip()
+            if v == "":
+                return True
+            if v in {"+", "-"}:
+                return True
+            try:
+                num = int(float(v.replace(",", ".")))
+            except ValueError:
+                return False
+            return (min_v <= num <= max_v)
+
+        def snap(value_str: str, min_v: float, max_v: float, step: float, allow_empty: bool = False) -> str:
+            text = (value_str or "").replace(",", ".").strip()
+            if allow_empty and text == "":
+                return ""
+            try:
+                v = float(text)
+            except ValueError:
+                v = 0.0
+            v = max(min_v, min(max_v, v))
+            steps = round((v - min_v) / step)
+            snapped = min_v + steps * step
+            snapped = max(min_v, min(max_v, snapped))
+            return f"{snapped:.2f}"
+
+        def snap_int(value_str: str, min_v: int, max_v: int, step: int = 1, allow_empty: bool = False) -> str:
+            text = (value_str or "").strip()
+            if allow_empty and text == "":
+                return ""
+            try:
+                v = int(float(text.replace(",", ".")))
+            except ValueError:
+                v = min_v
+            v = max(min_v, min(max_v, v))
+            if step and step > 1:
+                v = int(round(v / float(step)) * step)
+                v = max(min_v, min(max_v, v))
+            return str(v)
+
         # Product
         ttk.Label(frame, text="Товар", style="Subtitle.TLabel").grid(row=0, column=0, sticky="w", columnspan=4)
         product_var = tk.StringVar(value=(current.get("product","") or ""))
@@ -770,46 +823,62 @@ class MeridianOrderEditorView(ttk.Frame):
         ttk.Entry(frame, textvariable=product_var).grid(row=1, column=0, columnspan=4, sticky="ew", pady=(2,8))
 
         # Row: SPH, CYL, AX
-        ttk.Label(frame, text="SPH", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w")
+        ttk.Label(frame, text="SPH (−30…+30, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=0, sticky="w")
         sph_var = tk.StringVar(value=(current.get("sph","") or ""))
-        ttk.Entry(frame, textvariable=sph_var).grid(row=3, column=0, sticky="ew", padx=(0,8))
+        sph_entry = ttk.Entry(frame, textvariable=sph_var)
+        sph_entry.grid(row=3, column=0, sticky="ew", padx=(0,8))
+        sph_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_decimal(v, -30.0, 30.0)), "%P"))
+        sph_entry.bind("<FocusOut>", lambda e: sph_var.set(snap(sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True)))
 
-        ttk.Label(frame, text="CYL", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w")
+        ttk.Label(frame, text="CYL (−10…+10, шаг 0.25)", style="Subtitle.TLabel").grid(row=2, column=1, sticky="w")
         cyl_var = tk.StringVar(value=(current.get("cyl","") or ""))
-        ttk.Entry(frame, textvariable=cyl_var).grid(row=3, column=1, sticky="ew", padx=(0,8))
+        cyl_entry = ttk.Entry(frame, textvariable=cyl_var)
+        cyl_entry.grid(row=3, column=1, sticky="ew", padx=(0,8))
+        cyl_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_decimal(v, -10.0, 10.0)), "%P"))
+        cyl_entry.bind("<FocusOut>", lambda e: cyl_var.set(snap(cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True)))
 
-        ttk.Label(frame, text="AX", style="Subtitle.TLabel").grid(row=2, column=2, sticky="w")
+        ttk.Label(frame, text="AX (0…180)", style="Subtitle.TLabel").grid(row=2, column=2, sticky="w")
         ax_var = tk.StringVar(value=(current.get("ax","") or ""))
-        ttk.Entry(frame, textvariable=ax_var).grid(row=3, column=2, sticky="ew", padx=(0,8))
+        ax_entry = ttk.Entry(frame, textvariable=ax_var)
+        ax_entry.grid(row=3, column=2, sticky="ew", padx=(0,8))
+        ax_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_int(v, 0, 180)), "%P"))
+        ax_entry.bind("<FocusOut>", lambda e: ax_var.set(snap_int(ax_var.get(), 0, 180, allow_empty=True)))
 
         # Row: ADD, D, QTY
-        ttk.Label(frame, text="ADD", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8,0))
+        ttk.Label(frame, text="ADD (0…10, шаг 0.25)", style="Subtitle.TLabel").grid(row=4, column=0, sticky="w", pady=(8,0))
         add_var = tk.StringVar(value=(current.get("add","") or ""))
-        ttk.Entry(frame, textvariable=add_var).grid(row=5, column=0, sticky="ew", padx=(0,8))
+        add_entry = ttk.Entry(frame, textvariable=add_var)
+        add_entry.grid(row=5, column=0, sticky="ew", padx=(0,8))
+        add_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_decimal(v, 0.0, 10.0)), "%P"))
+        add_entry.bind("<FocusOut>", lambda e: add_var.set(snap(add_var.get(), 0.0, 10.0, 0.25, allow_empty=True)))
 
-        ttk.Label(frame, text="D (мм)", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8,0))
+        ttk.Label(frame, text="D (40…90, шаг 5)", style="Subtitle.TLabel").grid(row=4, column=1, sticky="w", pady=(8,0))
         d_var = tk.StringVar(value=(current.get("d","") or ""))
-        ttk.Entry(frame, textvariable=d_var).grid(row=5, column=1, sticky="ew", padx=(0,8))
+        d_entry = ttk.Entry(frame, textvariable=d_var)
+        d_entry.grid(row=5, column=1, sticky="ew", padx=(0,8))
+        d_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_int(v, 40, 90)), "%P"))
+        d_entry.bind("<FocusOut>", lambda e: d_var.set(snap_int(d_var.get(), 40, 90, step=5, allow_empty=True)))
 
-        ttk.Label(frame, text="Количество", style="Subtitle.TLabel").grid(row=4, column=2, sticky="w", pady=(8,0))
+        ttk.Label(frame, text="Количество (1…20)", style="Subtitle.TLabel").grid(row=4, column=2, sticky="w", pady=(8,0))
         qty_var = tk.StringVar(value=str(current.get("qty","") or ""))
-        ttk.Entry(frame, textvariable=qty_var).grid(row=5, column=2, sticky="ew", padx=(0,8))
+        qty_entry = ttk.Entry(frame, textvariable=qty_var)
+        qty_entry.grid(row=5, column=2, sticky="ew", padx=(0,8))
+        qty_entry.configure(validate="key", validatecommand=(dlg.register(lambda v: vc_int(v, 1, 20)), "%P"))
+        qty_entry.bind("<FocusOut>", lambda e: qty_var.set(snap_int(qty_var.get(), 1, 20, allow_empty=False)))
 
         # Buttons
         btns = ttk.Frame(frame, style="Card.TFrame")
         btns.grid(row=6, column=0, columnspan=4, sticky="e", pady=(12,0))
         def on_ok():
-            # Apply edits (normalize commas to dots for decimals)
-            def norm(s: str) -> str:
-                return (s or "").replace(",", ".").strip()
+            # Normalize and snap before saving
             updated = {
                 "product": (product_var.get() or "").strip(),
-                "sph": norm(sph_var.get()),
-                "cyl": norm(cyl_var.get()),
-                "ax": (ax_var.get() or "").strip(),
-                "add": norm(add_var.get()),
-                "d": (d_var.get() or "").strip(),
-                "qty": (qty_var.get() or "").strip(),
+                "sph": snap(sph_var.get(), -30.0, 30.0, 0.25, allow_empty=True),
+                "cyl": snap(cyl_var.get(), -10.0, 10.0, 0.25, allow_empty=True),
+                "ax": snap_int(ax_var.get(), 0, 180, allow_empty=True),
+                "add": snap(add_var.get(), 0.0, 10.0, 0.25, allow_empty=True),
+                "d": snap_int(d_var.get(), 40, 90, step=5, allow_empty=True),
+                "qty": snap_int(qty_var.get(), 1, 20, allow_empty=False),
             }
             self.items[idx] = updated
             self._refresh_items_view()
