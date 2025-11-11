@@ -360,9 +360,15 @@ class MKLOrdersView(ttk.Frame):
             lines.append(product)
             for o in items:
                 parts = []
+                # Default Sph to 0.0 if Cyl is provided but Sph missing
+                sph_val = (o.get("sph", "") or "").strip()
+                cyl_val = (o.get("cyl", "") or "").strip()
+                if sph_val == "" and cyl_val != "":
+                    sph_val = "0.0"
                 # Include parameters in order: Sph, Cyl, Ax, ADD, BC
                 for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "ADD"), ("bc", "BC")):
-                    val = (o.get(key, "") or "").strip()
+                    # use possibly corrected sph
+                    val = sph_val if key == "sph" else (o.get(key, "") or "").strip()
                     if val != "":
                         # Для Sph/Cyl/ADD добавляем '+' перед положительными значениями
                         if key in {"sph", "cyl", "add"}:

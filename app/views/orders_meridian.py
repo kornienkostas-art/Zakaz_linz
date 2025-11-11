@@ -353,8 +353,15 @@ class MeridianOrdersView(ttk.Frame):
             lines.append(product)
             for it in items:
                 parts = []
+                # Default Sph to 0.0 if Cyl is provided but Sph missing
+                sph_val = (it.get("sph", "") or "").strip()
+                cyl_val = (it.get("cyl", "") or "").strip()
+                if sph_val == "" and cyl_val != "":
+                    sph_val = "0.0"
+                # Emit parameters in order
                 for key, label in (("sph", "Sph"), ("cyl", "Cyl"), ("ax", "Ax"), ("add", "Add")):
-                    val = (it.get(key, "") or "").strip()
+                    # use possibly corrected sph
+                    val = sph_val if key == "sph" else (it.get(key, "") or "").strip()
                     if val != "":
                         if key in {"sph", "cyl", "add"}:
                             val = format_signed(val)
